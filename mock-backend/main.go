@@ -113,7 +113,7 @@ func main() {
 
 		observationGroup := se.Router.Group("/observation")
 		observationGroup.GET("/water", func(e *core.RequestEvent) error {
-			records, err := fetchRecords(se.App, "water_observations", "")
+			records, err := fetchRecords(se.App, "streetai_waterbag_testkit", "")
 			if err != nil {
 				return apis.NewApiError(500, "Failed to load water observations.", err)
 			}
@@ -294,6 +294,13 @@ func mapRoadWorks(records []*core.Record) []map[string]any {
 func mapWaterbagTestkit(records []*core.Record) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
+		if record.GetString("observationType") != "" {
+			continue
+		}
+		if record.GetRaw("coords_latitudeValue") == nil || record.GetRaw("coords_longitudeValue") == nil {
+			continue
+		}
+
 		items = append(items, map[string]any{
 			"id": record.Id,
 			"coords": map[string]any{
@@ -425,17 +432,17 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 		return nil, apis.NewApiError(400, "Invalid multipart form payload.", err)
 	}
 
-	collection, err := app.FindCollectionByNameOrId("water_observations")
+	collection, err := app.FindCollectionByNameOrId("streetai_waterbag_testkit")
 	if err != nil {
-		return nil, apis.NewApiError(500, "Missing water_observations collection.", err)
+		return nil, apis.NewApiError(500, "Missing streetai_waterbag_testkit collection.", err)
 	}
 
 	record := core.NewRecord(collection)
 
-	if err := setRequiredNumber(record, "latitude", e.Request.FormValue("latitude")); err != nil {
+	if err := setRequiredNumber(record, "coords_latitudeValue", e.Request.FormValue("latitude")); err != nil {
 		return nil, err
 	}
-	if err := setRequiredNumber(record, "longitude", e.Request.FormValue("longitude")); err != nil {
+	if err := setRequiredNumber(record, "coords_longitudeValue", e.Request.FormValue("longitude")); err != nil {
 		return nil, err
 	}
 
@@ -468,17 +475,23 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 	record.Set("termsAccepted", termsAccepted)
 	record.Set("cc0Accepted", cc0Accepted)
 
-	setOptionalNumber(record, "airTemp", e.Request.FormValue("airTemp"))
-	setOptionalNumber(record, "waterTemp", e.Request.FormValue("waterTemp"))
-	setOptionalNumber(record, "depthOfView", e.Request.FormValue("depthOfView"))
-	setOptionalNumber(record, "waterPh", e.Request.FormValue("waterPh"))
-	setOptionalNumber(record, "turbidity", e.Request.FormValue("turbidity"))
-	setOptionalNumber(record, "dissolvedOxygen", e.Request.FormValue("dissolvedOxygen"))
-	setOptionalNumber(record, "nitrate", e.Request.FormValue("nitrate"))
-	setOptionalNumber(record, "phosphate", e.Request.FormValue("phosphate"))
+	timestamp := time.Now().Unix()
+	record.Set("dataRetrievedTimestamp", float64(timestamp))
+
+	setOptionalMetric(record, "airTemp_value", "airTemp_dataRetrievedTimestamp", e.Request.FormValue("airTemp"), timestamp)
+	setOptionalMetric(record, "waterTemp_value", "waterTemp_dataRetrievedTimestamp", e.Request.FormValue("waterTemp"), timestamp)
+	setOptionalMetric(record, "visibility_value", "visibility_dataRetrievedTimestamp", e.Request.FormValue("depthOfView"), timestamp)
+	setOptionalMetric(record, "waterPh_value", "waterPh_dataRetrievedTimestamp", e.Request.FormValue("waterPh"), timestamp)
+	setOptionalMetric(record, "turbidity_value", "turbidity_dataRetrievedTimestamp", e.Request.FormValue("turbidity"), timestamp)
+	setOptionalMetric(record, "dissolvedOxygen_value", "dissolvedOxygen_dataRetrievedTimestamp", e.Request.FormValue("dissolvedOxygen"), timestamp)
+	setOptionalMetric(record, "nitrate_value", "nitrate_dataRetrievedTimestamp", e.Request.FormValue("nitrate"), timestamp)
+	setOptionalMetric(record, "phosphate_value", "phosphate_dataRetrievedTimestamp", e.Request.FormValue("phosphate"), timestamp)
 
 	if value := e.Request.FormValue("algaeLevel"); value != "" {
-		record.Set("algaeLevel", value)
+		if mapped, ok := algaeLevelToValue(value); ok {
+			record.Set("algae_value", mapped)
+			record.Set("algae_dataRetrievedTimestamp", float64(timestamp))
+		}
 	}
 
 	files := make([]*filesystem.File, 0)
@@ -505,6 +518,52 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 func mapWaterObservations(records []*core.Record) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
+		if record.GetString("observationType") == "" {
+			continue
+		}
+
+		latitude := record.GetRaw("coords_latitudeValue")
+		if latitude == nil {
+			latitude = record.GetRaw("latitude")
+		}
+		longitude := record.GetRaw("coords_longitudeValue")
+		if longitude == nil {
+			longitude = record.GetRaw("longitude")
+		}
+
+		airTemp := record.GetRaw("airTemp_value")
+		if airTemp == nil {
+			airTemp = record.GetRaw("airTemp")
+		}
+		waterTemp := record.GetRaw("waterTemp_value")
+		if waterTemp == nil {
+			waterTemp = record.GetRaw("waterTemp")
+		}
+		depthOfView := record.GetRaw("visibility_value")
+		if depthOfView == nil {
+			depthOfView = record.GetRaw("depthOfView")
+		}
+		waterPh := record.GetRaw("waterPh_value")
+		if waterPh == nil {
+			waterPh = record.GetRaw("waterPh")
+		}
+		turbidity := record.GetRaw("turbidity_value")
+		if turbidity == nil {
+			turbidity = record.GetRaw("turbidity")
+		}
+		dissolvedOxygen := record.GetRaw("dissolvedOxygen_value")
+		if dissolvedOxygen == nil {
+			dissolvedOxygen = record.GetRaw("dissolvedOxygen")
+		}
+		nitrate := record.GetRaw("nitrate_value")
+		if nitrate == nil {
+			nitrate = record.GetRaw("nitrate")
+		}
+		phosphate := record.GetRaw("phosphate_value")
+		if phosphate == nil {
+			phosphate = record.GetRaw("phosphate")
+		}
+
 		photo := ""
 		if value := record.Get("photo"); value != nil {
 			switch typed := value.(type) {
@@ -519,25 +578,34 @@ func mapWaterObservations(records []*core.Record) []map[string]any {
 
 		imageUrl := ""
 		if photo != "" {
-			imageUrl = "api/files/water_observations/" + record.Id + "/" + photo
+			imageUrl = "../api/files/streetai_waterbag_testkit/" + record.Id + "/" + photo
+		} else if value, ok := record.GetRaw("imageUrl").(string); ok {
+			imageUrl = value
+		}
+
+		algaeLevel := record.GetRaw("algaeLevel")
+		if algaeLevel == nil {
+			algaeLevel = mapAlgaeValueToLevel(record.GetRaw("algae_value"))
+		} else if value, ok := algaeLevel.(string); ok && value == "" {
+			algaeLevel = mapAlgaeValueToLevel(record.GetRaw("algae_value"))
 		}
 
 		items = append(items, map[string]any{
-			"id":                    record.Id,
-			"latitude":              record.GetRaw("latitude"),
-			"longitude":             record.GetRaw("longitude"),
-			"dataRetrievedTimestamp": resolveRecordTimestamp(record),
-			"imageUrl":             imageUrl,
-			"observationType":      record.GetRaw("observationType"),
-			"airTemp":              record.GetRaw("airTemp"),
-			"waterTemp":            record.GetRaw("waterTemp"),
-			"depthOfView":          record.GetRaw("depthOfView"),
-			"algaeLevel":           record.GetRaw("algaeLevel"),
-			"waterPh":              record.GetRaw("waterPh"),
-			"turbidity":            record.GetRaw("turbidity"),
-			"dissolvedOxygen":      record.GetRaw("dissolvedOxygen"),
-			"nitrate":              record.GetRaw("nitrate"),
-			"phosphate":            record.GetRaw("phosphate"),
+			"id":                     record.Id,
+			"latitude":               latitude,
+			"longitude":              longitude,
+			"dataRetrievedTimestamp": resolveObservationTimestamp(record),
+			"imageUrl":               imageUrl,
+			"observationType":        record.GetRaw("observationType"),
+			"airTemp":                airTemp,
+			"waterTemp":              waterTemp,
+			"depthOfView":            depthOfView,
+			"algaeLevel":             algaeLevel,
+			"waterPh":                waterPh,
+			"turbidity":              turbidity,
+			"dissolvedOxygen":        dissolvedOxygen,
+			"nitrate":                nitrate,
+			"phosphate":              phosphate,
 		})
 	}
 	return items
@@ -573,7 +641,13 @@ func setRequiredNumber(record *core.Record, field string, raw string) error {
 	return nil
 }
 
-func setOptionalNumber(record *core.Record, field string, raw string) {
+func setOptionalMetric(
+	record *core.Record,
+	valueField string,
+	timestampField string,
+	raw string,
+	timestamp int64,
+) {
 	if raw == "" {
 		return
 	}
@@ -581,7 +655,8 @@ func setOptionalNumber(record *core.Record, field string, raw string) {
 	if err != nil {
 		return
 	}
-	record.Set(field, value)
+	record.Set(valueField, value)
+	record.Set(timestampField, float64(timestamp))
 }
 
 func parseBoolField(raw string) (bool, error) {
@@ -589,4 +664,70 @@ func parseBoolField(raw string) (bool, error) {
 		return false, nil
 	}
 	return strconv.ParseBool(raw)
+}
+
+func resolveObservationTimestamp(record *core.Record) int64 {
+	if value := record.GetRaw("dataRetrievedTimestamp"); value != nil {
+		if floatValue, ok := toFloatFromAny(value); ok {
+			return int64(floatValue)
+		}
+	}
+	return resolveRecordTimestamp(record)
+}
+
+func toFloatFromAny(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case float32:
+		return float64(typed), true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case int32:
+		return float64(typed), true
+	case uint:
+		return float64(typed), true
+	case uint64:
+		return float64(typed), true
+	case uint32:
+		return float64(typed), true
+	default:
+		return 0, false
+	}
+}
+
+func algaeLevelToValue(value string) (float64, bool) {
+	switch value {
+	case "none":
+		return 1, true
+	case "little":
+		return 2, true
+	case "rich":
+		return 3, true
+	case "very_rich":
+		return 4, true
+	default:
+		return 0, false
+	}
+}
+
+func mapAlgaeValueToLevel(value any) any {
+	numeric, ok := toFloatFromAny(value)
+	if !ok {
+		return nil
+	}
+	switch numeric {
+	case 1:
+		return "none"
+	case 2:
+		return "little"
+	case 3:
+		return "rich"
+	case 4:
+		return "very_rich"
+	default:
+		return nil
+	}
 }

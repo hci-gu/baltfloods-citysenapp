@@ -7,31 +7,36 @@ import (
 
 func init() {
 	m.Register(func(app core.App) error {
-		observations := core.NewCollection(core.CollectionTypeBase, "water_observations")
-		observations.Fields = core.NewFieldsList(
-			&core.NumberField{Name: "latitude"},
-			&core.NumberField{Name: "longitude"},
+		collection, err := app.FindCollectionByNameOrId("streetai_waterbag_testkit")
+		if err != nil {
+			return err
+		}
+
+		collection.Fields.Add(
 			&core.TextField{Name: "observationType"},
 			&core.FileField{Name: "photo", MaxSelect: 1},
-			&core.NumberField{Name: "airTemp"},
-			&core.NumberField{Name: "waterTemp"},
-			&core.NumberField{Name: "depthOfView"},
-			&core.TextField{Name: "algaeLevel"},
-			&core.NumberField{Name: "waterPh"},
-			&core.NumberField{Name: "turbidity"},
-			&core.NumberField{Name: "dissolvedOxygen"},
-			&core.NumberField{Name: "nitrate"},
-			&core.NumberField{Name: "phosphate"},
 			&core.TextField{Name: "identificationCode"},
 			&core.BoolField{Name: "termsAccepted"},
 			&core.BoolField{Name: "cc0Accepted"},
 		)
-		return app.Save(observations)
+
+		return app.Save(collection)
 	}, func(app core.App) error {
-		collection, err := app.FindCollectionByNameOrId("water_observations")
+		collection, err := app.FindCollectionByNameOrId("streetai_waterbag_testkit")
 		if err != nil || collection == nil {
 			return nil
 		}
-		return app.Delete(collection)
+
+		for _, fieldName := range []string{
+			"observationType",
+			"photo",
+			"identificationCode",
+			"termsAccepted",
+			"cc0Accepted",
+		} {
+			collection.Fields.RemoveByName(fieldName)
+		}
+
+		return app.Save(collection)
 	})
 }
