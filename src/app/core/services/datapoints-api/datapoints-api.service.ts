@@ -13,11 +13,12 @@ import {
 } from '../../models/data-point';
 import { environment } from '../../../../environments/environment';
 import { removeEmpty } from '../../../shared/utils/object-utils';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of, forkJoin } from 'rxjs';
 import {
   DataPointEndpoint,
   ParkingResponse,
   RoadWorksResponse,
+  ObservationWaterResponse,
   WaterbagTestKitResponse,
   WeatherAirQualityResponse,
   WeatherConditionsResponse,
@@ -154,34 +155,25 @@ export class DataPointsApi {
   }
 
   public getWaterbagTestKits(): Observable<WaterbagTestKitDataPoint[]> {
-    return this.httpClient
+    const streetAi$ = this.httpClient
       .get<WaterbagTestKitResponse>(
         `${this.baseUrl}/${DataPointEndpoint.WATERBAG_TESTKIT}`,
         {
           headers: this.defaultHeaders,
         },
       )
-      .pipe(
-        map((response) =>
-          response.map(({ id, coords, ...rest }) => {
-            const { dataRetrievedTimestamp, imageUrl, ...data } = rest;
+      .pipe(catchError(() => of([] as WaterbagTestKitResponse)));
 
-            return {
-              name: id,
-              location: [coords.latitudeValue, coords.longitudeValue],
-              imageUrl,
-              type: DataPointType.WATERBAG_TESTKIT,
-              quality: DataPointQuality.DEFAULT,
-              lastUpdatedOn: new Date(dataRetrievedTimestamp * 1000),
-              data: Object.fromEntries(
-                Object.entries(data).filter(([_, metric]) => {
-                  return metric.value !== null;
-                }),
-              ),
-            };
-          }),
-        ),
-      );
+    const observations$ = this.httpClient
+      .get<ObservationWaterResponse>(`${environment.observationApiUrl}/water`)
+      .pipe(catchError(() => of([] as ObservationWaterResponse)));
+
+    return forkJoin([streetAi$, observations$]).pipe(
+      map(([streetAi, observations]) => [
+        ...this.mapStreetAiWaterbag(streetAi),
+        ...this.mapObservationWaterbag(observations),
+      ]),
+    );
   }
 
   public getRoadWorks(): Observable<RoadWorksDataPoint[]> {
@@ -208,5 +200,95 @@ export class DataPointsApi {
           }),
         ),
       );
+  }
+
+  private mapStreetAiWaterbag(
+    response: WaterbagTestKitResponse,
+  ): WaterbagTestKitDataPoint[] {
+    return response.map(({ id, coords, ...rest }) => {
+      const { dataRetrievedTimestamp, imageUrl, ...data } = rest;
+
+      return {
+        name: id,
+        location: [coords.latitudeValue, coords.longitudeValue],
+        imageUrl,
+        type: DataPointType.WATERBAG_TESTKIT,
+        quality: DataPointQuality.DEFAULT,
+        lastUpdatedOn: new Date(dataRetrievedTimestamp * 1000),
+        data: Object.fromEntries(
+          Object.entries(data).filter(([_, metric]) => {
+            return metric.value !== null;
+          }),
+        ),
+      };
+    });
+  }
+
+  private mapObservationWaterbag(
+    response: ObservationWaterResponse,
+  ): WaterbagTestKitDataPoint[] {
+    return response.map((item) => {
+      const dataTimestamp = item.dataRetrievedTimestamp ?? Date.now() / 1000;
+      const algaeValue = this.mapAlgaeLevel(item.algaeLevel);
+
+      const data = {
+        airTemp: this.toMetric(item.airTemp, dataTimestamp),
+        waterTemp: this.toMetric(item.waterTemp, dataTimestamp),
+        visibility: this.toMetric(item.depthOfView, dataTimestamp),
+        algae: algaeValue ? this.toMetric(algaeValue, dataTimestamp) : null,
+        waterPh: this.toMetric(item.waterPh, dataTimestamp),
+        turbidity: this.toMetric(item.turbidity, dataTimestamp),
+        dissolvedOxygen: this.toMetric(item.dissolvedOxygen, dataTimestamp),
+        nitrate: this.toMetric(item.nitrate, dataTimestamp),
+        phosphate: this.toMetric(item.phosphate, dataTimestamp),
+      };
+
+      const filteredData = Object.fromEntries(
+        Object.entries(data).filter(
+          (
+            entry,
+          ): entry is [string, { value: number; dataRetrievedTimestamp: number }] => {
+            const metric = entry[1];
+            return metric !== null && metric.value !== null && metric.value !== undefined;
+          },
+        ),
+      );
+
+      return {
+        name: item.id,
+        location: [item.latitude, item.longitude],
+        imageUrl: item.imageUrl ?? undefined,
+        type: DataPointType.WATERBAG_TESTKIT,
+        quality: DataPointQuality.DEFAULT,
+        lastUpdatedOn: new Date(dataTimestamp * 1000),
+        data: filteredData,
+      };
+    });
+  }
+
+  private toMetric(value: number | null | undefined, timestamp: number) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    return {
+      value,
+      dataRetrievedTimestamp: timestamp,
+    };
+  }
+
+  private mapAlgaeLevel(value: string | null | undefined): number | null {
+    switch (value) {
+      case 'none':
+        return 1;
+      case 'little':
+        return 2;
+      case 'rich':
+        return 3;
+      case 'very_rich':
+        return 4;
+      default:
+        return null;
+    }
   }
 }

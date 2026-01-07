@@ -1,0 +1,8 @@
+export enum ObservationFormStep {
+  LOCATION,
+  TYPE_AND_PHOTO,
+  TEMPERATURE,
+  VISIBILITY_AND_ALGAE,
+  WATER_QUALITY,
+  TERMS,
+}

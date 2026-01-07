@@ -33,7 +33,7 @@
             } @else {
               <div
                 class="menu-item flex-row"
-                [routerLink]="item.route"
+                [routerLink]="['/', item.route]"
                 (click)="onSidebarClose.emit()"
               >
                 <app-icon class="icon" [icon]="item.icon"></app-icon>

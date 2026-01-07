@@ -1,0 +1,13 @@
+<main class="flex-column">
+  <section class="content flex-column">
+    <app-icon icon="check"></app-icon>
+    <p>{{ "OBSERVATION.CONFIRMATION.TITLE" | translate }}</p>
+    <small>{{ "OBSERVATION.CONFIRMATION.DESCRIPTION" | translate }}</small>
+  </section>
+  <app-icon class="wave" icon="navigation-header-wave"></app-icon>
+  <p-button
+    routerLink="/observation"
+    class="button"
+    [label]="'OBSERVATION.CONFIRMATION.RESTART' | translate"
+  ></p-button>
+</main>

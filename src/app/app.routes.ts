@@ -19,6 +19,14 @@ export const routes: Routes = [
     data: { navigationHeaderTitle: 'NAVIGATION.HEADER.FEEDBACK' },
   },
   {
+    path: 'observation',
+    loadChildren: () =>
+      import('./modules/observation/observation.module').then(
+        (m) => m.ObservationModule,
+      ),
+    data: { navigationHeaderTitle: 'NAVIGATION.HEADER.OBSERVATION' },
+  },
+  {
     path: 'about',
     loadChildren: () =>
       import('./modules/about/about.module').then((m) => m.AboutModule),

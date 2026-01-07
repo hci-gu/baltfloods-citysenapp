@@ -1,0 +1,296 @@
+<main class="observation-form" [formGroup]="observationForm">
+  @switch (currentStep) {
+    @case (STEP.LOCATION) {
+      <h2 class="title">{{ "OBSERVATION.HEADER.LOCATION_TITLE" | translate }}</h2>
+      <app-feedback-location
+        [locationFormControl]="observationForm.controls.location"
+      ></app-feedback-location>
+    }
+    @case (STEP.TYPE_AND_PHOTO) {
+      <h2 class="title">{{ "OBSERVATION.HEADER.TYPE_TITLE" | translate }}</h2>
+      <div class="content flex-column">
+        <div class="flex-column">
+          <label class="p-label" for="observationType">
+            {{ "OBSERVATION.FIELD.TYPE_LABEL" | translate }}
+          </label>
+          <select
+            id="observationType"
+            class="p-inputtext"
+            formControlName="observationType"
+          >
+            <option [ngValue]="null" disabled>
+              {{ "OBSERVATION.FIELD.TYPE_PLACEHOLDER" | translate }}
+            </option>
+            <option value="water_system">
+              {{ "OBSERVATION.TYPE.WATER_SYSTEM" | translate }}
+            </option>
+            <option value="stormwater">
+              {{ "OBSERVATION.TYPE.STORMWATER" | translate }}
+            </option>
+          </select>
+        </div>
+        <div class="flex-column">
+          <label class="p-label" for="photo">
+            {{ "OBSERVATION.FIELD.PHOTO_LABEL" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <input
+            id="photo"
+            class="photo-input"
+            type="file"
+            accept="image/*"
+            (change)="onPhotoSelected($event)"
+          />
+          @if (photoName) {
+            <div class="photo-preview">
+              <span>{{ photoName }}</span>
+              <p-button
+                class="remove-photo"
+                [text]="true"
+                [label]="'OBSERVATION.FIELD.PHOTO_REMOVE' | translate"
+                (click)="onRemovePhoto()"
+              ></p-button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+    @case (STEP.TEMPERATURE) {
+      <h2 class="title">{{ "OBSERVATION.HEADER.TEMPERATURE_TITLE" | translate }}</h2>
+      <div class="content flex-column">
+        <div class="flex-column">
+          <label class="p-label" for="airTemp">
+            {{ "OBSERVATION.FIELD.AIR_TEMP" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <input
+            pInputText
+            id="airTemp"
+            type="number"
+            step="0.1"
+            formControlName="airTemp"
+          />
+        </div>
+        <div class="flex-column">
+          <label class="p-label" for="waterTemp">
+            {{ "OBSERVATION.FIELD.WATER_TEMP" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <input
+            pInputText
+            id="waterTemp"
+            type="number"
+            step="0.1"
+            formControlName="waterTemp"
+          />
+        </div>
+      </div>
+    }
+    @case (STEP.VISIBILITY_AND_ALGAE) {
+      <h2 class="title">
+        {{ "OBSERVATION.HEADER.VISIBILITY_TITLE" | translate }}
+      </h2>
+      <div class="content flex-column">
+        <div class="flex-column">
+          <label class="p-label" for="depthOfView">
+            {{ "OBSERVATION.FIELD.DEPTH_OF_VIEW" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <input
+            pInputText
+            id="depthOfView"
+            type="number"
+            step="1"
+            formControlName="depthOfView"
+          />
+        </div>
+        <div class="flex-column">
+          <label class="p-label" for="algaeLevel">
+            {{ "OBSERVATION.FIELD.ALGAE_LEVEL" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <select
+            id="algaeLevel"
+            class="p-inputtext"
+            formControlName="algaeLevel"
+          >
+            <option [ngValue]="null" disabled>
+              {{ "OBSERVATION.FIELD.ALGAE_PLACEHOLDER" | translate }}
+            </option>
+            <option value="none">
+              {{ "OBSERVATION.ALGAE.NONE" | translate }}
+            </option>
+            <option value="little">
+              {{ "OBSERVATION.ALGAE.LITTLE" | translate }}
+            </option>
+            <option value="rich">
+              {{ "OBSERVATION.ALGAE.RICH" | translate }}
+            </option>
+            <option value="very_rich">
+              {{ "OBSERVATION.ALGAE.VERY_RICH" | translate }}
+            </option>
+          </select>
+        </div>
+      </div>
+    }
+    @case (STEP.WATER_QUALITY) {
+      <h2 class="title">
+        {{ "OBSERVATION.HEADER.WATER_QUALITY_TITLE" | translate }}
+      </h2>
+      <div class="content flex-column">
+        <div class="flex-column">
+          <label class="p-label" for="waterPh">
+            {{ "OBSERVATION.FIELD.WATER_PH" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <select id="waterPh" class="p-inputtext" formControlName="waterPh">
+            <option [ngValue]="null" disabled>
+              {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+            </option>
+            @for (value of [4, 5, 6, 7, 8, 9, 10]; track value) {
+              <option [ngValue]="value">pH {{ value }}</option>
+            }
+          </select>
+        </div>
+        <div class="flex-column">
+          <label class="p-label" for="turbidity">
+            {{ "OBSERVATION.FIELD.TURBIDITY" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <select
+            id="turbidity"
+            class="p-inputtext"
+            formControlName="turbidity"
+          >
+            <option [ngValue]="null" disabled>
+              {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+            </option>
+            @for (value of [0, 40, 100]; track value) {
+              <option [ngValue]="value">{{ value }} JTU</option>
+            }
+          </select>
+        </div>
+        <div class="flex-column">
+          <label class="p-label" for="dissolvedOxygen">
+            {{ "OBSERVATION.FIELD.DISSOLVED_OXYGEN" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <select
+            id="dissolvedOxygen"
+            class="p-inputtext"
+            formControlName="dissolvedOxygen"
+          >
+            <option [ngValue]="null" disabled>
+              {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+            </option>
+            @for (value of [0, 4, 8]; track value) {
+              <option [ngValue]="value">{{ value }} ppm</option>
+            }
+          </select>
+        </div>
+        <div class="flex-column">
+          <label class="p-label" for="nitrate">
+            {{ "OBSERVATION.FIELD.NITRATE" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <select id="nitrate" class="p-inputtext" formControlName="nitrate">
+            <option [ngValue]="null" disabled>
+              {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+            </option>
+            @for (value of [5, 20, 40]; track value) {
+              <option [ngValue]="value">{{ value }} ppm</option>
+            }
+          </select>
+        </div>
+        <div class="flex-column">
+          <label class="p-label" for="phosphate">
+            {{ "OBSERVATION.FIELD.PHOSPHATE" | translate }}
+            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+          </label>
+          <select
+            id="phosphate"
+            class="p-inputtext"
+            formControlName="phosphate"
+          >
+            <option [ngValue]="null" disabled>
+              {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+            </option>
+            @for (value of [1, 2, 4]; track value) {
+              <option [ngValue]="value">{{ value }} ppm</option>
+            }
+          </select>
+        </div>
+      </div>
+    }
+    @case (STEP.TERMS) {
+      <h2 class="title">{{ "OBSERVATION.HEADER.TERMS_TITLE" | translate }}</h2>
+      <div class="content flex-column">
+        <p class="description">
+          {{ "OBSERVATION.TERMS.DESCRIPTION" | translate }}
+        </p>
+        <div class="flex-column">
+          <label class="p-label" for="identificationCode">
+            {{ "OBSERVATION.FIELD.IDENTIFICATION_CODE" | translate }}
+          </label>
+          <input
+            pInputText
+            id="identificationCode"
+            type="text"
+            formControlName="identificationCode"
+          />
+        </div>
+        <p class="help-text">
+          {{ "OBSERVATION.TERMS.IDENTIFICATION_HINT" | translate }}
+        </p>
+        <div class="p-checkbox-container">
+          <p-checkbox
+            formControlName="termsAccepted"
+            inputId="termsAccepted"
+            [binary]="true"
+            [required]="true"
+          ></p-checkbox>
+          <label class="p-checkbox-label" for="termsAccepted">
+            {{ "OBSERVATION.TERMS.ACCEPT_TERMS" | translate }}
+          </label>
+        </div>
+        <div class="p-checkbox-container">
+          <p-checkbox
+            formControlName="cc0Accepted"
+            inputId="cc0Accepted"
+            [binary]="true"
+            [required]="true"
+          ></p-checkbox>
+          <label class="p-checkbox-label" for="cc0Accepted">
+            {{ "OBSERVATION.TERMS.ACCEPT_CC0" | translate }}
+          </label>
+        </div>
+        @if (submissionErrorKey) {
+          <small class="p-error">{{ submissionErrorKey | translate }}</small>
+        }
+      </div>
+    }
+  }
+</main>
+<footer class="footer flex-column">
+  <app-steps [amount]="amountOfSteps" [active]="currentStep"></app-steps>
+  <div class="flex-row">
+    @if (currentStep > 0) {
+      <p-button
+        class="back-button"
+        [label]="'OBSERVATION.FOOTER.BACK' | translate"
+        [outlined]="true"
+        (click)="onClickBack()"
+      ></p-button>
+    }
+    <p-button
+      class="next-button"
+      [label]="nextButtonLabel | translate"
+      [disabled]="!isNextEnabled"
+      [loading]="isSubmitting"
+      (click)="onClickNext()"
+    ></p-button>
+  </div>
+</footer>
+<div class="background-container">
+  <app-icon class="background" icon="logo"></app-icon>
+</div>

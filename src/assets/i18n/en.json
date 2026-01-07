@@ -159,7 +159,65 @@
     },
     "HEADER": {
       "FEEDBACK": "Get in touch",
-      "ABOUT": "About the app"
+      "ABOUT": "About the app",
+      "OBSERVATION": "Send observation"
+    }
+  },
+  "OBSERVATION": {
+    "CONFIRMATION": {
+      "TITLE": "Thanks for your observation!",
+      "DESCRIPTION": "Your observation has been submitted.",
+      "RESTART": "Send another observation"
+    },
+    "FIELD": {
+      "TYPE_LABEL": "Observation type",
+      "TYPE_PLACEHOLDER": "Select observation type",
+      "PHOTO_LABEL": "Add photo",
+      "PHOTO_REMOVE": "Remove",
+      "AIR_TEMP": "Air temperature (°C)",
+      "WATER_TEMP": "Water temperature (°C)",
+      "DEPTH_OF_VIEW": "Depth of view (cm)",
+      "ALGAE_LEVEL": "Abundance of blue-green algae",
+      "ALGAE_PLACEHOLDER": "Select algae level",
+      "WATER_PH": "Water acidity (pH)",
+      "TURBIDITY": "Water turbidity (JTU)",
+      "DISSOLVED_OXYGEN": "Dissolved oxygen in water (ppm)",
+      "NITRATE": "Nitrate content of water (ppm)",
+      "PHOSPHATE": "Phosphate content of water (ppm)",
+      "SELECT_VALUE": "Select value",
+      "IDENTIFICATION_CODE": "Identification code *"
+    },
+    "FOOTER": {
+      "BACK": "Back",
+      "NEXT": "Next",
+      "SUBMIT": "Send observation"
+    },
+    "HEADER": {
+      "LOCATION_TITLE": "Select position",
+      "TYPE_TITLE": "Add details",
+      "TEMPERATURE_TITLE": "Temperature readings",
+      "VISIBILITY_TITLE": "Water transparency and algae",
+      "WATER_QUALITY_TITLE": "Water quality",
+      "TERMS_TITLE": "Terms and identification"
+    },
+    "MESSAGES": {
+      "SUBMIT_ERROR": "Something went wrong. Please try again."
+    },
+    "TERMS": {
+      "DESCRIPTION": "By accepting the terms of use for natural waters and stormwater, you confirm the information in this observation report. Measurements can be taken, for example, from a swimming beach, a stormwater wetland, or a cottage beach. More information is available via the info button in the upper right corner.",
+      "IDENTIFICATION_HINT": "The identification code links all Sighting Reports made by the same user. You can create an identification code free of charge from the registration link, and it is available immediately after registration.",
+      "ACCEPT_TERMS": "I accept the terms of use for natural waters and stormwater and the information in this observation report.",
+      "ACCEPT_CC0": "I accept the terms of the CC0 license."
+    },
+    "TYPE": {
+      "WATER_SYSTEM": "Water from water system",
+      "STORMWATER": "Stormwater"
+    },
+    "ALGAE": {
+      "NONE": "No blue-green algae",
+      "LITTLE": "A little blue-green algae",
+      "RICH": "Rich in blue-green algae",
+      "VERY_RICH": "Very rich in blue-green algae"
     }
   },
   "PERMISSIONS": {

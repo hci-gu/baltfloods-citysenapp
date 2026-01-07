@@ -13,15 +13,26 @@ import { Injectable } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
 export class MockHttpClient {
-  public get<T extends StreetAiResponse>(url: string): Observable<T> {
-    const match = Object.values(DataPointEndpoint).find((endpoint) => url.includes(endpoint));
+  public get<T>(url: string): Observable<T> {
+    if (url.includes('/observation/water')) {
+      return of([] as T);
+    }
+
+    const match = Object.values(DataPointEndpoint).find((endpoint) =>
+      url.includes(endpoint),
+    );
 
     if (!match) {
       throw Error(`${url} doesn't match an endpoint`);
     }
 
     return of(mockResponses[match] as T).pipe(
-      delay(Math.floor((crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)) * 1501) + 500),
+      delay(
+        Math.floor(
+          (crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)) *
+            1501,
+        ) + 500,
+      ),
     );
   }
 }

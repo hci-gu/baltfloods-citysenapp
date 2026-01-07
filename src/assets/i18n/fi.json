@@ -159,7 +159,65 @@
     },
     "HEADER": {
       "FEEDBACK": "Ota yhteyttä",
-      "ABOUT": "Tietoa sovelluksesta"
+      "ABOUT": "Tietoa sovelluksesta",
+      "OBSERVATION": "Havaintoilmoitus"
+    }
+  },
+  "OBSERVATION": {
+    "CONFIRMATION": {
+      "TITLE": "Kiitos havainnostasi!",
+      "DESCRIPTION": "Havaintosi on lähetetty.",
+      "RESTART": "Lähetä uusi havainto"
+    },
+    "FIELD": {
+      "TYPE_LABEL": "Havainnon tyyppi",
+      "TYPE_PLACEHOLDER": "Valitse havainnon tyyppi",
+      "PHOTO_LABEL": "Lisää kuva",
+      "PHOTO_REMOVE": "Poista",
+      "AIR_TEMP": "Ilman lämpötila (°C)",
+      "WATER_TEMP": "Veden lämpötila (°C)",
+      "DEPTH_OF_VIEW": "Näkösyvyys (cm)",
+      "ALGAE_LEVEL": "Sinilevän määrä",
+      "ALGAE_PLACEHOLDER": "Valitse sinilevän määrä",
+      "WATER_PH": "Veden happamuus (pH)",
+      "TURBIDITY": "Veden sameus (JTU)",
+      "DISSOLVED_OXYGEN": "Liukoinen happi vedessä (ppm)",
+      "NITRATE": "Veden nitraattipitoisuus (ppm)",
+      "PHOSPHATE": "Veden fosfaattipitoisuus (ppm)",
+      "SELECT_VALUE": "Valitse arvo",
+      "IDENTIFICATION_CODE": "Tunnistekoodi *"
+    },
+    "FOOTER": {
+      "BACK": "Takaisin",
+      "NEXT": "Seuraava",
+      "SUBMIT": "Lähetä havainto"
+    },
+    "HEADER": {
+      "LOCATION_TITLE": "Valitse sijainti",
+      "TYPE_TITLE": "Lisää tiedot",
+      "TEMPERATURE_TITLE": "Lämpötilamittaukset",
+      "VISIBILITY_TITLE": "Veden läpinäkyvyys ja levä",
+      "WATER_QUALITY_TITLE": "Veden laatu",
+      "TERMS_TITLE": "Ehdot ja tunniste"
+    },
+    "MESSAGES": {
+      "SUBMIT_ERROR": "Jotain meni pieleen. Yritä uudelleen."
+    },
+    "TERMS": {
+      "DESCRIPTION": "Hyväksymällä luonnonvesiä ja hulevesiä koskevat käyttöehdot vahvistat havainnon tiedot. Mittauksia voidaan tehdä esimerkiksi uimarannalta, hulevesikosteikosta tai mökkirannasta. Lisätietoja löytyy sivun oikean yläkulman info-painikkeesta.",
+      "IDENTIFICATION_HINT": "Tunnistekoodi linkittää saman käyttäjän kaikki havaintoilmoitukset. Voit luoda tunnistekoodin maksutta rekisteröitymisen kautta, ja se on käytettävissä heti rekisteröitymisen jälkeen.",
+      "ACCEPT_TERMS": "Hyväksyn luonnonvesien ja hulevesien käyttöehdot sekä tämän havaintoilmoituksen tiedot.",
+      "ACCEPT_CC0": "Hyväksyn CC0-lisenssin ehdot."
+    },
+    "TYPE": {
+      "WATER_SYSTEM": "Vesijärjestelmän vesi",
+      "STORMWATER": "Hulevesi"
+    },
+    "ALGAE": {
+      "NONE": "Ei sinilevää",
+      "LITTLE": "Hieman sinilevää",
+      "RICH": "Runsaasti sinilevää",
+      "VERY_RICH": "Erittäin runsaasti sinilevää"
     }
   },
   "PERMISSIONS": {

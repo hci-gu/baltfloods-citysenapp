@@ -97,6 +97,24 @@ export type WaterbagTestKitResponse = {
   phosphate: WaterbagTestKitResponseDataWithResult;
 }[];
 
+export type ObservationWaterResponse = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  dataRetrievedTimestamp: number;
+  imageUrl?: string | null;
+  observationType: string;
+  airTemp?: number | null;
+  waterTemp?: number | null;
+  depthOfView?: number | null;
+  algaeLevel?: string | null;
+  waterPh?: number | null;
+  turbidity?: number | null;
+  dissolvedOxygen?: number | null;
+  nitrate?: number | null;
+  phosphate?: number | null;
+}[];
+
 export type StreetAiResponse =
   | WeatherConditionsResponse
   | WeatherAirQualityResponse
