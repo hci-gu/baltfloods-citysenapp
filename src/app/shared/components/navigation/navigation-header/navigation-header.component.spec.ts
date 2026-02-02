@@ -2,12 +2,16 @@ import { Shallow } from 'shallow-render';
 import { NavigationHeaderComponent } from './navigation-header.component';
 import { NavigationSidebarComponent } from '../navigation-sidebar/navigation-sidebar.component';
 import { SharedModule } from 'primeng/api';
+import { AuthService } from '@core/services/auth.service';
+import { of } from 'rxjs';
 
 describe('NavigationHeaderComponent', () => {
   let shallow: Shallow<NavigationHeaderComponent>;
 
   beforeEach(() => {
-    shallow = new Shallow(NavigationHeaderComponent).provideMock(SharedModule);
+    shallow = new Shallow(NavigationHeaderComponent)
+      .provideMock(SharedModule)
+      .provideMock(AuthService, { authState$: of({ token: null, record: null }) });
   });
 
   it('should render the navigation header', async () => {

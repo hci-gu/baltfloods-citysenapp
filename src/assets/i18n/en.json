@@ -150,6 +150,42 @@
     "SKIP": "Skip",
     "QUALITY": "Quality"
   },
+  "AUTH": {
+    "LOGIN": {
+      "TITLE": "Log in",
+      "EMAIL": "Email",
+      "PASSWORD": "Password",
+      "SUBMIT": "Log in",
+      "NO_ACCOUNT": "Don't have an account?",
+      "SIGNUP": "Sign up"
+    },
+    "SIGNUP": {
+      "TITLE": "Create account",
+      "EMAIL": "Email",
+      "PASSWORD": "Password",
+      "CONFIRM_PASSWORD": "Confirm password",
+      "SUBMIT": "Create account",
+      "HAVE_ACCOUNT": "Already have an account?",
+      "LOGIN": "Log in"
+    },
+    "PROFILE": {
+      "TITLE": "Profile",
+      "EMAIL": "Email",
+      "NEW_PASSWORD": "New password",
+      "CONFIRM_PASSWORD": "Confirm new password",
+      "SAVE_PASSWORD": "Change password",
+      "LOGOUT": "Log out",
+      "PASSWORD_UPDATED": "Password updated."
+    },
+    "ERROR": {
+      "INVALID_EMAIL": "Enter a valid email address.",
+      "INVALID_CREDENTIALS": "Invalid email or password.",
+      "SIGNUP_FAILED": "Could not create account. Please try again.",
+      "PASSWORD_MISMATCH": "Passwords do not match.",
+      "PASSWORD_MIN_LENGTH": "Use at least 8 characters.",
+      "PASSWORD_UPDATE_FAILED": "Password update failed. Please try again."
+    }
+  },
   "NAVIGATION": {
     "SIDEBAR": {
       "FEEDBACK": "Give feedback",

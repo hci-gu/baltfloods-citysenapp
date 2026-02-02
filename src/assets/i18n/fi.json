@@ -150,6 +150,42 @@
     "SKIP": "Ohita",
     "QUALITY": "Laatu"
   },
+  "AUTH": {
+    "LOGIN": {
+      "TITLE": "Kirjaudu sisään",
+      "EMAIL": "Sähköposti",
+      "PASSWORD": "Salasana",
+      "SUBMIT": "Kirjaudu sisään",
+      "NO_ACCOUNT": "Eikö sinulla ole tiliä?",
+      "SIGNUP": "Luo tili"
+    },
+    "SIGNUP": {
+      "TITLE": "Luo tili",
+      "EMAIL": "Sähköposti",
+      "PASSWORD": "Salasana",
+      "CONFIRM_PASSWORD": "Vahvista salasana",
+      "SUBMIT": "Luo tili",
+      "HAVE_ACCOUNT": "Onko sinulla jo tili?",
+      "LOGIN": "Kirjaudu sisään"
+    },
+    "PROFILE": {
+      "TITLE": "Profiili",
+      "EMAIL": "Sähköposti",
+      "NEW_PASSWORD": "Uusi salasana",
+      "CONFIRM_PASSWORD": "Vahvista uusi salasana",
+      "SAVE_PASSWORD": "Vaihda salasana",
+      "LOGOUT": "Kirjaudu ulos",
+      "PASSWORD_UPDATED": "Salasana päivitetty."
+    },
+    "ERROR": {
+      "INVALID_EMAIL": "Anna kelvollinen sähköpostiosoite.",
+      "INVALID_CREDENTIALS": "Virheellinen sähköposti tai salasana.",
+      "SIGNUP_FAILED": "Tilin luonti epäonnistui. Yritä uudelleen.",
+      "PASSWORD_MISMATCH": "Salasanat eivät täsmää.",
+      "PASSWORD_MIN_LENGTH": "Käytä vähintään 8 merkkiä.",
+      "PASSWORD_UPDATE_FAILED": "Salasanan päivitys epäonnistui. Yritä uudelleen."
+    }
+  },
   "NAVIGATION": {
     "SIDEBAR": {
       "FEEDBACK": "Anna palautetta",

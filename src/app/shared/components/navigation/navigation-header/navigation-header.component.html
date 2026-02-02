@@ -2,9 +2,20 @@
 <header class="flex-row header">
   <app-icon class="menu-item" icon="menu" (click)="sidebarOpen = true"></app-icon>
 
-  <h1 class="title" [class.padding-right]="!showSkip">{{ title }}</h1>
-  @if (showSkip) {
-    <u class="action-item" (click)="navigationHeaderService.onSkipClick()">{{ 'MISC.SKIP' | translate }}</u>
-  }
+  <h1 class="title" [class.padding-right]="showSkip || showProfile">{{ title }}</h1>
+  <div class="actions flex-row">
+    @if (showSkip) {
+      <u class="action-item" (click)="navigationHeaderService.onSkipClick()">{{ 'MISC.SKIP' | translate }}</u>
+    }
+    @if (showProfile) {
+      <a
+        class="profile-button"
+        [routerLink]="profileLink"
+        [attr.aria-label]="'AUTH.PROFILE.TITLE' | translate"
+      >
+        <app-icon class="profile-icon" icon="user"></app-icon>
+      </a>
+    }
+  </div>
   <div class="background-container"></div>
 </header>

@@ -12,7 +12,8 @@
     background-color: var(--primary-color);
 
     .menu-item,
-    .action-item {
+    .action-item,
+    .profile-button {
       position: relative;
       z-index: $z-index;
       flex: 0 0 44px;
@@ -31,6 +32,29 @@
       line-height: 22px;
     }
 
+    .actions {
+      align-items: center;
+      gap: 8px;
+      z-index: $z-index;
+    }
+
+    .profile-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 36px;
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background-color: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      text-decoration: none;
+    }
+
+    .profile-icon {
+      color: var(--text-color);
+    }
+
     .title {
       position: relative;
       width: 100%;
@@ -43,7 +67,7 @@
       line-height: 28px;
 
       &.padding-right {
-        padding-right: 44px;
+        padding-right: 72px;
       }
     }
 

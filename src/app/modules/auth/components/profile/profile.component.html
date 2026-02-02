@@ -1,0 +1,67 @@
+<main class="auth-page flex-column">
+  <section class="card flex-column">
+    <h2 class="title">{{ 'AUTH.PROFILE.TITLE' | translate }}</h2>
+
+    <div class="field flex-column">
+      <label class="p-label" for="email">
+        {{ 'AUTH.PROFILE.EMAIL' | translate }}
+      </label>
+      <input pInputText id="email" type="email" [value]="email" disabled />
+    </div>
+
+    <div class="divider"></div>
+
+    <form class="flex-column" [formGroup]="passwordForm">
+      <div class="field flex-column">
+        <label class="p-label" for="password">
+          {{ 'AUTH.PROFILE.NEW_PASSWORD' | translate }}
+        </label>
+        <input
+          pInputText
+          id="password"
+          type="password"
+          formControlName="password"
+        />
+        @if (passwordForm.controls.password.touched && passwordForm.controls.password.hasError('minlength')) {
+          <small class="p-error">{{ 'AUTH.ERROR.PASSWORD_MIN_LENGTH' | translate }}</small>
+        }
+      </div>
+
+      <div class="field flex-column">
+        <label class="p-label" for="passwordConfirm">
+          {{ 'AUTH.PROFILE.CONFIRM_PASSWORD' | translate }}
+        </label>
+        <input
+          pInputText
+          id="passwordConfirm"
+          type="password"
+          formControlName="passwordConfirm"
+        />
+        @if (passwordMismatch) {
+          <small class="p-error">{{ 'AUTH.ERROR.PASSWORD_MISMATCH' | translate }}</small>
+        }
+      </div>
+
+      @if (errorMessage) {
+        <small class="p-error">{{ errorMessage | translate }}</small>
+      }
+      @if (successMessage) {
+        <small class="success">{{ successMessage | translate }}</small>
+      }
+
+      <p-button
+        [label]="'AUTH.PROFILE.SAVE_PASSWORD' | translate"
+        [loading]="isSubmitting"
+        [disabled]="passwordForm.invalid || isSubmitting"
+        (click)="onSubmit()"
+      ></p-button>
+    </form>
+
+    <p-button
+      class="logout"
+      [label]="'AUTH.PROFILE.LOGOUT' | translate"
+      [outlined]="true"
+      (click)="onLogout()"
+    ></p-button>
+  </section>
+</main>

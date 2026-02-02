@@ -1,0 +1,35 @@
+.auth-page {
+  padding: 24px 16px 80px;
+  gap: 16px;
+
+  .card {
+    gap: 16px;
+    padding: 24px 20px;
+    border-radius: 16px;
+    background-color: var(--surface-card);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+
+  .title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-color);
+  }
+
+  .field {
+    gap: 8px;
+  }
+
+  .switch {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-color-secondary);
+
+    a {
+      color: var(--primary-color);
+      font-weight: 600;
+      text-decoration: none;
+    }
+  }
+}

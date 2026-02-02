@@ -6,6 +6,8 @@ import { NavigationHeaderComponent } from './shared/components/navigation/naviga
 import { SharedModule } from 'primeng/api';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { GoogleAnalyticsService } from 'ngx-google-analytics';
+import { AuthService } from '@core/services/auth.service';
+import { of } from 'rxjs';
 
 describe('AppComponent', () => {
   let shallow: Shallow<AppComponent>;
@@ -15,7 +17,8 @@ describe('AppComponent', () => {
       .mock(TranslateService, { instant: jest.fn(), use: jest.fn() })
       .mock(GoogleAnalyticsService, { pageView: jest.fn() })
       .mockPipe(TranslatePipe, (input) => `translated ${input}`)
-      .provideMock(SharedModule);
+      .provideMock(SharedModule)
+      .provideMock(AuthService, { authState$: of({ token: null, record: null }) });
 
     jest.spyOn(sessionStorage, 'getItem').mockImplementation((key: string) => {
       const store: Record<string, string> = { myKey: 'mockValue' };

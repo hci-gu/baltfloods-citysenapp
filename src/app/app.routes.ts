@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { environment } from '@environments/environment';
+import { authGuard } from '@core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -31,6 +32,31 @@ export const routes: Routes = [
     loadChildren: () =>
       import('./modules/about/about.module').then((m) => m.AboutModule),
     data: { navigationHeaderTitle: 'NAVIGATION.HEADER.ABOUT' },
+  },
+  {
+    path: 'login',
+    loadComponent: () =>
+      import('./modules/auth/components/login/login.component').then(
+        (c) => c.LoginComponent,
+      ),
+    data: { navigationHeaderTitle: 'AUTH.LOGIN.TITLE' },
+  },
+  {
+    path: 'signup',
+    loadComponent: () =>
+      import('./modules/auth/components/signup/signup.component').then(
+        (c) => c.SignupComponent,
+      ),
+    data: { navigationHeaderTitle: 'AUTH.SIGNUP.TITLE' },
+  },
+  {
+    path: 'profile',
+    loadComponent: () =>
+      import('./modules/auth/components/profile/profile.component').then(
+        (c) => c.ProfileComponent,
+      ),
+    canActivate: [authGuard],
+    data: { navigationHeaderTitle: 'AUTH.PROFILE.TITLE' },
   },
   {
     path: '**',

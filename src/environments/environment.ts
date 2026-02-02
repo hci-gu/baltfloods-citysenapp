@@ -11,6 +11,7 @@ export const environment = {
   serviceApiJurisdictionId: 'citizenapp',
   serviceApiUrl: 'https://kartta.lappeenranta.fi/efeedback/api/georeport/6aika',
   observationApiUrl: '/observation',
+  pocketbaseUrl: '/api',
   streetAiApiJurisdictionId: 'lappeenranta',
   streetAiApiKey: 'your_secret_key',
   streetAiApiUrl: 'https://external.streetai.net/api/v1',

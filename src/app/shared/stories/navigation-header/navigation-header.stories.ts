@@ -3,12 +3,17 @@ import type { Meta, StoryFn } from '@storybook/angular';
 import { applicationConfig, moduleMetadata } from '@storybook/angular';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { NavigationModule } from '../../components/navigation/navigation.module';
+import { AuthService } from '@core/services/auth.service';
+import { of } from 'rxjs';
 
 export default {
   title: 'Components/Navigation header',
   decorators: [
     applicationConfig({
-      providers: [provideAnimations()],
+      providers: [
+        provideAnimations(),
+        { provide: AuthService, useValue: { authState$: of({ token: null, record: null }) } },
+      ],
     }),
     moduleMetadata({
       imports: [NavigationModule],

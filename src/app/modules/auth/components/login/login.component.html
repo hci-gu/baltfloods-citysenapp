@@ -1,0 +1,43 @@
+<main class="auth-page flex-column">
+  <section class="card flex-column" [formGroup]="loginForm">
+    <h2 class="title">{{ 'AUTH.LOGIN.TITLE' | translate }}</h2>
+
+    <div class="field flex-column">
+      <label class="p-label" for="email">
+        {{ 'AUTH.LOGIN.EMAIL' | translate }}
+      </label>
+      <input pInputText id="email" type="email" formControlName="email" />
+      @if (loginForm.controls.email.touched && loginForm.controls.email.invalid) {
+        <small class="p-error">{{ 'AUTH.ERROR.INVALID_EMAIL' | translate }}</small>
+      }
+    </div>
+
+    <div class="field flex-column">
+      <label class="p-label" for="password">
+        {{ 'AUTH.LOGIN.PASSWORD' | translate }}
+      </label>
+      <input
+        pInputText
+        id="password"
+        type="password"
+        formControlName="password"
+      />
+    </div>
+
+    @if (errorMessage) {
+      <small class="p-error">{{ errorMessage | translate }}</small>
+    }
+
+    <p-button
+      [label]="'AUTH.LOGIN.SUBMIT' | translate"
+      [loading]="isSubmitting"
+      [disabled]="loginForm.invalid || isSubmitting"
+      (click)="onSubmit()"
+    ></p-button>
+
+    <p class="switch">
+      {{ 'AUTH.LOGIN.NO_ACCOUNT' | translate }}
+      <a routerLink="/signup">{{ 'AUTH.LOGIN.SIGNUP' | translate }}</a>
+    </p>
+  </section>
+</main>
