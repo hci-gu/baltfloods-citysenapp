@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: baltfloods
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: baltfloods
+  template:
+    metadata:
+      labels:
+        app: baltfloods
+    spec:
+      containers:
+        - name: baltfloods
+          image: 'registry.k8s.gu.se/appademin/baltfloods:0.0.2'
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: web
+              protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: baltfloods-service
+spec:
+  selector:
+    app: baltfloods
+  ports:
+    - protocol: TCP
+      port: 8080
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: baltfloods
+  annotations:
+    kubernetes.io/tls-acme: "true"
+spec:
+  host: baltfloods.prod.appadem.in
+  to:
+    kind: Service
+    name: baltfloods-service
+    weight: 100
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

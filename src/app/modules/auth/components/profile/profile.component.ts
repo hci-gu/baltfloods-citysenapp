@@ -11,6 +11,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { InputTextModule } from 'primeng/inputtext';
 import { SharedModule } from '@shared/shared.module';
 import { AuthService } from '@core/services/auth.service';
+import { PushNotificationsService } from '@core/services/push-notifications.service';
 
 @Component({
   selector: 'app-profile',
@@ -31,10 +32,15 @@ export class ProfileComponent {
   public errorMessage = '';
   public successMessage = '';
   public isSubmitting = false;
+  public pushErrorMessage = '';
+  public pushSuccessMessage = '';
+  public isPushSubmitting = false;
+  public readonly pushSubscription$ = this.pushNotifications.subscription$;
 
   public constructor(
     private readonly formBuilder: FormBuilder,
     private readonly authService: AuthService,
+    private readonly pushNotifications: PushNotificationsService,
     private readonly router: Router,
   ) {}
 
@@ -44,6 +50,14 @@ export class ProfileComponent {
 
   public get passwordMismatch(): boolean {
     return this.passwordForm.hasError('passwordMismatch');
+  }
+
+  public get isPushSupported(): boolean {
+    return this.pushNotifications.isEnabled;
+  }
+
+  public get isPushPermissionDenied(): boolean {
+    return this.pushNotifications.permission === 'denied';
   }
 
   public onSubmit(): void {
@@ -70,6 +84,46 @@ export class ProfileComponent {
       error: () => {
         this.errorMessage = 'AUTH.ERROR.PASSWORD_UPDATE_FAILED';
         this.isSubmitting = false;
+      },
+    });
+  }
+
+  public onEnablePush(): void {
+    if (this.isPushPermissionDenied) {
+      this.pushErrorMessage = 'AUTH.PROFILE.PUSH_PERMISSION_DENIED';
+      this.pushSuccessMessage = '';
+      return;
+    }
+
+    this.pushErrorMessage = '';
+    this.pushSuccessMessage = '';
+    this.isPushSubmitting = true;
+
+    this.pushNotifications.requestSubscription().subscribe({
+      next: () => {
+        this.pushSuccessMessage = 'AUTH.PROFILE.PUSH_ENABLED';
+        this.isPushSubmitting = false;
+      },
+      error: () => {
+        this.pushErrorMessage = 'AUTH.PROFILE.PUSH_ERROR';
+        this.isPushSubmitting = false;
+      },
+    });
+  }
+
+  public onDisablePush(): void {
+    this.pushErrorMessage = '';
+    this.pushSuccessMessage = '';
+    this.isPushSubmitting = true;
+
+    this.pushNotifications.unsubscribe().subscribe({
+      next: () => {
+        this.pushSuccessMessage = 'AUTH.PROFILE.PUSH_DISABLED';
+        this.isPushSubmitting = false;
+      },
+      error: () => {
+        this.pushErrorMessage = 'AUTH.PROFILE.PUSH_ERROR';
+        this.isPushSubmitting = false;
       },
     });
   }

@@ -171,8 +171,17 @@
     "PROFILE": {
       "TITLE": "Profiili",
       "EMAIL": "Sähköposti",
+      "NOTIFICATIONS_TITLE": "Ilmoitukset",
       "NEW_PASSWORD": "Uusi salasana",
       "CONFIRM_PASSWORD": "Vahvista uusi salasana",
+      "PUSH_DESCRIPTION": "Ota käyttöön push-ilmoitukset tärkeistä päivityksistä.",
+      "PUSH_DISABLE": "Poista ilmoitukset käytöstä",
+      "PUSH_ENABLED": "Ilmoitukset otettu käyttöön.",
+      "PUSH_ENABLE": "Ota ilmoitukset käyttöön",
+      "PUSH_ERROR": "Ilmoitusasetuksia ei voitu päivittää. Yritä uudelleen.",
+      "PUSH_PERMISSION_DENIED": "Ilmoitukset on estetty selaimen asetuksissa.",
+      "PUSH_DISABLED": "Ilmoitukset poistettu käytöstä.",
+      "PUSH_UNSUPPORTED": "Push-ilmoitukset eivät ole tuettuja tällä laitteella tai selaimella.",
       "SAVE_PASSWORD": "Vaihda salasana",
       "LOGOUT": "Kirjaudu ulos",
       "PASSWORD_UPDATED": "Salasana päivitetty."

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Push Test</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+        background: #f6f6f7;
+        color: #1b1b1f;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px 16px 48px;
+      }
+
+      main {
+        max-width: 680px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 24px;
+      }
+
+      p {
+        margin: 0 0 20px;
+        color: #5b5b66;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid #d7d7dd;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        background: #fff;
+      }
+
+      textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+
+      .hint {
+        font-size: 12px;
+        color: #6f6f78;
+      }
+
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: none;
+        background: #275d38;
+        color: #fff;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .result {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 10px;
+        background: #f0f6f1;
+        color: #1b1b1f;
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo,
+          Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .error {
+        background: #ffe9e7;
+        color: #8a1f13;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Send test push</h1>
+      <p>
+        This page calls <code>/push/test</code> and requires a PocketBase
+        superuser token. Paste the token from the Admin UI auth response.
+      </p>
+
+      <form id="pushForm" class="grid">
+        <div>
+          <label for="token">Superuser token</label>
+          <input id="token" name="token" type="password" required />
+          <div class="hint">Authorization header uses "Admin &lt;token&gt;".</div>
+        </div>
+
+        <div>
+          <label for="title">Title</label>
+          <input id="title" name="title" required />
+        </div>
+
+        <div>
+          <label for="body">Body</label>
+          <textarea id="body" name="body"></textarea>
+        </div>
+
+        <div class="row">
+          <div style="flex: 1 1 200px;">
+            <label for="icon">Icon URL</label>
+            <input id="icon" name="icon" placeholder="/assets/icons/192.png" />
+          </div>
+          <div style="flex: 1 1 200px;">
+            <label for="url">Click URL</label>
+            <input id="url" name="url" placeholder="/profile" />
+          </div>
+        </div>
+
+        <div>
+          <label for="endpoint">Endpoint (optional)</label>
+          <input id="endpoint" name="endpoint" />
+          <div class="hint">Leave blank to send to all stored subscriptions.</div>
+        </div>
+
+        <div class="row">
+          <button type="submit" id="submitBtn">Send push</button>
+        </div>
+      </form>
+
+      <div id="result" class="result" hidden></div>
+    </main>
+
+    <script>
+      const form = document.getElementById("pushForm");
+      const result = document.getElementById("result");
+      const submitBtn = document.getElementById("submitBtn");
+
+      function setResult(text, isError) {
+        result.hidden = false;
+        result.textContent = text;
+        result.classList.toggle("error", Boolean(isError));
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        submitBtn.disabled = true;
+        result.hidden = true;
+
+        const data = new FormData(form);
+        const token = data.get("token");
+        const payload = {
+          title: data.get("title"),
+          body: data.get("body") || "",
+          icon: data.get("icon") || "",
+          url: data.get("url") || "",
+          endpoint: data.get("endpoint") || "",
+        };
+
+        try {
+          const response = await fetch("/push/test", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Admin ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const text = await response.text();
+          if (!response.ok) {
+            setResult(text || `Request failed with ${response.status}`, true);
+            submitBtn.disabled = false;
+            return;
+          }
+
+          try {
+            const json = JSON.parse(text);
+            setResult(JSON.stringify(json, null, 2), false);
+          } catch (err) {
+            setResult(text, false);
+          }
+        } catch (err) {
+          setResult(err?.message || "Failed to send request.", true);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

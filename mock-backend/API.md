@@ -168,3 +168,62 @@ Response item shape:
 - `imageUrl` (string, relative file path or empty)
 - `observationType` (string)
 - Optional metrics: `airTemp`, `waterTemp`, `depthOfView`, `algaeLevel`, `waterPh`, `turbidity`, `dissolvedOxygen`, `nitrate`, `phosphate`
+
+## Push API (web push subscriptions)
+
+**Base URL**: `pushApiUrl` (see `src/environments/environment.*.ts`)
+
+### POST `/subscribe`
+Stores or updates a push subscription.
+
+Content-Type: `application/json`
+
+Body:
+- `endpoint` (string, required)
+- `expirationTime` (number | null)
+- `keys` (object):
+  - `p256dh` (string)
+  - `auth` (string)
+
+Response:
+- `{ id: string }`
+
+### POST `/unsubscribe`
+Removes a push subscription by endpoint.
+
+Content-Type: `application/json`
+
+Body:
+- `endpoint` (string, required)
+
+Response:
+- `{ ok: true }`
+
+### POST `/test`
+Sends a test push notification to one subscription or all stored subscriptions.
+
+**Auth**: PocketBase superuser token (same as Admin UI).
+
+Content-Type: `application/json`
+
+Body:
+- `title` (string, required)
+- `body` (string, optional)
+- `icon` (string, optional)
+- `url` (string, optional, passed via notification data)
+- `endpoint` (string, optional; if omitted, sends to all)
+
+Response:
+- `sent` (number)
+- `results` (array):
+  - `endpoint` (string)
+  - `status` (number)
+  - `ok` (boolean)
+  - `error` (string | empty)
+
+### Admin test page
+Static page served from `./pb_public/admin/push-test.html`.
+
+Open: `/admin/push-test.html`
+
+It posts to `/push/test` with a superuser token and shows the response.

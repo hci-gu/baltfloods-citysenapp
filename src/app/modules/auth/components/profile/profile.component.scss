@@ -33,6 +33,23 @@
     font-size: 13px;
   }
 
+  .notifications {
+    gap: 12px;
+
+    .section-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .helper {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text-color-secondary);
+    }
+  }
+
   .logout {
     align-self: flex-start;
   }

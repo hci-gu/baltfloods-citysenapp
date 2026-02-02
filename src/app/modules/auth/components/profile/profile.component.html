@@ -57,6 +57,55 @@
       ></p-button>
     </form>
 
+    <div class="divider"></div>
+
+    <section class="notifications flex-column">
+      <h3 class="section-title">
+        {{ 'AUTH.PROFILE.NOTIFICATIONS_TITLE' | translate }}
+      </h3>
+      <p class="helper">
+        {{ 'AUTH.PROFILE.PUSH_DESCRIPTION' | translate }}
+      </p>
+
+      @if (!isPushSupported) {
+        <small class="p-error">
+          {{ 'AUTH.PROFILE.PUSH_UNSUPPORTED' | translate }}
+        </small>
+      }
+      @if (isPushPermissionDenied) {
+        <small class="p-error">
+          {{ 'AUTH.PROFILE.PUSH_PERMISSION_DENIED' | translate }}
+        </small>
+      }
+      @if (pushErrorMessage) {
+        <small class="p-error">{{ pushErrorMessage | translate }}</small>
+      }
+      @if (pushSuccessMessage) {
+        <small class="success">{{ pushSuccessMessage | translate }}</small>
+      }
+
+      @if (isPushSupported) {
+        @if (pushSubscription$ | async; as subscription) {
+          @if (subscription) {
+            <p-button
+              [label]="'AUTH.PROFILE.PUSH_DISABLE' | translate"
+              [outlined]="true"
+              [loading]="isPushSubmitting"
+              [disabled]="isPushSubmitting"
+              (click)="onDisablePush()"
+            ></p-button>
+          } @else {
+            <p-button
+              [label]="'AUTH.PROFILE.PUSH_ENABLE' | translate"
+              [loading]="isPushSubmitting"
+              [disabled]="isPushSubmitting || isPushPermissionDenied"
+              (click)="onEnablePush()"
+            ></p-button>
+          }
+        }
+      }
+    </section>
+
     <p-button
       class="logout"
       [label]="'AUTH.PROFILE.LOGOUT' | translate"

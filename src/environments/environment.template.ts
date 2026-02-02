@@ -5,6 +5,7 @@ export const environment = {
   jurisdiction: 'Lappeenranta',
   privacyPolicyUrl: 'https://kartta.lappeenranta.fi/eFeedback/fi/PrivacyPolicy',
   production: true,
+  pushApiUrl: '/push',
   radarApiKey: 'your_secret_key',
   sentryDsn: 'your_secret_key',
   serviceApiApiKey: 'your_secret_key',
@@ -17,5 +18,6 @@ export const environment = {
   streetAiApiUrl: 'https://external.streetai.net/api/v1',
   streetAiUploadUrl: 'https://opendata.streetai.net/uploads',
   termsOfUseUrl: 'https://kartta.lappeenranta.fi/eFeedback/fi/TermsOfUse',
-  trackingCode: 'your_secret_key'
+  trackingCode: 'your_secret_key',
+  vapidPublicKey: 'your_public_vapid_key'
 };

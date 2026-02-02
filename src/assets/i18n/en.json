@@ -171,8 +171,17 @@
     "PROFILE": {
       "TITLE": "Profile",
       "EMAIL": "Email",
+      "NOTIFICATIONS_TITLE": "Notifications",
       "NEW_PASSWORD": "New password",
       "CONFIRM_PASSWORD": "Confirm new password",
+      "PUSH_DESCRIPTION": "Enable push notifications for important updates.",
+      "PUSH_DISABLE": "Disable notifications",
+      "PUSH_ENABLED": "Notifications enabled.",
+      "PUSH_ENABLE": "Enable notifications",
+      "PUSH_ERROR": "Could not update notification settings. Please try again.",
+      "PUSH_PERMISSION_DENIED": "Notifications are blocked in your browser settings.",
+      "PUSH_DISABLED": "Notifications disabled.",
+      "PUSH_UNSUPPORTED": "Push notifications are not supported on this device or browser.",
       "SAVE_PASSWORD": "Change password",
       "LOGOUT": "Log out",
       "PASSWORD_UPDATED": "Password updated."
