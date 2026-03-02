@@ -1,18 +1,28 @@
+:host {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .admin-page {
+  height: 100%;
   padding: 24px 16px 80px;
+  overflow: hidden;
 }
 
 .admin-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  min-height: calc(100vh - 120px);
+  height: 100%;
+  min-height: 0;
 }
 
 .left-column {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 16px;
+  min-height: 0;
 }
 
 .admin-card {
@@ -31,6 +41,8 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .subtitle {
@@ -143,7 +155,11 @@
 }
 
 .chart-point {
-  fill: #275d38;
+  fill: none;
+  stroke: #275d38;
+  stroke-width: 5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .chart-axis {
@@ -224,7 +240,12 @@
 }
 
 @media (max-width: 1100px) {
+  .admin-page {
+    overflow-y: auto;
+  }
+
   .admin-layout {
     grid-template-columns: 1fr;
+    height: auto;
   }
 }

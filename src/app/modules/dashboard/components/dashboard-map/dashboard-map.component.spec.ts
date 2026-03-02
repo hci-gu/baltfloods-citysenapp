@@ -27,7 +27,6 @@ import { MessageService, SharedModule } from 'primeng/api';
 import { firstValueFrom, of } from 'rxjs';
 import { Shallow } from 'shallow-render';
 import { DashboardDataPointDetailComponent } from '../dashboard-data-point-detail/dashboard-data-point-detail.component';
-import { DashboardFilterComponent } from '../dashboard-filter/dashboard-filter.component';
 import { DashboardMapComponent } from './dashboard-map.component';
 import { AsyncPipe } from '@angular/common';
 
@@ -259,11 +258,11 @@ describe('DashboardMapComponent', () => {
       expect(await firstValueFrom(instance.mapCenter$)).toEqual([1, 1]);
     });
 
-    it('should default to 30 days and allow changing to all time', async () => {
+    it('should default to last year with a 30 day active window', async () => {
       const { find, fixture } = await shallow.render();
 
       expect(find('.timespan-filter-button').nativeElement.textContent).toContain(
-        'Last 30 days',
+        'Last year',
       );
       expect(find('.observation-item')).toHaveFound(
         WEATHER_CONDITION_DATA_POINTS.length +
@@ -286,12 +285,11 @@ describe('DashboardMapComponent', () => {
           WEATHER_STORM_WATER_DATA_POINTS.length +
           WEATHER_AIR_QUALITY_DATA_POINTS.length +
           PARKING_DATA_POINTS.length +
-          ROAD_WORKS_DATA_POINTS.length +
-          WATERBAG_TESTKIT_DATA_POINTS.length,
+          ROAD_WORKS_DATA_POINTS.length,
       );
     });
 
-    it('should apply list timespan filter to map markers', async () => {
+    it('should keep map scoped to the active 30 day window after timespan changes', async () => {
       const { find, findComponent, fixture } = await shallow.render();
 
       expect(findComponent(MapComponent).markers).not.toEqual(
@@ -308,7 +306,7 @@ describe('DashboardMapComponent', () => {
         ?.click();
       fixture.detectChanges();
 
-      expect(findComponent(MapComponent).markers).toEqual(
+      expect(findComponent(MapComponent).markers).not.toEqual(
         expect.arrayContaining([
           expect.objectContaining({ location: [61.05871, 28.18871] }),
         ]),
@@ -365,16 +363,12 @@ describe('DashboardMapComponent', () => {
         ]),
       );
 
-      expect(find('.badge')).toHaveFound(0);
-      find('.filter-button').triggerEventHandler('click');
+      find('.map-control-dropdown-button')[0].triggerEventHandler('click');
       fixture.detectChanges();
 
-      const filterComponent = findComponent(DashboardFilterComponent);
-      expect(filterComponent).toHaveFound(1);
-
-      filterComponent.toggle.emit(DataPointType.WEATHER_CONDITIONS);
-      filterComponent.toggle.emit(DataPointType.PARKING);
-      filterComponent.toggle.emit(DataPointType.WEATHER_CONDITIONS); //toggled off
+      find(`[data-type="${DataPointType.WEATHER_CONDITIONS}"]`).triggerEventHandler('click');
+      find(`[data-type="${DataPointType.PARKING}"]`).triggerEventHandler('click');
+      find(`[data-type="${DataPointType.WEATHER_CONDITIONS}"]`).triggerEventHandler('click'); // toggled off
       fixture.detectChanges();
 
       expect(findComponent(MapComponent).markers).toEqual(
@@ -392,11 +386,10 @@ describe('DashboardMapComponent', () => {
         ]),
       );
 
-      filterComponent.close.emit();
-      fixture.detectChanges();
-
-      expect(findComponent(DashboardFilterComponent)).toHaveFound(0);
-      expect(find('.badge').nativeElement.innerHTML).toBe('1');
+      expect(find('.map-control-dropdown-button')[0].nativeElement.textContent).toContain(
+        'Parking',
+      );
+      expect(find('.observation-item')).toHaveFound(PARKING_DATA_POINTS.length);
     });
   });
 

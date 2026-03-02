@@ -86,10 +86,9 @@ $floating-card-margin: 12px;
     position: absolute;
     bottom: 60px;
     right: 32px;
-    gap: 16px;
+    gap: 10px;
 
-    .focus-location-button,
-    .filter-button {
+    .focus-location-button {
       width: 42px;
       height: 42px;
       padding: 9px;
@@ -108,30 +107,6 @@ $floating-card-margin: 12px;
         padding: 11px;
       }
     }
-
-    .filter-button {
-      border: none;
-      color: black;
-    }
-
-    .badge-button {
-      position: relative;
-
-      small {
-        position: absolute;
-        left: 24px;
-        top: 7px;
-        background-color: var(--primary-color);
-        color: white;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 12px;
-        height: 12px;
-        border-radius: 12px;
-        font-size: 9px;
-      }
-    }
   }
 
   .toast-content {
@@ -142,6 +117,120 @@ $floating-card-margin: 12px;
       animation: ellipsis steps(4, end) 900ms infinite;
       content: '\2026';
       width: 0;
+    }
+  }
+}
+
+.map-controls-card {
+  position: absolute;
+  top: calc(#{$navigation-wave-offset} + #{$floating-card-margin});
+  left: $floating-card-margin;
+  z-index: $z-index - 2;
+  border-radius: 14px;
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  width: 250px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .map-control-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .map-control-label {
+    color: #475467;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .map-control-icon {
+    width: 14px;
+    height: 14px;
+    color: #344054;
+  }
+
+  .map-control-dropdown {
+    position: relative;
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .map-control-dropdown-button {
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #344054;
+    cursor: pointer;
+    padding: 6px 10px;
+    min-width: 120px;
+    max-width: 100%;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+  }
+
+  .map-control-options-list {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 3;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.12);
+    min-width: 180px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .map-control-option {
+    border: 0;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: #344054;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &:hover {
+      background: #f8fafc;
+    }
+
+    &.active {
+      background: #ecfdf3;
+      color: #14532d;
+      font-weight: 600;
+    }
+
+    i {
+      width: 8px;
+      height: 8px;
+      border-radius: 8px;
+      display: inline-block;
+      flex: 0 0 8px;
     }
   }
 }
@@ -294,6 +383,134 @@ $floating-card-margin: 12px;
   }
 }
 
+.observations-timeline {
+  position: absolute;
+  left: $floating-card-margin;
+  right: calc(360px + (2 * #{$floating-card-margin}));
+  bottom: $floating-card-margin;
+  z-index: $z-index - 2;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 12px 14px 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  min-width: 0;
+
+  .timeline-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+
+    h3,
+    p {
+      margin: 0;
+    }
+
+    p {
+      color: #667085;
+      white-space: nowrap;
+    }
+  }
+
+  .timeline-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-bottom: 8px;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #475467;
+
+    i {
+      width: 10px;
+      height: 10px;
+      border-radius: 10px;
+      display: inline-block;
+      flex: 0 0 10px;
+    }
+  }
+
+  .timeline-chart-wrapper {
+    position: relative;
+    height: 138px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  }
+
+  .timeline-chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .timeline-grid-line {
+    stroke: #e4e7ec;
+    stroke-width: 0.4;
+  }
+
+  .timeline-series-line {
+    fill: none;
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .timeline-series-point {
+    fill: none;
+    stroke-width: 3.8;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .timeline-selection-window {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 18px;
+    background: rgba(59, 130, 246, 0.18);
+    border-left: 1px solid rgba(37, 99, 235, 0.65);
+    border-right: 1px solid rgba(37, 99, 235, 0.65);
+    cursor: grab;
+    touch-action: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2px;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  .timeline-window-handle {
+    width: 3px;
+    height: 18px;
+    border-radius: 3px;
+    background: rgba(30, 64, 175, 0.85);
+    display: block;
+    pointer-events: none;
+  }
+
+  .timeline-axis {
+    margin-top: 8px;
+    color: #667085;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .timeline-empty {
+    margin: 0;
+    color: #667085;
+  }
+}
+
 @keyframes location-loading {
   0% {
     opacity: 1;
@@ -315,6 +532,10 @@ $floating-card-margin: 12px;
 }
 
 @media (max-width: 900px) {
+  .map-controls-card {
+    width: 220px;
+  }
+
   .observations-feed {
     top: auto;
     right: auto;
@@ -324,5 +545,11 @@ $floating-card-margin: 12px;
     max-width: none;
     height: calc(50% - (2 * #{$floating-card-margin}));
     margin: $floating-card-margin;
+  }
+
+  .observations-timeline {
+    left: $floating-card-margin;
+    right: $floating-card-margin;
+    bottom: calc(50% + #{$floating-card-margin} + 8px);
   }
 }

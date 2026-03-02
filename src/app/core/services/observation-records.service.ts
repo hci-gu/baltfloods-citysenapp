@@ -63,6 +63,26 @@ export class ObservationRecordsService {
       );
   }
 
+  public listRecentObservations(days: number): Observable<ObservationRecord[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
+
+    return this.http
+      .get<PocketbaseListResponse<ObservationRecord>>(
+        `${this.baseUrl}/collections/observations/records`,
+        {
+          params: {
+            page: '1',
+            perPage: '500',
+            sort: '-dataRetrievedTimestamp',
+            filter: `dataRetrievedTimestamp >= ${cutoffTimestamp}`,
+          },
+        },
+      )
+      .pipe(map((response) => response.items ?? []));
+  }
+
   public deleteObservation(recordId: string, authToken: string): Observable<void> {
     return this.http.delete<void>(
       `${this.baseUrl}/collections/observations/records/${recordId}`,

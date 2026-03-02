@@ -17,7 +17,7 @@ import {
 import { AuthService } from '@core/services/auth.service';
 import { environment } from '@environments/environment';
 import { Router } from '@angular/router';
-import { interval, startWith, switchMap } from 'rxjs';
+import { forkJoin, interval, startWith, switchMap } from 'rxjs';
 import { SharedModule } from '@shared/shared.module';
 import { PaginatorModule } from 'primeng/paginator';
 
@@ -50,6 +50,7 @@ interface UploadChartPoint {
   y: number;
   count: number;
   label: string;
+  markerPath: string;
 }
 
 interface UploadChartTick {
@@ -78,7 +79,12 @@ interface UploadChart {
 export class AdminObservationsComponent {
   private readonly destroyRef = inject(DestroyRef);
   private _observations = signal<ObservationRecord[]>([]);
+  private _recentObservations = signal<ObservationRecord[]>([]);
+  private _latestObservation = signal<ObservationRecord | null>(null);
   private readonly chartDays = 30;
+  private readonly chartPaddingTop = 6;
+  private readonly chartPaddingBottom = 6;
+  private readonly chartPaddingHorizontal = 2;
   public readonly pageSize = 50;
   private authState = toSignal(this.authService.authState$, {
     initialValue: { token: null, record: null },
@@ -113,18 +119,13 @@ export class AdminObservationsComponent {
       })),
   );
   public stats = computed<AdminStats>(() => {
-    const observations = this._observations();
+    const recentObservations = this._recentObservations();
     const todayStart = this.getDayStart(new Date());
 
-    const todayItems = observations.filter(
+    const todayItems = recentObservations.filter(
       (observation) => this.getTimestamp(observation).getTime() >= todayStart.getTime(),
     );
-
-    const latestUpload = observations
-      .slice()
-      .sort(
-        (a, b) => this.getTimestamp(b).getTime() - this.getTimestamp(a).getTime(),
-      )[0];
+    const latestUpload = this._latestObservation();
 
     return {
       totalUploads: this.totalItems(),
@@ -140,7 +141,7 @@ export class AdminObservationsComponent {
     };
   });
   public uploadChart = computed<UploadChart>(() => {
-    const observations = this._observations();
+    const observations = this._recentObservations();
     const today = this.getDayStart(new Date());
     const dayEntries = Array.from({ length: this.chartDays }, (_, index) => {
       const day = new Date(today);
@@ -152,6 +153,12 @@ export class AdminObservationsComponent {
       };
     });
     const dayMap = new Map(dayEntries.map((entry) => [entry.key, entry]));
+    const leftX = this.chartPaddingHorizontal;
+    const rightX = 100 - this.chartPaddingHorizontal;
+    const topY = this.chartPaddingTop;
+    const bottomY = 100 - this.chartPaddingBottom;
+    const plotWidth = rightX - leftX;
+    const plotHeight = bottomY - topY;
 
     observations.forEach((observation) => {
       const key = this.dayKey(this.getTimestamp(observation));
@@ -167,14 +174,15 @@ export class AdminObservationsComponent {
     const points = dayEntries.map((entry, index) => {
       const progress =
         dayEntries.length > 1 ? index / (dayEntries.length - 1) : 0;
-      const x = progress * 100;
-      const y = 100 - (entry.count / maxCount) * 100;
+      const x = leftX + progress * plotWidth;
+      const y = bottomY - (entry.count / maxCount) * plotHeight;
 
       return {
         x,
         y,
         count: entry.count,
         label: `${entry.day.toLocaleDateString()} (${entry.count})`,
+        markerPath: `M ${x.toFixed(2)} ${y.toFixed(2)} L ${x.toFixed(2)} ${y.toFixed(2)}`,
       };
     });
 
@@ -185,13 +193,13 @@ export class AdminObservationsComponent {
       .join(' ');
 
     const areaPath = points.length
-      ? `M ${points[0].x.toFixed(2)} 100 ${points
+      ? `M ${points[0].x.toFixed(2)} ${bottomY.toFixed(2)} ${points
           .map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-          .join(' ')} L ${points[points.length - 1].x.toFixed(2)} 100 Z`
+          .join(' ')} L ${points[points.length - 1].x.toFixed(2)} ${bottomY.toFixed(2)} Z`
       : '';
 
     const ticks: UploadChartTick[] = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
-      y: 100 - ratio * 100,
+      y: bottomY - ratio * plotHeight,
       label: Math.round(maxCount * ratio),
     }));
 
@@ -226,10 +234,31 @@ export class AdminObservationsComponent {
         next: (page) => this.applyObservationPage(page),
         error: (error: HttpErrorResponse) => this.handleLoadError(error),
       });
+
+    interval(15000)
+      .pipe(
+        startWith(0),
+        switchMap(() =>
+          forkJoin({
+            recent: this.observationRecordsService.listRecentObservations(
+              this.chartDays,
+            ),
+            latest: this.observationRecordsService.listObservations(1, 1),
+          }),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: ({ recent, latest }) => {
+          this._recentObservations.set(recent);
+          this._latestObservation.set(latest.items[0] ?? null);
+        },
+      });
   }
 
   public refresh(): void {
     this.loadObservationPage(this.currentPage(), true);
+    this.loadInsights();
   }
 
   public onPageChange(event: { page?: number }): void {
@@ -293,10 +322,12 @@ export class AdminObservationsComponent {
           const previousPage = this.currentPage() - 1;
           this.currentPage.set(previousPage);
           this.loadObservationPage(previousPage);
+          this.loadInsights();
           return;
         }
 
         this.loadObservationPage(this.currentPage());
+        this.loadInsights();
       },
       error: (error: HttpErrorResponse) => {
         this.removeDeletingRecordId(recordId);
@@ -358,6 +389,20 @@ export class AdminObservationsComponent {
         next: (responsePage) => this.applyObservationPage(responsePage),
         error: (error: HttpErrorResponse) => this.handleLoadError(error),
       });
+  }
+
+  private loadInsights(): void {
+    forkJoin({
+      recent: this.observationRecordsService.listRecentObservations(
+        this.chartDays,
+      ),
+      latest: this.observationRecordsService.listObservations(1, 1),
+    }).subscribe({
+      next: ({ recent, latest }) => {
+        this._recentObservations.set(recent);
+        this._latestObservation.set(latest.items[0] ?? null);
+      },
+    });
   }
 
   private applyObservationPage(page: ObservationRecordsPage): void {

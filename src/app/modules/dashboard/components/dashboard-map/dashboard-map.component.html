@@ -26,6 +26,116 @@
       </div>
     }
 
+    <section class="map-controls-card shadow-md">
+      <div class="map-control-row">
+        <span class="map-control-label body-xs">
+          <app-icon class="map-control-icon" icon="layers"></app-icon>
+          Filter
+        </span>
+        <div class="map-control-dropdown">
+          <button
+            type="button"
+            class="map-control-dropdown-button body-xs"
+            (click)="toggleTypeFilterDropdown()"
+          >
+            {{ selectedTypeFilterLabel() }}
+          </button>
+          @if (showTypeFilterDropdown()) {
+            <ul class="map-control-options-list">
+              <li>
+                <button
+                  type="button"
+                  class="map-control-option body-xs"
+                  [class.active]="!hasActiveTypeFilter()"
+                  (click)="clearTypeFilter()"
+                >
+                  All types
+                </button>
+              </li>
+              @for (option of typeFilterOptions; track option) {
+                <li>
+                  <button
+                    type="button"
+                    class="map-control-option body-xs"
+                    [class.active]="isTypeFilterActive(option)"
+                    [attr.data-type]="option"
+                    (click)="onFilterToggle(option)"
+                  >
+                    <i [style.background-color]="getObservationTypeColor(option)"></i>
+                    {{ getObservationTypeLabel(option) }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+
+      <div class="map-control-row">
+        <span class="map-control-label body-xs">
+          <app-icon class="map-control-icon" icon="map"></app-icon>
+          Display mode
+        </span>
+        <div class="map-control-dropdown">
+          <button
+            type="button"
+            class="map-control-dropdown-button body-xs"
+            (click)="toggleDisplayModeDropdown()"
+          >
+            {{ selectedDisplayModeLabel() }}
+          </button>
+          @if (showDisplayModeDropdown()) {
+            <ul class="map-control-options-list">
+              @for (option of displayModeOptions; track option.key) {
+                <li>
+                  <button
+                    type="button"
+                    class="map-control-option body-xs"
+                    [class.active]="option.key === selectedDisplayMode()"
+                    (click)="setDisplayMode(option.key)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+
+      <div class="map-control-row">
+        <span class="map-control-label body-xs">
+          <app-icon class="map-control-icon" icon="layers"></app-icon>
+          Selection range
+        </span>
+        <div class="map-control-dropdown">
+          <button
+            type="button"
+            class="map-control-dropdown-button body-xs"
+            (click)="toggleSelectionRangeDropdown()"
+          >
+            {{ selectedSelectionRangeLabel() }}
+          </button>
+          @if (showSelectionRangeDropdown()) {
+            <ul class="map-control-options-list">
+              @for (option of selectionRangeOptions; track option.key) {
+                <li>
+                  <button
+                    type="button"
+                    class="map-control-option body-xs"
+                    [class.active]="option.key === selectedSelectionRange()"
+                    (click)="setSelectionRange(option.key)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    </section>
+
     @if (selectedDataPoints(); as selectedDataPoints) {
       <app-dashboard-data-point-detail
         @slideInAndOut
@@ -35,27 +145,7 @@
       ></app-dashboard-data-point-detail>
     }
 
-    @if (showDataPointTypeFilter()) {
-      <app-dashboard-filter
-        @slideInAndOut
-        class="bottom-modal"
-        [filter]="dataPointTypeFilter()"
-        (close)="onFilterClose()"
-        (toggle)="onFilterToggle($event)"
-      ></app-dashboard-filter>
-    }
-
     <div class="actions flex-column">
-      <div class="badge-button">
-        @if (dataPointTypeFilter().length > 0) {
-          <small class="badge">{{ dataPointTypeFilter().length }}</small>
-        }
-        <app-icon
-          class="filter-button shadow-md"
-          icon="layers"
-          (click)="onFilterOpen()"
-        ></app-icon>
-      </div>
       <app-icon
         class="focus-location-button shadow-md"
         [class.loading]="locationLoading$ | async"
@@ -64,11 +154,90 @@
         (click)="onFocusLocationClick()"
       ></app-icon>
     </div>
+
+    <section class="observations-timeline shadow-md">
+      <header class="timeline-header">
+        <h3 class="heading-xs">Observations over time</h3>
+        <p class="body-xs">
+          {{ selectedObservationTimespanLabel() }} ·
+          {{ selectedTimelineWindowLabel() }}
+        </p>
+      </header>
+
+      @if (observationTimeline().series.length > 0) {
+        <div class="timeline-legend">
+          @for (series of observationTimeline().series; track series.type) {
+            <span class="legend-item body-xs">
+              <i [style.background-color]="series.color"></i>
+              {{ series.label }}
+            </span>
+          }
+        </div>
+
+        <div class="timeline-chart-wrapper" #timelineChartWrapper>
+          <svg
+            class="timeline-chart"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label="Observation timeline chart"
+          >
+            @for (tick of observationTimeline().ticks; track tick.y) {
+              <line
+                class="timeline-grid-line"
+                x1="0"
+                [attr.y1]="tick.y"
+                x2="100"
+                [attr.y2]="tick.y"
+              ></line>
+            }
+
+            @for (series of observationTimeline().series; track series.type) {
+              <path
+                class="timeline-series-line"
+                [attr.d]="series.path"
+                [attr.stroke]="series.color"
+              ></path>
+
+              @for (point of series.points; track point.markerPath) {
+                @if (point.count > 0) {
+                  <path
+                    class="timeline-series-point"
+                    [attr.d]="point.markerPath"
+                    [attr.stroke]="series.color"
+                  ></path>
+                }
+              }
+            }
+          </svg>
+
+          <div
+            class="timeline-selection-window"
+            [style.left.%]="observationTimelineWindowStyle().leftPercent"
+            [style.width.%]="observationTimelineWindowStyle().widthPercent"
+            (pointerdown)="onTimelineWindowPointerDown($event, timelineChartWrapper)"
+            (pointermove)="onTimelineWindowPointerMove($event, timelineChartWrapper)"
+            (pointerup)="onTimelineWindowPointerUp($event)"
+            (pointercancel)="onTimelineWindowPointerUp($event)"
+          >
+            <span class="timeline-window-handle left"></span>
+            <span class="timeline-window-handle right"></span>
+          </div>
+        </div>
+
+        <div class="timeline-axis body-xs">
+          <span>{{ observationTimeline().startLabel }}</span>
+          <span>{{ observationTimeline().endLabel }}</span>
+        </div>
+      } @else {
+        <p class="timeline-empty body-xs">No observations in this period.</p>
+      }
+    </section>
   </section>
 
   <aside class="observations-feed shadow-md">
     <div class="observations-header">
-      <h2 class="heading-sm">Latest observations</h2>
+      <h2 class="heading-sm">Observations</h2>
       <div class="timespan-filter">
         <button
           type="button"

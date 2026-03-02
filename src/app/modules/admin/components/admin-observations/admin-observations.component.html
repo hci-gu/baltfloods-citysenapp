@@ -71,14 +71,11 @@
             <path class="chart-area" [attr.d]="uploadChart().areaPath"></path>
             <path class="chart-line" [attr.d]="uploadChart().linePath"></path>
             @for (point of uploadChart().points; track point.x) {
-              <circle
-                class="chart-point"
-                [attr.cx]="point.x"
-                [attr.cy]="point.y"
-                r="1.2"
-              >
-                <title>{{ point.label }}</title>
-              </circle>
+              @if (point.count > 0) {
+                <path class="chart-point" [attr.d]="point.markerPath">
+                  <title>{{ point.label }}</title>
+                </path>
+              }
             }
           </svg>
         </div>
@@ -93,7 +90,7 @@
     <section class="admin-card list-card">
       <header class="admin-header">
         <div>
-          <h1 class="heading-sm">Observations dashboard</h1>
+          <h1 class="heading-sm">Observations</h1>
         </div>
 
         <div class="actions">
@@ -161,7 +158,6 @@
               [first]="(currentPage() - 1) * pageSize"
               [rows]="pageSize"
               [totalRecords]="totalItems()"
-              [rowsPerPageOptions]="[pageSize]"
               [showCurrentPageReport]="true"
               currentPageReportTemplate="{first} - {last} of {totalRecords}"
               (onPageChange)="onPageChange($event)"
