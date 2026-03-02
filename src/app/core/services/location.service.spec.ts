@@ -1,6 +1,6 @@
 import { Shallow } from 'shallow-render';
 import { CoreModule } from '../core.module';
-import { take } from 'rxjs';
+import { firstValueFrom, take, toArray } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { LocationService, UserLocation } from './location.service';
@@ -20,14 +20,14 @@ describe('LocationService', () => {
 
   describe('userLocation$', () => {
     describe('on success', () => {
-      it('should emit user location ', (done) => {
+      it('should emit user location and grant permission', async () => {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-expect-error
         navigator.geolocation = {
           getCurrentPosition: (success: any): void => {
             setTimeout(() => {
               success({ coords: { latitude: 10, longitude: 10 } });
-            }, 500);
+            }, 0);
           },
         };
         const { instance } = shallow.createService();
@@ -42,38 +42,33 @@ describe('LocationService', () => {
           },
         ];
 
-        let result: unknown[] = [];
-        instance.userLocation$.pipe(take(2)).subscribe((emission) => {
-          result.push(emission);
-
-          if (result.length === 2) {
-            expect(result).toEqual(userLocationExpectation);
-            done();
-          }
-        });
+        const permissionResultPromise = firstValueFrom(
+          instance.locationPermissionState$.pipe(take(3), toArray()),
+        );
+        const userLocationResult = await firstValueFrom(
+          instance.userLocation$.pipe(take(2), toArray()),
+        );
+        expect(userLocationResult).toEqual(userLocationExpectation);
 
         const permissionExpectation: PermissionState[] = ['prompt', 'prompt', 'granted'];
 
-        result = [];
-        instance.locationPermissionState$.pipe(take(3)).subscribe((permission) => {
-          result.push(permission);
-          if (result.length === 3) {
-            expect(result).toEqual(permissionExpectation);
-            done();
-          }
-        });
+        const permissionResult = await permissionResultPromise;
+        expect(permissionResult).toEqual(permissionExpectation);
       });
     });
 
     describe('on error', () => {
-      it('should emit user location ', (done) => {
+      it('should set permission state to denied when geolocation permission is denied', async () => {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-expect-error
         navigator.geolocation = {
           getCurrentPosition: (_: any, error: any): void => {
             setTimeout(() => {
-              error();
-            }, 500);
+              error({
+                code: 1,
+                PERMISSION_DENIED: 1,
+              });
+            }, 0);
           },
         };
         const { instance } = shallow.createService();
@@ -87,27 +82,56 @@ describe('LocationService', () => {
           },
         ];
 
-        let result: unknown[] = [];
-
-        instance.userLocation$.pipe(take(2)).subscribe((emission) => {
-          result.push(emission);
-
-          if (result.length === 2) {
-            expect(result).toEqual(userLocationExpectation);
-            done();
-          }
-        });
+        const permissionResultPromise = firstValueFrom(
+          instance.locationPermissionState$.pipe(take(3), toArray()),
+        );
+        const userLocationResult = await firstValueFrom(
+          instance.userLocation$.pipe(take(2), toArray()),
+        );
+        expect(userLocationResult).toEqual(userLocationExpectation);
 
         const permissionExpectation: PermissionState[] = ['prompt', 'prompt', 'denied'];
 
-        result = [];
-        instance.locationPermissionState$.pipe(take(3)).subscribe((permission) => {
-          result.push(permission);
-          if (result.length === 3) {
-            expect(result).toEqual(permissionExpectation);
-            done();
-          }
-        });
+        const permissionResult = await permissionResultPromise;
+        expect(permissionResult).toEqual(permissionExpectation);
+      });
+
+      it('should not set permission state to denied for non-permission geolocation errors', async () => {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
+        navigator.geolocation = {
+          getCurrentPosition: (_: any, error: any): void => {
+            setTimeout(() => {
+              error({
+                code: 2,
+                PERMISSION_DENIED: 1,
+              });
+            }, 0);
+          },
+        };
+        const { instance } = shallow.createService();
+
+        const userLocationExpectation: UserLocation[] = [
+          {
+            loading: true,
+          },
+          {
+            loading: false,
+          },
+        ];
+
+        const permissionResultPromise = firstValueFrom(
+          instance.locationPermissionState$.pipe(take(2), toArray()),
+        );
+        const userLocationResult = await firstValueFrom(
+          instance.userLocation$.pipe(take(2), toArray()),
+        );
+        expect(userLocationResult).toEqual(userLocationExpectation);
+
+        const permissionExpectation: PermissionState[] = ['prompt', 'prompt'];
+
+        const permissionResult = await permissionResultPromise;
+        expect(permissionResult).toEqual(permissionExpectation);
       });
     });
   });

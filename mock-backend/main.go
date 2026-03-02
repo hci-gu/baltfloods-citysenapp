@@ -24,6 +24,12 @@ import (
 	_ "app/migrations"
 )
 
+const (
+	observationTypeStormWater       = "storm_water"
+	observationTypeWaterbagTestkit  = "waterbag_testkit"
+	observationTypeWaterObservation = "water_observation"
+)
+
 func main() {
 	app := pocketbase.New()
 
@@ -60,7 +66,7 @@ func main() {
 			if err := requireStreetAIKey(e, streetAIKey); err != nil {
 				return err
 			}
-			records, err := fetchRecords(se.App, "streetai_storm_water", e.Request.PathValue("jurisdictionId"))
+			records, err := fetchRecords(se.App, "observations", e.Request.PathValue("jurisdictionId"))
 			if err != nil {
 				return apis.NewApiError(500, "Failed to load storm water data.", err)
 			}
@@ -90,7 +96,7 @@ func main() {
 			if err := requireStreetAIKey(e, streetAIKey); err != nil {
 				return err
 			}
-			records, err := fetchRecords(se.App, "streetai_waterbag_testkit", e.Request.PathValue("jurisdictionId"))
+			records, err := fetchRecords(se.App, "observations", e.Request.PathValue("jurisdictionId"))
 			if err != nil {
 				return apis.NewApiError(500, "Failed to load waterbag testkit data.", err)
 			}
@@ -117,7 +123,7 @@ func main() {
 
 		observationGroup := se.Router.Group("/observation")
 		observationGroup.GET("/water", func(e *core.RequestEvent) error {
-			records, err := fetchRecords(se.App, "streetai_waterbag_testkit", "")
+			records, err := fetchRecords(se.App, "observations", "")
 			if err != nil {
 				return apis.NewApiError(500, "Failed to load water observations.", err)
 			}
@@ -301,21 +307,34 @@ func mapAirQuality(records []*core.Record) []map[string]any {
 func mapStormWater(records []*core.Record) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
+		if record.GetString("type") != observationTypeStormWater {
+			continue
+		}
+
+		data := observationData(record)
+		fillLevel := valueAsMap(data["fillLevel"])
+		if fillLevel == nil {
+			fillLevel = map[string]any{
+				"value":  data["fillLevel_value"],
+				"result": data["fillLevel_result"],
+			}
+		}
+
 		items = append(items, map[string]any{
-			"name":                   record.GetRaw("name"),
-			"latitude":               record.GetRaw("latitude"),
-			"longitude":              record.GetRaw("longitude"),
-			"dataRetrievedTimestamp": record.GetRaw("dataRetrievedTimestamp"),
-			"waterLevel":             record.GetRaw("waterLevel"),
-			"waterTemperature":       record.GetRaw("waterTemperature"),
-			"electricalConductivity": record.GetRaw("electricalConductivity"),
-			"turbidity":              record.GetRaw("turbidity"),
-			"flowRate":               record.GetRaw("flowRate"),
-			"fillLevel": map[string]any{
-				"value":  record.GetRaw("fillLevel_value"),
-				"result": record.GetRaw("fillLevel_result"),
-			},
-			"waterQuality": normalizeStormWaterQuality(record.GetRaw("waterQuality")),
+			"name":      record.GetRaw("name"),
+			"latitude":  record.GetRaw("latitude"),
+			"longitude": record.GetRaw("longitude"),
+			"dataRetrievedTimestamp": firstNonNil(
+				record.GetRaw("dataRetrievedTimestamp"),
+				int64(resolveObservationTimestamp(record)),
+			),
+			"waterLevel":             data["waterLevel"],
+			"waterTemperature":       data["waterTemperature"],
+			"electricalConductivity": data["electricalConductivity"],
+			"turbidity":              data["turbidity"],
+			"flowRate":               data["flowRate"],
+			"fillLevel":              fillLevel,
+			"waterQuality":           normalizeStormWaterQuality(data["waterQuality"]),
 		})
 	}
 	return items
@@ -382,63 +401,43 @@ func mapRoadWorks(records []*core.Record) []map[string]any {
 func mapWaterbagTestkit(records []*core.Record) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		if record.GetString("observationType") != "" {
+		if record.GetString("type") != observationTypeWaterbagTestkit {
 			continue
 		}
-		if record.GetRaw("coords_latitudeValue") == nil || record.GetRaw("coords_longitudeValue") == nil {
+
+		latitude := record.GetRaw("latitude")
+		longitude := record.GetRaw("longitude")
+		if latitude == nil || longitude == nil {
 			continue
 		}
+
+		data := observationData(record)
 
 		items = append(items, map[string]any{
 			"id": record.Id,
 			"coords": map[string]any{
-				"latitudeValue":  record.GetRaw("coords_latitudeValue"),
-				"longitudeValue": record.GetRaw("coords_longitudeValue"),
+				"latitudeValue":  latitude,
+				"longitudeValue": longitude,
 			},
-			"dataRetrievedTimestamp": record.GetRaw("dataRetrievedTimestamp"),
-			"imageUrl":               record.GetRaw("imageUrl"),
-			"airTemp": map[string]any{
-				"value":                  record.GetRaw("airTemp_value"),
-				"dataRetrievedTimestamp": record.GetRaw("airTemp_dataRetrievedTimestamp"),
-			},
-			"waterTemp": map[string]any{
-				"value":                  record.GetRaw("waterTemp_value"),
-				"dataRetrievedTimestamp": record.GetRaw("waterTemp_dataRetrievedTimestamp"),
-			},
-			"visibility": map[string]any{
-				"value":                  record.GetRaw("visibility_value"),
-				"dataRetrievedTimestamp": record.GetRaw("visibility_dataRetrievedTimestamp"),
-			},
-			"algae": map[string]any{
-				"value":                  record.GetRaw("algae_value"),
-				"dataRetrievedTimestamp": record.GetRaw("algae_dataRetrievedTimestamp"),
-			},
-			"waterPh": map[string]any{
-				"value":                  record.GetRaw("waterPh_value"),
-				"dataRetrievedTimestamp": record.GetRaw("waterPh_dataRetrievedTimestamp"),
-				"result":                 record.GetRaw("waterPh_result"),
-			},
-			"turbidity": map[string]any{
-				"value":                  record.GetRaw("turbidity_value"),
-				"dataRetrievedTimestamp": record.GetRaw("turbidity_dataRetrievedTimestamp"),
-				"result":                 record.GetRaw("turbidity_result"),
-			},
-			"nitrate": map[string]any{
-				"value":                  record.GetRaw("nitrate_value"),
-				"dataRetrievedTimestamp": record.GetRaw("nitrate_dataRetrievedTimestamp"),
-				"result":                 record.GetRaw("nitrate_result"),
-			},
-			"phosphate": map[string]any{
-				"value":                  record.GetRaw("phosphate_value"),
-				"dataRetrievedTimestamp": record.GetRaw("phosphate_dataRetrievedTimestamp"),
-				"result":                 record.GetRaw("phosphate_result"),
-			},
-			"dissolvedOxygen": map[string]any{
-				"value":                  record.GetRaw("dissolvedOxygen_value"),
-				"dataRetrievedTimestamp": record.GetRaw("dissolvedOxygen_dataRetrievedTimestamp"),
-				"result":                 record.GetRaw("dissolvedOxygen_result"),
-				"calculatedValue":        record.GetRaw("dissolvedOxygen_calculatedValue"),
-			},
+			"dataRetrievedTimestamp": firstNonNil(
+				record.GetRaw("dataRetrievedTimestamp"),
+				int64(resolveObservationTimestamp(record)),
+			),
+			"imageUrl":   observationImageURL(record, "observations"),
+			"airTemp":    metricWithOptionalFields(data, "airTemp"),
+			"waterTemp":  metricWithOptionalFields(data, "waterTemp"),
+			"visibility": metricWithOptionalFields(data, "visibility"),
+			"algae":      metricWithOptionalFields(data, "algae"),
+			"waterPh":    metricWithOptionalFields(data, "waterPh", "result"),
+			"turbidity":  metricWithOptionalFields(data, "turbidity", "result"),
+			"nitrate":    metricWithOptionalFields(data, "nitrate", "result"),
+			"phosphate":  metricWithOptionalFields(data, "phosphate", "result"),
+			"dissolvedOxygen": metricWithOptionalFields(
+				data,
+				"dissolvedOxygen",
+				"result",
+				"calculatedValue",
+			),
 		})
 	}
 	return items
@@ -574,17 +573,18 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 		return nil, apis.NewApiError(400, "Invalid multipart form payload.", err)
 	}
 
-	collection, err := app.FindCollectionByNameOrId("streetai_waterbag_testkit")
+	collection, err := app.FindCollectionByNameOrId("observations")
 	if err != nil {
-		return nil, apis.NewApiError(500, "Missing streetai_waterbag_testkit collection.", err)
+		return nil, apis.NewApiError(500, "Missing observations collection.", err)
 	}
 
 	record := core.NewRecord(collection)
+	record.Set("type", observationTypeWaterObservation)
 
-	if err := setRequiredNumber(record, "coords_latitudeValue", e.Request.FormValue("latitude")); err != nil {
+	if err := setRequiredNumber(record, "latitude", e.Request.FormValue("latitude")); err != nil {
 		return nil, err
 	}
-	if err := setRequiredNumber(record, "coords_longitudeValue", e.Request.FormValue("longitude")); err != nil {
+	if err := setRequiredNumber(record, "longitude", e.Request.FormValue("longitude")); err != nil {
 		return nil, err
 	}
 
@@ -592,49 +592,89 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 	if observationType == "" {
 		return nil, apis.NewApiError(400, "Missing observation type.", nil)
 	}
-	if observationType != "water_system" && observationType != "stormwater" {
+	if observationType != "water_system" &&
+		observationType != "stormwater" &&
+		observationType != "water_overflow" {
 		return nil, apis.NewApiError(400, "Invalid observation type.", nil)
 	}
-	record.Set("observationType", observationType)
-
-	if value := e.Request.FormValue("identificationCode"); value != "" {
-		record.Set("identificationCode", value)
-	} else {
-		return nil, apis.NewApiError(400, "Missing identification code.", nil)
-	}
-
-	termsAccepted, err := parseBoolField(e.Request.FormValue("termsAccepted"))
-	if err != nil {
-		return nil, apis.NewApiError(400, "Invalid terms acceptance value.", err)
-	}
-	cc0Accepted, err := parseBoolField(e.Request.FormValue("cc0Accepted"))
-	if err != nil {
-		return nil, apis.NewApiError(400, "Invalid CC0 acceptance value.", err)
-	}
-	if !termsAccepted || !cc0Accepted {
-		return nil, apis.NewApiError(400, "Terms must be accepted.", nil)
-	}
-	record.Set("termsAccepted", termsAccepted)
-	record.Set("cc0Accepted", cc0Accepted)
+	isWaterOverflowObservation := observationType == "water_overflow"
 
 	timestamp := time.Now().Unix()
 	record.Set("dataRetrievedTimestamp", float64(timestamp))
 
-	setOptionalMetric(record, "airTemp_value", "airTemp_dataRetrievedTimestamp", e.Request.FormValue("airTemp"), timestamp)
-	setOptionalMetric(record, "waterTemp_value", "waterTemp_dataRetrievedTimestamp", e.Request.FormValue("waterTemp"), timestamp)
-	setOptionalMetric(record, "visibility_value", "visibility_dataRetrievedTimestamp", e.Request.FormValue("depthOfView"), timestamp)
-	setOptionalMetric(record, "waterPh_value", "waterPh_dataRetrievedTimestamp", e.Request.FormValue("waterPh"), timestamp)
-	setOptionalMetric(record, "turbidity_value", "turbidity_dataRetrievedTimestamp", e.Request.FormValue("turbidity"), timestamp)
-	setOptionalMetric(record, "dissolvedOxygen_value", "dissolvedOxygen_dataRetrievedTimestamp", e.Request.FormValue("dissolvedOxygen"), timestamp)
-	setOptionalMetric(record, "nitrate_value", "nitrate_dataRetrievedTimestamp", e.Request.FormValue("nitrate"), timestamp)
-	setOptionalMetric(record, "phosphate_value", "phosphate_dataRetrievedTimestamp", e.Request.FormValue("phosphate"), timestamp)
+	data := map[string]any{
+		"observationType": observationType,
+	}
 
-	if value := e.Request.FormValue("algaeLevel"); value != "" {
-		if mapped, ok := algaeLevelToValue(value); ok {
-			record.Set("algae_value", mapped)
-			record.Set("algae_dataRetrievedTimestamp", float64(timestamp))
+	if !isWaterOverflowObservation {
+		identificationCode := e.Request.FormValue("identificationCode")
+		if identificationCode == "" {
+			return nil, apis.NewApiError(400, "Missing identification code.", nil)
+		}
+		data["identificationCode"] = identificationCode
+
+		if value := e.Request.FormValue("airTemp"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["airTemp"] = numeric
+			}
+		}
+		if value := e.Request.FormValue("waterTemp"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["waterTemp"] = numeric
+			}
+		}
+		if value := e.Request.FormValue("depthOfView"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["depthOfView"] = numeric
+			}
+		}
+		if value := e.Request.FormValue("waterPh"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["waterPh"] = numeric
+			}
+		}
+		if value := e.Request.FormValue("turbidity"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["turbidity"] = numeric
+			}
+		}
+		if value := e.Request.FormValue("dissolvedOxygen"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["dissolvedOxygen"] = numeric
+			}
+		}
+		if value := e.Request.FormValue("nitrate"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["nitrate"] = numeric
+			}
+		}
+		if value := e.Request.FormValue("phosphate"); value != "" {
+			if numeric, ok := parseOptionalNumber(value); ok {
+				data["phosphate"] = numeric
+			}
+		}
+
+		termsAccepted, err := parseBoolField(e.Request.FormValue("termsAccepted"))
+		if err != nil {
+			return nil, apis.NewApiError(400, "Invalid terms acceptance value.", err)
+		}
+		cc0Accepted, err := parseBoolField(e.Request.FormValue("cc0Accepted"))
+		if err != nil {
+			return nil, apis.NewApiError(400, "Invalid CC0 acceptance value.", err)
+		}
+		if !termsAccepted || !cc0Accepted {
+			return nil, apis.NewApiError(400, "Terms must be accepted.", nil)
+		}
+		data["termsAccepted"] = termsAccepted
+		data["cc0Accepted"] = cc0Accepted
+
+		if value := e.Request.FormValue("algaeLevel"); value != "" {
+			if _, ok := algaeLevelToValue(value); ok {
+				data["algaeLevel"] = value
+			}
 		}
 	}
+	record.Set("data", data)
 
 	files := make([]*filesystem.File, 0)
 	if e.Request.MultipartForm != nil {
@@ -649,6 +689,9 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 	if len(files) > 0 {
 		record.Set("photo", files)
 	}
+	if isWaterOverflowObservation && len(files) == 0 {
+		return nil, apis.NewApiError(400, "Missing overflow photo.", nil)
+	}
 
 	if err := app.Save(record); err != nil {
 		return nil, apis.NewApiError(500, "Failed to store observation.", err)
@@ -660,94 +703,40 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 func mapWaterObservations(records []*core.Record) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		if record.GetString("observationType") == "" {
+		if record.GetString("type") != observationTypeWaterObservation {
 			continue
 		}
 
-		latitude := record.GetRaw("coords_latitudeValue")
-		if latitude == nil {
-			latitude = record.GetRaw("latitude")
-		}
-		longitude := record.GetRaw("coords_longitudeValue")
-		if longitude == nil {
-			longitude = record.GetRaw("longitude")
+		data := observationData(record)
+		imageUrl := observationImageURL(record, "observations")
+		observationType := firstNonNil(data["observationType"], record.GetRaw("observationType"))
+		if observationType == nil {
+			continue
 		}
 
-		airTemp := record.GetRaw("airTemp_value")
-		if airTemp == nil {
-			airTemp = record.GetRaw("airTemp")
-		}
-		waterTemp := record.GetRaw("waterTemp_value")
-		if waterTemp == nil {
-			waterTemp = record.GetRaw("waterTemp")
-		}
-		depthOfView := record.GetRaw("visibility_value")
-		if depthOfView == nil {
-			depthOfView = record.GetRaw("depthOfView")
-		}
-		waterPh := record.GetRaw("waterPh_value")
-		if waterPh == nil {
-			waterPh = record.GetRaw("waterPh")
-		}
-		turbidity := record.GetRaw("turbidity_value")
-		if turbidity == nil {
-			turbidity = record.GetRaw("turbidity")
-		}
-		dissolvedOxygen := record.GetRaw("dissolvedOxygen_value")
-		if dissolvedOxygen == nil {
-			dissolvedOxygen = record.GetRaw("dissolvedOxygen")
-		}
-		nitrate := record.GetRaw("nitrate_value")
-		if nitrate == nil {
-			nitrate = record.GetRaw("nitrate")
-		}
-		phosphate := record.GetRaw("phosphate_value")
-		if phosphate == nil {
-			phosphate = record.GetRaw("phosphate")
-		}
-
-		photo := ""
-		if value := record.Get("photo"); value != nil {
-			switch typed := value.(type) {
-			case []string:
-				if len(typed) > 0 {
-					photo = typed[0]
-				}
-			case string:
-				photo = typed
-			}
-		}
-
-		imageUrl := ""
-		if photo != "" {
-			imageUrl = "../api/files/streetai_waterbag_testkit/" + record.Id + "/" + photo
-		} else if value, ok := record.GetRaw("imageUrl").(string); ok {
-			imageUrl = value
-		}
-
-		algaeLevel := record.GetRaw("algaeLevel")
+		algaeLevel := data["algaeLevel"]
 		if algaeLevel == nil {
-			algaeLevel = mapAlgaeValueToLevel(record.GetRaw("algae_value"))
+			algaeLevel = mapAlgaeValueToLevel(data["algae_value"])
 		} else if value, ok := algaeLevel.(string); ok && value == "" {
-			algaeLevel = mapAlgaeValueToLevel(record.GetRaw("algae_value"))
+			algaeLevel = mapAlgaeValueToLevel(data["algae_value"])
 		}
 
 		items = append(items, map[string]any{
 			"id":                     record.Id,
-			"latitude":               latitude,
-			"longitude":              longitude,
+			"latitude":               firstNonNil(record.GetRaw("latitude"), data["latitude"]),
+			"longitude":              firstNonNil(record.GetRaw("longitude"), data["longitude"]),
 			"dataRetrievedTimestamp": resolveObservationTimestamp(record),
 			"imageUrl":               imageUrl,
-			"observationType":        record.GetRaw("observationType"),
-			"airTemp":                airTemp,
-			"waterTemp":              waterTemp,
-			"depthOfView":            depthOfView,
+			"observationType":        observationType,
+			"airTemp":                data["airTemp"],
+			"waterTemp":              data["waterTemp"],
+			"depthOfView":            data["depthOfView"],
 			"algaeLevel":             algaeLevel,
-			"waterPh":                waterPh,
-			"turbidity":              turbidity,
-			"dissolvedOxygen":        dissolvedOxygen,
-			"nitrate":                nitrate,
-			"phosphate":              phosphate,
+			"waterPh":                data["waterPh"],
+			"turbidity":              data["turbidity"],
+			"dissolvedOxygen":        data["dissolvedOxygen"],
+			"nitrate":                data["nitrate"],
+			"phosphate":              data["phosphate"],
 		})
 	}
 	return items
@@ -973,22 +962,15 @@ func setRequiredNumber(record *core.Record, field string, raw string) error {
 	return nil
 }
 
-func setOptionalMetric(
-	record *core.Record,
-	valueField string,
-	timestampField string,
-	raw string,
-	timestamp int64,
-) {
+func parseOptionalNumber(raw string) (float64, bool) {
 	if raw == "" {
-		return
+		return 0, false
 	}
 	value, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
-		return
+		return 0, false
 	}
-	record.Set(valueField, value)
-	record.Set(timestampField, float64(timestamp))
+	return value, true
 }
 
 func parseBoolField(raw string) (bool, error) {
@@ -1005,6 +987,89 @@ func resolveObservationTimestamp(record *core.Record) int64 {
 		}
 	}
 	return resolveRecordTimestamp(record)
+}
+
+func observationData(record *core.Record) map[string]any {
+	if data := valueAsMap(record.GetRaw("data")); data != nil {
+		return data
+	}
+	return map[string]any{}
+}
+
+func valueAsMap(value any) map[string]any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return typed
+	case string:
+		if typed == "" {
+			return nil
+		}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(typed), &parsed); err == nil {
+			return parsed
+		}
+	case []byte:
+		var parsed map[string]any
+		if err := json.Unmarshal(typed, &parsed); err == nil {
+			return parsed
+		}
+	}
+	return nil
+}
+
+func metricWithOptionalFields(data map[string]any, key string, optionalFields ...string) map[string]any {
+	metric := map[string]any{
+		"value":                  nil,
+		"dataRetrievedTimestamp": nil,
+	}
+
+	nested := valueAsMap(data[key])
+	if nested != nil {
+		metric["value"] = nested["value"]
+		metric["dataRetrievedTimestamp"] = nested["dataRetrievedTimestamp"]
+		for _, field := range optionalFields {
+			metric[field] = nested[field]
+		}
+		return metric
+	}
+
+	metric["value"] = data[key+"_value"]
+	metric["dataRetrievedTimestamp"] = data[key+"_dataRetrievedTimestamp"]
+	for _, field := range optionalFields {
+		metric[field] = data[key+"_"+field]
+	}
+	return metric
+}
+
+func observationImageURL(record *core.Record, collectionName string) string {
+	if filename := firstFileName(record.Get("photo")); filename != "" {
+		return "../api/files/" + collectionName + "/" + record.Id + "/" + filename
+	}
+	if value, ok := record.GetRaw("imageUrl").(string); ok {
+		return value
+	}
+	return ""
+}
+
+func firstFileName(value any) string {
+	switch typed := value.(type) {
+	case []string:
+		if len(typed) > 0 {
+			return typed[0]
+		}
+	case string:
+		return typed
+	}
+	return ""
+}
+
+func firstNonNil(values ...any) any {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
 }
 
 func toFloatFromAny(value any) (float64, bool) {

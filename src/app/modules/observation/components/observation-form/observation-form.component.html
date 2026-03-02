@@ -27,12 +27,17 @@
             <option value="stormwater">
               {{ "OBSERVATION.TYPE.STORMWATER" | translate }}
             </option>
+            <option value="water_overflow">
+              {{ "OBSERVATION.TYPE.WATER_OVERFLOW" | translate }}
+            </option>
           </select>
         </div>
         <div class="flex-column">
           <label class="p-label" for="photo">
             {{ "OBSERVATION.FIELD.PHOTO_LABEL" | translate }}
-            <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+            @if (!isWaterOverflowSelected) {
+              <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+            }
           </label>
           <input
             id="photo"
@@ -272,9 +277,9 @@
   }
 </main>
 <footer class="footer flex-column">
-  <app-steps [amount]="amountOfSteps" [active]="currentStep"></app-steps>
+  <app-steps [amount]="amountOfSteps" [active]="currentStepIndex"></app-steps>
   <div class="flex-row">
-    @if (currentStep > 0) {
+    @if (currentStepIndex > 0) {
       <p-button
         class="back-button"
         [label]="'OBSERVATION.FOOTER.BACK' | translate"

@@ -138,12 +138,15 @@ Form fields:
 - Required:
   - `latitude` (number)
   - `longitude` (number)
-  - `observationType` ("water_system" | "stormwater")
-  - `identificationCode` (string)
-  - `termsAccepted` (boolean)
-  - `cc0Accepted` (boolean)
+  - `observationType` ("water_system" | "stormwater" | "water_overflow")
+  - For `water_system` / `stormwater`:
+    - `identificationCode` (string)
+    - `termsAccepted` (boolean)
+    - `cc0Accepted` (boolean)
+  - For `water_overflow`:
+    - `photo` (file, required)
 - Optional:
-  - `photo` (file)
+  - `photo` (file; optional for `water_system` / `stormwater`)
   - `airTemp` (number)
   - `waterTemp` (number)
   - `depthOfView` (number)

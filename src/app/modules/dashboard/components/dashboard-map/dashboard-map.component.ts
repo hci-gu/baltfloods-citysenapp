@@ -272,6 +272,7 @@ export class DashboardMapComponent implements AfterViewInit {
   }
 
   public onFocusLocationClick(): void {
+    this.locationService.refreshUserLocation();
     this._focusLocation$.next();
   }
 
@@ -301,16 +302,18 @@ export class DashboardMapComponent implements AfterViewInit {
   }
 
   private onInitialFocusLocation(): void {
+    const userLocation$ = this.locationService.userLocation$;
+
     this.locationPermissionState$ =
       this.locationService.locationPermissionState$;
-    this.locationLoading$ = this.locationService.userLocation$.pipe(
+    this.locationLoading$ = userLocation$.pipe(
       map(({ loading }) => loading),
     );
 
     this._focusLocation$
       .pipe(
         withLatestFrom(
-          this.locationService.userLocation$,
+          userLocation$,
           this.locationService.locationPermissionState$,
         ),
         takeUntilDestroyed(this.destroyRef),

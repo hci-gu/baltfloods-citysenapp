@@ -55,6 +55,7 @@ describe('DashboardMapComponent', () => {
         getRoadWorks: jest.fn().mockReturnValue(of(ROAD_WORKS_DATA_POINTS)),
       })
       .mock(LocationService, {
+        refreshUserLocation: jest.fn(),
         locationPermissionState$: of('granted' as PermissionState),
         userLocation$: of({
           loading: false,
@@ -203,6 +204,7 @@ describe('DashboardMapComponent', () => {
 
       const { instance } = await shallow
         .mock(LocationService, {
+          refreshUserLocation: jest.fn(),
           locationPermissionState$: of('granted' as PermissionState),
           userLocation$: of({
             loading: false,
@@ -223,6 +225,7 @@ describe('DashboardMapComponent', () => {
 
       const { find, instance } = await shallow
         .mock(LocationService, {
+          refreshUserLocation: jest.fn(),
           locationPermissionState$: of('granted' as PermissionState),
           userLocation$: of({
             loading: false,
@@ -241,6 +244,7 @@ describe('DashboardMapComponent', () => {
     it('should show alert when permission state is "denied"', async () => {
       const { find, fixture } = await shallow
         .mock(LocationService, {
+          refreshUserLocation: jest.fn(),
           locationPermissionState$: of('denied' as PermissionState),
           userLocation$: of({
             loading: false,

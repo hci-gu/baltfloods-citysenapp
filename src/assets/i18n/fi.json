@@ -256,7 +256,8 @@
     },
     "TYPE": {
       "WATER_SYSTEM": "Vesijärjestelmän vesi",
-      "STORMWATER": "Hulevesi"
+      "STORMWATER": "Hulevesi",
+      "WATER_OVERFLOW": "Ylivuoto"
     },
     "ALGAE": {
       "NONE": "Ei sinilevää",

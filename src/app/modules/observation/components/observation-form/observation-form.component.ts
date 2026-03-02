@@ -59,8 +59,20 @@ interface ObservationForm {
 })
 export class ObservationFormComponent {
   public STEP = ObservationFormStep;
-  public currentStep = ObservationFormStep.LOCATION;
-  public amountOfSteps = Object.keys(ObservationFormStep).length / 2;
+  private readonly fullStepFlow: ObservationFormStep[] = [
+    ObservationFormStep.LOCATION,
+    ObservationFormStep.TYPE_AND_PHOTO,
+    ObservationFormStep.TEMPERATURE,
+    ObservationFormStep.VISIBILITY_AND_ALGAE,
+    ObservationFormStep.WATER_QUALITY,
+    ObservationFormStep.TERMS,
+  ];
+  private readonly overflowStepFlow: ObservationFormStep[] = [
+    ObservationFormStep.LOCATION,
+    ObservationFormStep.TYPE_AND_PHOTO,
+  ];
+  public currentStepIndex = 0;
+  public observationStepFlow = [...this.fullStepFlow];
 
   public observationForm: FormGroup<ObservationForm> = this.formBuilder.group({
     location: this.formBuilder.control<LatLong | null>(null, Validators.required),
@@ -100,14 +112,34 @@ export class ObservationFormComponent {
     private readonly formBuilder: FormBuilder,
     private readonly observationApi: ObservationApiService,
     private readonly router: Router,
-  ) {}
+  ) {
+    this.observationForm.controls.observationType.valueChanges.subscribe(() => {
+      this.updateFlowAndValidation();
+    });
+    this.updateFlowAndValidation();
+  }
+
+  public get currentStep(): ObservationFormStep {
+    return this.observationStepFlow[this.currentStepIndex] ?? ObservationFormStep.LOCATION;
+  }
+
+  public get amountOfSteps(): number {
+    return this.observationStepFlow.length;
+  }
+
+  public get isWaterOverflowSelected(): boolean {
+    return this.observationForm.controls.observationType.value === 'water_overflow';
+  }
 
   public get isNextEnabled(): boolean {
     switch (this.currentStep) {
       case ObservationFormStep.LOCATION:
         return this.observationForm.controls.location.valid;
       case ObservationFormStep.TYPE_AND_PHOTO:
-        return this.observationForm.controls.observationType.valid;
+        return (
+          this.observationForm.controls.observationType.valid &&
+          this.observationForm.controls.photo.valid
+        );
       case ObservationFormStep.TERMS:
         return (
           this.observationForm.controls.identificationCode.valid &&
@@ -120,26 +152,26 @@ export class ObservationFormComponent {
   }
 
   public get nextButtonLabel(): string {
-    return this.currentStep === ObservationFormStep.TERMS
+    return this.currentStepIndex === this.amountOfSteps - 1
       ? 'OBSERVATION.FOOTER.SUBMIT'
       : 'OBSERVATION.FOOTER.NEXT';
   }
 
   public onClickBack(): void {
-    if (this.currentStep > 0) {
-      this.currentStep -= 1;
+    if (this.currentStepIndex > 0) {
+      this.currentStepIndex -= 1;
       this.submissionErrorKey = null;
     }
   }
 
   public onClickNext(): void {
-    if (this.currentStep === ObservationFormStep.TERMS) {
+    if (this.currentStepIndex === this.amountOfSteps - 1) {
       this.submitObservation();
       return;
     }
 
-    if (this.currentStep < this.amountOfSteps - 1) {
-      this.currentStep += 1;
+    if (this.currentStepIndex < this.amountOfSteps - 1) {
+      this.currentStepIndex += 1;
       this.submissionErrorKey = null;
     }
   }
@@ -178,19 +210,42 @@ export class ObservationFormComponent {
         observationType: this.observationForm.controls.observationType
           .value as ObservationType,
         photo: this.observationForm.controls.photo.value,
-        airTemp: this.observationForm.controls.airTemp.value,
-        waterTemp: this.observationForm.controls.waterTemp.value,
-        depthOfView: this.observationForm.controls.depthOfView.value,
-        algaeLevel: this.observationForm.controls.algaeLevel.value,
-        waterPh: this.observationForm.controls.waterPh.value,
-        turbidity: this.observationForm.controls.turbidity.value,
-        dissolvedOxygen: this.observationForm.controls.dissolvedOxygen.value,
-        nitrate: this.observationForm.controls.nitrate.value,
-        phosphate: this.observationForm.controls.phosphate.value,
-        identificationCode: this.observationForm.controls.identificationCode
-          .value as string,
-        termsAccepted: this.observationForm.controls.termsAccepted.value,
-        cc0Accepted: this.observationForm.controls.cc0Accepted.value,
+        airTemp: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.airTemp.value,
+        waterTemp: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.waterTemp.value,
+        depthOfView: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.depthOfView.value,
+        algaeLevel: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.algaeLevel.value,
+        waterPh: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.waterPh.value,
+        turbidity: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.turbidity.value,
+        dissolvedOxygen: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.dissolvedOxygen.value,
+        nitrate: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.nitrate.value,
+        phosphate: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.phosphate.value,
+        identificationCode: this.isWaterOverflowSelected
+          ? undefined
+          : (this.observationForm.controls.identificationCode.value ?? undefined),
+        termsAccepted: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.termsAccepted.value,
+        cc0Accepted: this.isWaterOverflowSelected
+          ? undefined
+          : this.observationForm.controls.cc0Accepted.value,
       })
       .pipe(finalize(() => (this.isSubmitting = false)))
       .subscribe({
@@ -201,5 +256,69 @@ export class ObservationFormComponent {
           this.submissionErrorKey = 'OBSERVATION.MESSAGES.SUBMIT_ERROR';
         },
       });
+  }
+
+  private updateFlowAndValidation(): void {
+    if (this.isWaterOverflowSelected) {
+      this.observationStepFlow = [...this.overflowStepFlow];
+
+      this.observationForm.controls.photo.setValidators([Validators.required]);
+      this.observationForm.controls.identificationCode.clearValidators();
+      this.observationForm.controls.termsAccepted.clearValidators();
+      this.observationForm.controls.cc0Accepted.clearValidators();
+
+      this.observationForm.controls.airTemp.setValue(null, { emitEvent: false });
+      this.observationForm.controls.waterTemp.setValue(null, { emitEvent: false });
+      this.observationForm.controls.depthOfView.setValue(null, {
+        emitEvent: false,
+      });
+      this.observationForm.controls.algaeLevel.setValue(null, { emitEvent: false });
+      this.observationForm.controls.waterPh.setValue(null, { emitEvent: false });
+      this.observationForm.controls.turbidity.setValue(null, { emitEvent: false });
+      this.observationForm.controls.dissolvedOxygen.setValue(null, {
+        emitEvent: false,
+      });
+      this.observationForm.controls.nitrate.setValue(null, { emitEvent: false });
+      this.observationForm.controls.phosphate.setValue(null, { emitEvent: false });
+      this.observationForm.controls.identificationCode.setValue(null, {
+        emitEvent: false,
+      });
+      this.observationForm.controls.termsAccepted.setValue(false, {
+        emitEvent: false,
+      });
+      this.observationForm.controls.cc0Accepted.setValue(false, {
+        emitEvent: false,
+      });
+    } else {
+      this.observationStepFlow = [...this.fullStepFlow];
+
+      this.observationForm.controls.photo.clearValidators();
+      this.observationForm.controls.identificationCode.setValidators([
+        Validators.required,
+      ]);
+      this.observationForm.controls.termsAccepted.setValidators([
+        Validators.requiredTrue,
+      ]);
+      this.observationForm.controls.cc0Accepted.setValidators([
+        Validators.requiredTrue,
+      ]);
+    }
+
+    this.observationForm.controls.photo.updateValueAndValidity({
+      emitEvent: false,
+    });
+    this.observationForm.controls.identificationCode.updateValueAndValidity({
+      emitEvent: false,
+    });
+    this.observationForm.controls.termsAccepted.updateValueAndValidity({
+      emitEvent: false,
+    });
+    this.observationForm.controls.cc0Accepted.updateValueAndValidity({
+      emitEvent: false,
+    });
+
+    if (this.currentStepIndex > this.amountOfSteps - 1) {
+      this.currentStepIndex = this.amountOfSteps - 1;
+    }
   }
 }

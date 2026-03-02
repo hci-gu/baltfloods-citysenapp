@@ -256,7 +256,8 @@
     },
     "TYPE": {
       "WATER_SYSTEM": "Water from water system",
-      "STORMWATER": "Stormwater"
+      "STORMWATER": "Stormwater",
+      "WATER_OVERFLOW": "Water overflow"
     },
     "ALGAE": {
       "NONE": "No blue-green algae",

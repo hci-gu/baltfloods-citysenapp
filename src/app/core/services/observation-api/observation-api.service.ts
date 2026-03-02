@@ -4,25 +4,25 @@ import { Observable } from 'rxjs';
 import { LatLong } from '@core/models/location';
 import { environment } from '@environments/environment';
 
-export type ObservationType = 'water_system' | 'stormwater';
+export type ObservationType = 'water_system' | 'stormwater' | 'water_overflow';
 export type AlgaeLevel = 'none' | 'little' | 'rich' | 'very_rich';
 
 export interface WaterObservationPayload {
   location: LatLong;
   observationType: ObservationType;
   photo: File | null;
-  airTemp: number | null;
-  waterTemp: number | null;
-  depthOfView: number | null;
-  algaeLevel: AlgaeLevel | null;
-  waterPh: number | null;
-  turbidity: number | null;
-  dissolvedOxygen: number | null;
-  nitrate: number | null;
-  phosphate: number | null;
-  identificationCode: string;
-  termsAccepted: boolean;
-  cc0Accepted: boolean;
+  airTemp?: number | null;
+  waterTemp?: number | null;
+  depthOfView?: number | null;
+  algaeLevel?: AlgaeLevel | null;
+  waterPh?: number | null;
+  turbidity?: number | null;
+  dissolvedOxygen?: number | null;
+  nitrate?: number | null;
+  phosphate?: number | null;
+  identificationCode?: string;
+  termsAccepted?: boolean;
+  cc0Accepted?: boolean;
 }
 
 export interface WaterObservationResponse {
@@ -66,9 +66,15 @@ export class ObservationApiService {
     this.appendOptionalNumber(formData, 'nitrate', payload.nitrate);
     this.appendOptionalNumber(formData, 'phosphate', payload.phosphate);
 
-    formData.append('identificationCode', payload.identificationCode);
-    formData.append('termsAccepted', String(payload.termsAccepted));
-    formData.append('cc0Accepted', String(payload.cc0Accepted));
+    if (payload.identificationCode) {
+      formData.append('identificationCode', payload.identificationCode);
+    }
+    if (payload.termsAccepted !== undefined) {
+      formData.append('termsAccepted', String(payload.termsAccepted));
+    }
+    if (payload.cc0Accepted !== undefined) {
+      formData.append('cc0Accepted', String(payload.cc0Accepted));
+    }
 
     return this.httpClient.post<WaterObservationResponse>(
       `${this.baseUrl}/water`,
@@ -79,7 +85,7 @@ export class ObservationApiService {
   private appendOptionalNumber(
     formData: FormData,
     key: string,
-    value: number | null,
+    value: number | null | undefined,
   ): void {
     if (value === null || value === undefined) {
       return;
