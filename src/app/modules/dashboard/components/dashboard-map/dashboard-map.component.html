@@ -26,112 +26,126 @@
       </div>
     }
 
-    <section class="map-controls-card shadow-md">
-      <div class="map-control-row">
-        <span class="map-control-label body-xs">
-          <app-icon class="map-control-icon" icon="layers"></app-icon>
-          Filter
-        </span>
-        <div class="map-control-dropdown">
-          <button
-            type="button"
-            class="map-control-dropdown-button body-xs"
-            (click)="toggleTypeFilterDropdown()"
-          >
-            {{ selectedTypeFilterLabel() }}
-          </button>
-          @if (showTypeFilterDropdown()) {
-            <ul class="map-control-options-list">
-              <li>
-                <button
-                  type="button"
-                  class="map-control-option body-xs"
-                  [class.active]="!hasActiveTypeFilter()"
-                  (click)="clearTypeFilter()"
-                >
-                  All types
-                </button>
-              </li>
-              @for (option of typeFilterOptions; track option) {
-                <li>
-                  <button
-                    type="button"
-                    class="map-control-option body-xs"
-                    [class.active]="isTypeFilterActive(option)"
-                    [attr.data-type]="option"
-                    (click)="onFilterToggle(option)"
-                  >
-                    <i [style.background-color]="getObservationTypeColor(option)"></i>
-                    {{ getObservationTypeLabel(option) }}
-                  </button>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      </div>
+    <section
+      class="map-controls-card shadow-md"
+      [class.mobile-open]="showMobileControlsCard()"
+    >
+      <button
+        type="button"
+        class="mobile-controls-toggle body-xs"
+        (click)="toggleMobileControlsCard()"
+      >
+        <app-icon class="map-control-icon" icon="layers"></app-icon>
+        Filters
+      </button>
 
-      <div class="map-control-row">
-        <span class="map-control-label body-xs">
-          <app-icon class="map-control-icon" icon="map"></app-icon>
-          Display mode
-        </span>
-        <div class="map-control-dropdown">
-          <button
-            type="button"
-            class="map-control-dropdown-button body-xs"
-            (click)="toggleDisplayModeDropdown()"
-          >
-            {{ selectedDisplayModeLabel() }}
-          </button>
-          @if (showDisplayModeDropdown()) {
-            <ul class="map-control-options-list">
-              @for (option of displayModeOptions; track option.key) {
+      <div class="map-controls-content">
+        <div class="map-control-row">
+          <span class="map-control-label body-xs">
+            <app-icon class="map-control-icon" icon="layers"></app-icon>
+            Filter
+          </span>
+          <div class="map-control-dropdown">
+            <button
+              type="button"
+              class="map-control-dropdown-button body-xs"
+              (click)="toggleTypeFilterDropdown()"
+            >
+              {{ selectedTypeFilterLabel() }}
+            </button>
+            @if (showTypeFilterDropdown()) {
+              <ul class="map-control-options-list">
                 <li>
                   <button
                     type="button"
                     class="map-control-option body-xs"
-                    [class.active]="option.key === selectedDisplayMode()"
-                    (click)="setDisplayMode(option.key)"
+                    [class.active]="!hasActiveTypeFilter()"
+                    (click)="clearTypeFilter()"
                   >
-                    {{ option.label }}
+                    All types
                   </button>
                 </li>
-              }
-            </ul>
-          }
+                @for (option of typeFilterOptions; track option) {
+                  <li>
+                    <button
+                      type="button"
+                      class="map-control-option body-xs"
+                      [class.active]="isTypeFilterActive(option)"
+                      [attr.data-type]="option"
+                      (click)="onFilterToggle(option)"
+                    >
+                      <i [style.background-color]="getObservationTypeColor(option)"></i>
+                      {{ getObservationTypeLabel(option) }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
         </div>
-      </div>
 
-      <div class="map-control-row">
-        <span class="map-control-label body-xs">
-          <app-icon class="map-control-icon" icon="layers"></app-icon>
-          Selection range
-        </span>
-        <div class="map-control-dropdown">
-          <button
-            type="button"
-            class="map-control-dropdown-button body-xs"
-            (click)="toggleSelectionRangeDropdown()"
-          >
-            {{ selectedSelectionRangeLabel() }}
-          </button>
-          @if (showSelectionRangeDropdown()) {
-            <ul class="map-control-options-list">
-              @for (option of selectionRangeOptions; track option.key) {
-                <li>
-                  <button
-                    type="button"
-                    class="map-control-option body-xs"
-                    [class.active]="option.key === selectedSelectionRange()"
-                    (click)="setSelectionRange(option.key)"
-                  >
-                    {{ option.label }}
-                  </button>
-                </li>
-              }
-            </ul>
-          }
+        <div class="map-control-row">
+          <span class="map-control-label body-xs">
+            <app-icon class="map-control-icon" icon="map"></app-icon>
+            Display mode
+          </span>
+          <div class="map-control-dropdown">
+            <button
+              type="button"
+              class="map-control-dropdown-button body-xs"
+              (click)="toggleDisplayModeDropdown()"
+            >
+              {{ selectedDisplayModeLabel() }}
+            </button>
+            @if (showDisplayModeDropdown()) {
+              <ul class="map-control-options-list">
+                @for (option of displayModeOptions; track option.key) {
+                  <li>
+                    <button
+                      type="button"
+                      class="map-control-option body-xs"
+                      [class.active]="option.key === selectedDisplayMode()"
+                      (click)="setDisplayMode(option.key)"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
+
+        <div class="map-control-row">
+          <span class="map-control-label body-xs">
+            <app-icon class="map-control-icon" icon="layers"></app-icon>
+            Selection range
+          </span>
+          <div class="map-control-dropdown">
+            <button
+              type="button"
+              class="map-control-dropdown-button body-xs"
+              (click)="toggleSelectionRangeDropdown()"
+            >
+              {{ selectedSelectionRangeLabel() }}
+            </button>
+            @if (showSelectionRangeDropdown()) {
+              <ul class="map-control-options-list">
+                @for (option of selectionRangeOptions; track option.key) {
+                  <li>
+                    <button
+                      type="button"
+                      class="map-control-option body-xs"
+                      [class.active]="option.key === selectedSelectionRange()"
+                      (click)="setSelectionRange(option.key)"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
         </div>
       </div>
     </section>
@@ -155,13 +169,37 @@
       ></app-icon>
     </div>
 
-    <section class="observations-timeline shadow-md">
+    <section
+      class="observations-timeline shadow-md"
+      [class.mobile-panel-hidden]="activeMobileBottomPanel() !== 'timeline'"
+    >
       <header class="timeline-header">
-        <h3 class="heading-xs">Observations over time</h3>
-        <p class="body-xs">
-          {{ selectedObservationTimespanLabel() }} ·
-          {{ selectedTimelineWindowLabel() }}
-        </p>
+        <div class="mobile-panel-tabs" role="tablist" aria-label="Bottom panel tabs">
+          <button
+            type="button"
+            class="mobile-panel-tab body-xs"
+            [class.active]="activeMobileBottomPanel() === 'list'"
+            (click)="setMobileBottomPanel('list')"
+          >
+            Observations
+          </button>
+          <button
+            type="button"
+            class="mobile-panel-tab body-xs"
+            [class.active]="activeMobileBottomPanel() === 'timeline'"
+            (click)="setMobileBottomPanel('timeline')"
+          >
+            Timeline
+          </button>
+        </div>
+
+        <div class="timeline-header-main">
+          <h3 class="heading-xs">Observations over time</h3>
+          <p class="body-xs">
+            {{ selectedObservationTimespanLabel() }} ·
+            {{ selectedTimelineWindowLabel() }}
+          </p>
+        </div>
       </header>
 
       @if (observationTimeline().series.length > 0) {
@@ -235,34 +273,58 @@
     </section>
   </section>
 
-  <aside class="observations-feed shadow-md">
+  <aside
+    class="observations-feed shadow-md"
+    [class.mobile-panel-hidden]="activeMobileBottomPanel() !== 'list'"
+  >
     <div class="observations-header">
-      <h2 class="heading-sm">Observations</h2>
-      <div class="timespan-filter">
+      <div class="mobile-panel-tabs" role="tablist" aria-label="Bottom panel tabs">
         <button
           type="button"
-          class="timespan-filter-button body-xs"
-          (click)="toggleObservationTimespanFilter()"
+          class="mobile-panel-tab body-xs"
+          [class.active]="activeMobileBottomPanel() === 'list'"
+          (click)="setMobileBottomPanel('list')"
         >
-          {{ selectedObservationTimespanLabel() }}
+          Observations
         </button>
+        <button
+          type="button"
+          class="mobile-panel-tab body-xs"
+          [class.active]="activeMobileBottomPanel() === 'timeline'"
+          (click)="setMobileBottomPanel('timeline')"
+        >
+          Timeline
+        </button>
+      </div>
 
-        @if (showObservationTimespanFilter()) {
-          <ul class="timespan-filter-options">
-            @for (option of observationTimespanOptions; track option.key) {
-              <li>
-                <button
-                  type="button"
-                  class="timespan-filter-option body-xs"
-                  [class.active]="option.key === selectedObservationTimespan()"
-                  (click)="setObservationTimespan(option.key)"
-                >
-                  {{ option.label }}
-                </button>
-              </li>
-            }
-          </ul>
-        }
+      <div class="observations-header-main">
+        <h2 class="heading-sm">Observations</h2>
+        <div class="timespan-filter">
+          <button
+            type="button"
+            class="timespan-filter-button body-xs"
+            (click)="toggleObservationTimespanFilter()"
+          >
+            {{ selectedObservationTimespanLabel() }}
+          </button>
+
+          @if (showObservationTimespanFilter()) {
+            <ul class="timespan-filter-options">
+              @for (option of observationTimespanOptions; track option.key) {
+                <li>
+                  <button
+                    type="button"
+                    class="timespan-filter-option body-xs"
+                    [class.active]="option.key === selectedObservationTimespan()"
+                    (click)="setObservationTimespan(option.key)"
+                  >
+                    {{ option.label }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
       </div>
     </div>
 

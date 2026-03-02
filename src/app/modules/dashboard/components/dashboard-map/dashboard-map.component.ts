@@ -56,6 +56,7 @@ interface ObservationFeedItem {
 type ObservationTimespanKey = '7d' | '30d' | '90d' | '365d' | 'all';
 type MapDisplayMode = 'default' | 'heatmap';
 type TimelineSelectionRangeKey = '7d' | '14d' | '30d' | '60d' | '90d';
+type MobileBottomPanel = 'list' | 'timeline';
 
 interface ObservationTimespanOption {
   key: ObservationTimespanKey;
@@ -164,6 +165,8 @@ export class DashboardMapComponent implements AfterViewInit {
   public showTypeFilterDropdown = signal<boolean>(false);
   public showDisplayModeDropdown = signal<boolean>(false);
   public showSelectionRangeDropdown = signal<boolean>(false);
+  public showMobileControlsCard = signal<boolean>(false);
+  public activeMobileBottomPanel = signal<MobileBottomPanel>('list');
   public selectedDisplayMode = signal<MapDisplayMode>('default');
   public showObservationTimespanFilter = signal<boolean>(false);
   public selectedObservationTimespan = signal<ObservationTimespanKey>('365d');
@@ -638,6 +641,15 @@ export class DashboardMapComponent implements AfterViewInit {
     this.showDisplayModeDropdown.set(false);
   }
 
+  public toggleMobileControlsCard(): void {
+    this.showMobileControlsCard.update((open) => !open);
+    if (!this.showMobileControlsCard()) {
+      this.showTypeFilterDropdown.set(false);
+      this.showDisplayModeDropdown.set(false);
+      this.showSelectionRangeDropdown.set(false);
+    }
+  }
+
   public onFilterToggle(type: DataPointType): void {
     this.dataPointTypeFilter.update((current) => {
       const update = [...current];
@@ -665,6 +677,11 @@ export class DashboardMapComponent implements AfterViewInit {
     this.selectedSelectionRange.set(range);
     this.showSelectionRangeDropdown.set(false);
     this.setTimelineWindowStartRatio(this.timelineWindowStartRatio());
+  }
+
+  public setMobileBottomPanel(panel: MobileBottomPanel): void {
+    this.activeMobileBottomPanel.set(panel);
+    this.showObservationTimespanFilter.set(false);
   }
 
   public onFocusLocationClick(): void {

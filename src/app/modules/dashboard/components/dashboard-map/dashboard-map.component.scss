@@ -135,6 +135,16 @@ $floating-card-margin: 12px;
   flex-direction: column;
   gap: 8px;
 
+  .mobile-controls-toggle {
+    display: none;
+  }
+
+  .map-controls-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .map-control-row {
     display: flex;
     justify-content: space-between;
@@ -235,6 +245,10 @@ $floating-card-margin: 12px;
   }
 }
 
+.mobile-panel-tabs {
+  display: none;
+}
+
 .observations-feed {
   position: absolute;
   top: 0;
@@ -255,11 +269,14 @@ $floating-card-margin: 12px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 
   .observations-header {
+    margin: 0 0 12px;
+  }
+
+  .observations-header-main {
     display: flex;
     justify-content: space-between;
     gap: 10px;
     align-items: flex-start;
-    margin: 0 0 12px;
   }
 
   h2 {
@@ -397,11 +414,14 @@ $floating-card-margin: 12px;
   min-width: 0;
 
   .timeline-header {
+    margin-bottom: 8px;
+  }
+
+  .timeline-header-main {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 8px;
 
     h3,
     p {
@@ -532,24 +552,169 @@ $floating-card-margin: 12px;
 }
 
 @media (max-width: 900px) {
+  .map-layout {
+    --mobile-bottom-panel-height: 46%;
+  }
+
   .map-controls-card {
-    width: 220px;
+    width: auto;
+    left: 8px;
+    top: calc(#{$navigation-wave-offset} + 8px);
+    padding: 6px;
+    gap: 0;
+
+    .mobile-controls-toggle {
+      border: 1px solid #d0d5dd;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #344054;
+      cursor: pointer;
+      padding: 6px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .map-controls-content {
+      display: none;
+    }
+
+    .map-control-row {
+      gap: 8px;
+    }
+
+    .map-control-dropdown-button {
+      min-width: 104px;
+      padding: 5px 8px;
+    }
+
+    &.mobile-open {
+      width: min(240px, calc(100vw - 16px));
+
+      .map-controls-content {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+    }
+  }
+
+  .map-pane {
+    .scheduled-messages {
+      bottom: calc(var(--mobile-bottom-panel-height) + 10px);
+      padding: 0 10px;
+    }
+
+    .actions {
+      right: 10px;
+      bottom: calc(var(--mobile-bottom-panel-height) + 10px);
+    }
+  }
+
+  .mobile-panel-tabs {
+    display: inline-flex;
+    align-items: center;
+    background: #f2f4f7;
+    border: 1px solid #d0d5dd;
+    border-radius: 999px;
+    padding: 2px;
+    width: fit-content;
+    margin-bottom: 8px;
+  }
+
+  .mobile-panel-tab {
+    border: 0;
+    background: transparent;
+    color: #475467;
+    border-radius: 999px;
+    padding: 5px 10px;
+    cursor: pointer;
+
+    &.active {
+      background: #ecfdf3;
+      color: #14532d;
+      font-weight: 600;
+    }
+  }
+
+  .mobile-panel-hidden {
+    display: none !important;
+  }
+
+  .observations-feed,
+  .observations-timeline {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: auto;
+    max-width: none;
+    height: var(--mobile-bottom-panel-height);
+    margin: 0;
+    border-radius: 14px 14px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.14);
   }
 
   .observations-feed {
-    top: auto;
-    right: auto;
-    left: 0;
-    bottom: 0;
-    width: auto;
-    max-width: none;
-    height: calc(50% - (2 * #{$floating-card-margin}));
-    margin: $floating-card-margin;
+    padding: 10px 10px 8px;
+
+    .observations-header {
+      margin-bottom: 8px;
+    }
+
+    .observations-header-main {
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timespan-filter-button {
+      padding: 4px 8px;
+    }
+
+    .observations-list {
+      gap: 6px;
+    }
+
+    .observation-item {
+      padding: 8px 10px;
+      gap: 8px;
+      border-radius: 7px;
+    }
+
+    .observation-thumbnail {
+      width: 52px;
+      height: 52px;
+      flex-basis: 52px;
+    }
   }
 
   .observations-timeline {
-    left: $floating-card-margin;
-    right: $floating-card-margin;
-    bottom: calc(50% + #{$floating-card-margin} + 8px);
+    padding: 10px 10px 8px;
+
+    .timeline-header {
+      margin-bottom: 6px;
+    }
+
+    .timeline-header-main {
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timeline-legend {
+      gap: 6px 8px;
+      margin-bottom: 6px;
+    }
+
+    .timeline-chart-wrapper {
+      height: 118px;
+    }
+
+    .timeline-axis {
+      margin-top: 6px;
+    }
   }
 }
