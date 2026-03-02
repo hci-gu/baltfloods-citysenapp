@@ -1,3 +1,5 @@
+@use 'sass:list';
+
 @use 'sass:math';
 
 .p-element:has(.p-chip) {
@@ -28,9 +30,9 @@
   }
 
   img {
-    width: 1.5 + nth($inputPadding, 1);
-    height: 1.5 + nth($inputPadding, 1);
-    margin-left: -1 * nth($inputPadding, 2);
+    width: 1.5 + list.nth($inputPadding, 1);
+    height: 1.5 + list.nth($inputPadding, 1);
+    margin-left: -1 * list.nth($inputPadding, 2);
     margin-right: $inlineSpacing;
   }
 

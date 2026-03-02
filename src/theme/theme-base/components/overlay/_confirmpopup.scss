@@ -1,3 +1,5 @@
+@use 'sass:list';
+
 .p-confirm-popup {
   background: $overlayContentBg;
   color: $panelContentTextColor;
@@ -32,12 +34,12 @@
   &:before {
     border: solid transparent;
 
-    @if (nth($overlayContentBorder, 2) == 'none') {
+    @if (list.nth($overlayContentBorder, 2) == 'none') {
       border-color: rgba($overlayContentBg, 0);
       border-bottom-color: $overlayContentBg;
     } @else {
-      border-color: rgba(nth($overlayContentBorder, 3), 0);
-      border-bottom-color: nth($overlayContentBorder, 3);
+      border-color: rgba(list.nth($overlayContentBorder, 3), 0);
+      border-bottom-color: list.nth($overlayContentBorder, 3);
     }
   }
 
@@ -47,10 +49,10 @@
     }
 
     &:before {
-      @if (nth($overlayContentBorder, 2) == 'none') {
+      @if (list.nth($overlayContentBorder, 2) == 'none') {
         border-top-color: $overlayContentBg;
       } @else {
-        border-top-color: nth($overlayContentBorder, 3);
+        border-top-color: list.nth($overlayContentBorder, 3);
       }
     }
   }
