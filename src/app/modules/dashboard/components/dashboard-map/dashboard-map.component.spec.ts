@@ -250,16 +250,69 @@ describe('DashboardMapComponent', () => {
           WEATHER_STORM_WATER_DATA_POINTS.length +
           WEATHER_AIR_QUALITY_DATA_POINTS.length +
           PARKING_DATA_POINTS.length +
-          ROAD_WORKS_DATA_POINTS.length +
-          WATERBAG_TESTKIT_DATA_POINTS.length,
+          ROAD_WORKS_DATA_POINTS.length,
       );
 
       find('.observation-item')[0].nativeElement.click();
       fixture.detectChanges();
 
-      expect(await firstValueFrom(instance.mapCenter$)).toEqual([
-        61.05871, 28.18871,
-      ]);
+      expect(await firstValueFrom(instance.mapCenter$)).toEqual([1, 1]);
+    });
+
+    it('should default to 30 days and allow changing to all time', async () => {
+      const { find, fixture } = await shallow.render();
+
+      expect(find('.timespan-filter-button').nativeElement.textContent).toContain(
+        'Last 30 days',
+      );
+      expect(find('.observation-item')).toHaveFound(
+        WEATHER_CONDITION_DATA_POINTS.length +
+          WEATHER_STORM_WATER_DATA_POINTS.length +
+          WEATHER_AIR_QUALITY_DATA_POINTS.length +
+          PARKING_DATA_POINTS.length +
+          ROAD_WORKS_DATA_POINTS.length,
+      );
+
+      find('.timespan-filter-button').triggerEventHandler('click');
+      fixture.detectChanges();
+      find('.timespan-filter-option')
+        .map((item) => item.nativeElement as HTMLButtonElement)
+        .find((button) => button.textContent?.includes('All time'))
+        ?.click();
+      fixture.detectChanges();
+
+      expect(find('.observation-item')).toHaveFound(
+        WEATHER_CONDITION_DATA_POINTS.length +
+          WEATHER_STORM_WATER_DATA_POINTS.length +
+          WEATHER_AIR_QUALITY_DATA_POINTS.length +
+          PARKING_DATA_POINTS.length +
+          ROAD_WORKS_DATA_POINTS.length +
+          WATERBAG_TESTKIT_DATA_POINTS.length,
+      );
+    });
+
+    it('should apply list timespan filter to map markers', async () => {
+      const { find, findComponent, fixture } = await shallow.render();
+
+      expect(findComponent(MapComponent).markers).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ location: [61.05871, 28.18871] }),
+        ]),
+      );
+
+      find('.timespan-filter-button').triggerEventHandler('click');
+      fixture.detectChanges();
+      find('.timespan-filter-option')
+        .map((item) => item.nativeElement as HTMLButtonElement)
+        .find((button) => button.textContent?.includes('All time'))
+        ?.click();
+      fixture.detectChanges();
+
+      expect(findComponent(MapComponent).markers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ location: [61.05871, 28.18871] }),
+        ]),
+      );
     });
   });
 

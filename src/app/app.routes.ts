@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { environment } from '@environments/environment';
 import { authGuard } from '@core/guards/auth.guard';
-import { superuserAuthGuard } from '@core/guards/superuser-auth.guard';
 
 export const routes: Routes = [
   {
@@ -60,22 +59,23 @@ export const routes: Routes = [
     data: { navigationHeaderTitle: 'AUTH.PROFILE.TITLE' },
   },
   {
-    path: 'admin/login',
-    loadComponent: () =>
-      import('./modules/admin/components/admin-login/admin-login.component').then(
-        (c) => c.AdminLoginComponent,
-      ),
-    data: { navigationHeaderTitle: 'Admin login' },
-  },
-  {
-    path: 'admin',
+    path: 'dashboard',
     loadComponent: () =>
       import(
         './modules/admin/components/admin-observations/admin-observations.component'
       ).then((c) => c.AdminObservationsComponent),
-    canActivate: [superuserAuthGuard],
     pathMatch: 'full',
-    data: { navigationHeaderTitle: 'Admin observations' },
+    data: { navigationHeaderTitle: 'Dashboard' },
+  },
+  {
+    path: 'admin',
+    redirectTo: 'dashboard',
+    pathMatch: 'full',
+  },
+  {
+    path: 'admin/login',
+    redirectTo: 'login',
+    pathMatch: 'full',
   },
   {
     path: '**',

@@ -93,10 +93,7 @@
     <section class="admin-card list-card">
       <header class="admin-header">
         <div>
-          <h1 class="heading-sm">Admin observations</h1>
-          <p class="body-sm subtitle">
-            Latest observations. You can delete records from this list.
-          </p>
+          <h1 class="heading-sm">Observations dashboard</h1>
         </div>
 
         <div class="actions">
@@ -105,11 +102,6 @@
             severity="secondary"
             [disabled]="isLoading()"
             (click)="refresh()"
-          ></p-button>
-          <p-button
-            label="Log out"
-            severity="contrast"
-            (click)="logout()"
           ></p-button>
         </div>
       </header>
@@ -120,43 +112,62 @@
 
       @if (isLoading()) {
         <p class="body-sm">Loading observations...</p>
-      } @else if (observationFeed().length > 0) {
-        <ul class="observations-list">
-          @for (observation of observationFeed(); track observation.id) {
-            <li class="observation-row">
-              <div class="observation-content">
-                @if (observation.imageUrl) {
-                  <img
-                    class="observation-thumbnail"
-                    [src]="observation.imageUrl"
-                    [alt]="'Image for ' + observation.name"
-                    loading="lazy"
-                  />
-                }
-                <p class="observation-name body-sm">{{ observation.name }}</p>
-                <p class="observation-type body-xs">
-                  {{ observation.type }}
-                </p>
-                @if (observation.lastUpdatedOn) {
-                  <p class="observation-time body-xs">
-                    {{ observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm' }}
-                  </p>
-                }
-              </div>
-
-              <p-button
-                label="Delete"
-                severity="danger"
-                [outlined]="true"
-                [loading]="isDeleting(observation.id)"
-                [disabled]="isDeleting(observation.id)"
-                (click)="deleteObservation(observation)"
-              ></p-button>
-            </li>
-          }
-        </ul>
       } @else {
-        <p class="body-sm">No observations yet.</p>
+        <div class="list-content">
+          @if (observationFeed().length > 0) {
+            <ul class="observations-list">
+              @for (observation of observationFeed(); track observation.id) {
+                <li class="observation-row">
+                  <div class="observation-content">
+                    @if (observation.imageUrl) {
+                      <img
+                        class="observation-thumbnail"
+                        [src]="observation.imageUrl"
+                        [alt]="'Image for ' + observation.name"
+                        loading="lazy"
+                      />
+                    }
+                    <p class="observation-name body-sm">{{ observation.name }}</p>
+                    <p class="observation-type body-xs">
+                      {{ observation.type }}
+                    </p>
+                    @if (observation.lastUpdatedOn) {
+                      <p class="observation-time body-xs">
+                        {{ observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm' }}
+                      </p>
+                    }
+                  </div>
+
+                  @if (canDelete()) {
+                    <p-button
+                      label="Delete"
+                      severity="danger"
+                      [outlined]="true"
+                      [loading]="isDeleting(observation.id)"
+                      [disabled]="isDeleting(observation.id)"
+                      (click)="deleteObservation(observation)"
+                    ></p-button>
+                  }
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="body-sm">No observations yet.</p>
+          }
+
+          @if (totalItems() > pageSize) {
+            <p-paginator
+              class="observations-paginator"
+              [first]="(currentPage() - 1) * pageSize"
+              [rows]="pageSize"
+              [totalRecords]="totalItems()"
+              [rowsPerPageOptions]="[pageSize]"
+              [showCurrentPageReport]="true"
+              currentPageReportTemplate="{first} - {last} of {totalRecords}"
+              (onPageChange)="onPageChange($event)"
+            ></p-paginator>
+          }
+        </div>
       }
     </section>
   </section>

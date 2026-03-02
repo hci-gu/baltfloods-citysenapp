@@ -8,15 +8,18 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   ObservationRecord,
-  SuperuserAuthService,
-} from '@core/services/superuser-auth.service';
+  ObservationRecordsPage,
+  ObservationRecordsService,
+} from '@core/services/observation-records.service';
+import { AuthService } from '@core/services/auth.service';
 import { environment } from '@environments/environment';
 import { Router } from '@angular/router';
 import { interval, startWith, switchMap } from 'rxjs';
 import { SharedModule } from '@shared/shared.module';
+import { PaginatorModule } from 'primeng/paginator';
 
 interface ObservationFeedItem {
   id: string;
@@ -70,16 +73,29 @@ interface UploadChart {
   templateUrl: './admin-observations.component.html',
   styleUrls: ['./admin-observations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SharedModule, DatePipe],
+  imports: [SharedModule, DatePipe, PaginatorModule],
 })
 export class AdminObservationsComponent {
   private readonly destroyRef = inject(DestroyRef);
   private _observations = signal<ObservationRecord[]>([]);
   private readonly chartDays = 30;
+  public readonly pageSize = 50;
+  private authState = toSignal(this.authService.authState$, {
+    initialValue: { token: null, record: null },
+  });
 
   public isLoading = signal<boolean>(true);
   public errorMessage = signal<string>('');
+  public currentPage = signal<number>(1);
+  public totalItems = signal<number>(0);
   public deletingRecordIds = signal<Set<string>>(new Set());
+  public isAuthenticated = computed(() => !!this.authState().token);
+  public isAdminUser = computed(
+    () => this.authState().record?.type === 'admin',
+  );
+  public canDelete = computed(
+    () => this.isAuthenticated() && this.isAdminUser(),
+  );
 
   public observationFeed = computed<ObservationFeedItem[]>(() =>
     this._observations()
@@ -111,7 +127,7 @@ export class AdminObservationsComponent {
       )[0];
 
     return {
-      totalUploads: observations.length,
+      totalUploads: this.totalItems(),
       uploadsToday: todayItems.length,
       latestUpload: latestUpload
         ? {
@@ -191,40 +207,49 @@ export class AdminObservationsComponent {
   });
 
   public constructor(
-    private readonly superuserAuthService: SuperuserAuthService,
+    private readonly observationRecordsService: ObservationRecordsService,
+    private readonly authService: AuthService,
     private readonly router: Router,
   ) {
     interval(15000)
       .pipe(
         startWith(0),
-        switchMap(() => this.superuserAuthService.listObservations()),
+        switchMap(() =>
+          this.observationRecordsService.listObservations(
+            this.currentPage(),
+            this.pageSize,
+          ),
+        ),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (records) => {
-          this._observations.set(records);
-          this.isLoading.set(false);
-          this.errorMessage.set('');
-        },
+        next: (page) => this.applyObservationPage(page),
         error: (error: HttpErrorResponse) => this.handleLoadError(error),
       });
   }
 
   public refresh(): void {
-    this.isLoading.set(true);
-    this.superuserAuthService.listObservations().subscribe({
-      next: (records) => {
-        this._observations.set(records);
-        this.isLoading.set(false);
-        this.errorMessage.set('');
-      },
-      error: (error: HttpErrorResponse) => this.handleLoadError(error),
-    });
+    this.loadObservationPage(this.currentPage(), true);
+  }
+
+  public onPageChange(event: { page?: number }): void {
+    const nextPage = (event.page ?? 0) + 1;
+    if (nextPage === this.currentPage()) {
+      return;
+    }
+
+    this.currentPage.set(nextPage);
+    this.loadObservationPage(nextPage, true);
   }
 
   public logout(): void {
-    this.superuserAuthService.logout();
-    void this.router.navigate(['/admin/login']);
+    this.authService.logout();
+  }
+
+  public goToLogin(): void {
+    void this.router.navigate(['/login'], {
+      queryParams: { redirectTo: '/dashboard' },
+    });
   }
 
   public isDeleting(recordId: string): boolean {
@@ -232,6 +257,16 @@ export class AdminObservationsComponent {
   }
 
   public deleteObservation(item: ObservationFeedItem): void {
+    if (!this.canDelete()) {
+      return;
+    }
+
+    const token = this.authService.token;
+    if (!token) {
+      this.errorMessage.set('Sign in as an admin to delete observations.');
+      return;
+    }
+
     const recordId = item.id;
 
     if (!confirm(`Delete observation ${recordId}?`)) {
@@ -245,17 +280,30 @@ export class AdminObservationsComponent {
       return next;
     });
 
-    this.superuserAuthService.deleteObservation(recordId).subscribe({
+    this.observationRecordsService.deleteObservation(recordId, token).subscribe({
       next: () => {
-        this._observations.update((current) =>
-          current.filter((observation) => observation.id !== recordId),
-        );
         this.removeDeletingRecordId(recordId);
+        const remaining = this._observations().filter(
+          (observation) => observation.id !== recordId,
+        );
+        this._observations.set(remaining);
+        this.totalItems.update((total) => Math.max(0, total - 1));
+
+        if (remaining.length === 0 && this.currentPage() > 1) {
+          const previousPage = this.currentPage() - 1;
+          this.currentPage.set(previousPage);
+          this.loadObservationPage(previousPage);
+          return;
+        }
+
+        this.loadObservationPage(this.currentPage());
       },
       error: (error: HttpErrorResponse) => {
         this.removeDeletingRecordId(recordId);
         if (error.status === 401 || error.status === 403) {
-          this.logout();
+          this.errorMessage.set(
+            'Only authenticated admin users can delete observations.',
+          );
           return;
         }
         this.errorMessage.set('Failed to delete observation. Please try again.');
@@ -297,6 +345,27 @@ export class AdminObservationsComponent {
       next.delete(recordId);
       return next;
     });
+  }
+
+  private loadObservationPage(page: number, showLoading = false): void {
+    if (showLoading) {
+      this.isLoading.set(true);
+    }
+
+    this.observationRecordsService
+      .listObservations(page, this.pageSize)
+      .subscribe({
+        next: (responsePage) => this.applyObservationPage(responsePage),
+        error: (error: HttpErrorResponse) => this.handleLoadError(error),
+      });
+  }
+
+  private applyObservationPage(page: ObservationRecordsPage): void {
+    this._observations.set(page.items);
+    this.currentPage.set(page.page > 0 ? page.page : 1);
+    this.totalItems.set(Math.max(0, page.totalItems));
+    this.isLoading.set(false);
+    this.errorMessage.set('');
   }
 
   private getObservationImageUrl(
@@ -348,21 +417,6 @@ export class AdminObservationsComponent {
 
   private handleLoadError(error: HttpErrorResponse): void {
     this.isLoading.set(false);
-    const message =
-      typeof error.error === 'string'
-        ? error.error
-        : typeof error.error?.message === 'string'
-          ? error.error.message
-          : '';
-
-    if (
-      error.status === 401 ||
-      error.status === 403 ||
-      (error.status === 400 && message.includes('token is malformed'))
-    ) {
-      this.logout();
-      return;
-    }
     this.errorMessage.set('Failed to load observations.');
   }
 

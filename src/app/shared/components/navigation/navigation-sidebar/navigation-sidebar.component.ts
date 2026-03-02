@@ -29,6 +29,11 @@ export class NavigationSidebarComponent {
       route: '',
     },
     {
+      name: 'NAVIGATION.SIDEBAR.DASHBOARD',
+      icon: 'multiple-data-points',
+      route: 'dashboard',
+    },
+    {
       name: 'NAVIGATION.SIDEBAR.INPUT_MEASUREMENTS',
       icon: 'waterbag-testkit',
       route: 'observation',

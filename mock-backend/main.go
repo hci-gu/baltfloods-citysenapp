@@ -38,6 +38,26 @@ func main() {
 		Automigrate: isGoRun,
 	})
 
+	app.OnRecordCreateRequest("users").BindFunc(func(e *core.RecordRequestEvent) error {
+		if !e.HasSuperuserAuth() {
+			e.Record.Set("type", "regular")
+		}
+		return e.Next()
+	})
+
+	app.OnRecordUpdateRequest("users").BindFunc(func(e *core.RecordRequestEvent) error {
+		if !e.HasSuperuserAuth() {
+			userType := "regular"
+			if e.Auth != nil {
+				if existingType := e.Auth.GetString("type"); existingType != "" {
+					userType = existingType
+				}
+			}
+			e.Record.Set("type", userType)
+		}
+		return e.Next()
+	})
+
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		streetAIKey := os.Getenv("STREET_AI_API_KEY")
 

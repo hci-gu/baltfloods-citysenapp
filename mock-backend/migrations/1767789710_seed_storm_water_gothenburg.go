@@ -1,11 +1,26 @@
 package migrations
 
 import (
+	"fmt"
+	"math"
+	"math/rand"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
 )
+
+type stormSeedSpot struct {
+	name                string
+	latitude            float64
+	longitude           float64
+	waterLevelBase      float64
+	conductivityBase    float64
+	turbidityBase       float64
+	flowRateBase        float64
+	waterTemperatureMid float64
+	weight              int
+}
 
 func init() {
 	m.Register(func(app core.App) error {
@@ -14,68 +29,122 @@ func init() {
 			return err
 		}
 
-		now := time.Now().Unix()
+		const stormSeedCount = 160
+		now := time.Now()
+		rng := rand.New(rand.NewSource(1767789710))
 
-		records := []map[string]any{
+		spots := []stormSeedSpot{
 			{
-				"name":                   "Gothenburg Central",
-				"latitude":               57.70887,
-				"longitude":              11.97365,
-				"dataRetrievedTimestamp": now,
-				"waterLevel":             1.12,
-				"waterTemperature":       6.8,
-				"electricalConductivity": 520,
-				"turbidity":              3.2,
-				"flowRate":               0.42,
-				"fillLevel_value":        0.34,
-				"fillLevel_result":       1,
-				"waterQuality":           2,
+				name:                "Gota River - Opera",
+				latitude:            57.70630,
+				longitude:           11.96690,
+				waterLevelBase:      0.95,
+				conductivityBase:    520,
+				turbidityBase:       3.1,
+				flowRateBase:        0.42,
+				waterTemperatureMid: 7.8,
+				weight:              4,
 			},
 			{
-				"name":                   "Järntorget",
-				"latitude":               57.69964,
-				"longitude":              11.95275,
-				"dataRetrievedTimestamp": now - 120,
-				"waterLevel":             0.78,
-				"waterTemperature":       6.2,
-				"electricalConductivity": 480,
-				"turbidity":              2.6,
-				"flowRate":               0.31,
-				"fillLevel_value":        0.28,
-				"fillLevel_result":       1,
-				"waterQuality":           3,
+				name:                "Gota River - Lilla Bommen",
+				latitude:            57.70690,
+				longitude:           11.97980,
+				waterLevelBase:      1.08,
+				conductivityBase:    545,
+				turbidityBase:       3.3,
+				flowRateBase:        0.47,
+				waterTemperatureMid: 8.2,
+				weight:              5,
 			},
 			{
-				"name":                   "Linnéplatsen",
-				"latitude":               57.69357,
-				"longitude":              11.95398,
-				"dataRetrievedTimestamp": now - 240,
-				"waterLevel":             1.35,
-				"waterTemperature":       6.0,
-				"electricalConductivity": 610,
-				"turbidity":              4.1,
-				"flowRate":               0.55,
-				"fillLevel_value":        0.52,
-				"fillLevel_result":       2,
-				"waterQuality":           4,
+				name:                "Klara Alv - Klippan",
+				latitude:            57.70685,
+				longitude:           11.95525,
+				waterLevelBase:      0.88,
+				conductivityBase:    500,
+				turbidityBase:       2.8,
+				flowRateBase:        0.35,
+				waterTemperatureMid: 8.0,
+				weight:              3,
 			},
 			{
-				"name":                   "Korsvägen",
-				"latitude":               57.69680,
-				"longitude":              11.98720,
-				"dataRetrievedTimestamp": now - 360,
-				"waterLevel":             0.95,
-				"waterTemperature":       6.5,
-				"electricalConductivity": 540,
-				"turbidity":              3.7,
-				"flowRate":               0.38,
-				"fillLevel_value":        0.31,
-				"fillLevel_result":       1,
-				"waterQuality":           5,
+				name:                "Stigbergskajen",
+				latitude:            57.70195,
+				longitude:           11.94090,
+				waterLevelBase:      1.02,
+				conductivityBase:    565,
+				turbidityBase:       3.6,
+				flowRateBase:        0.52,
+				waterTemperatureMid: 7.5,
+				weight:              2,
+			},
+			{
+				name:                "Rosenlund",
+				latitude:            57.70270,
+				longitude:           11.95840,
+				waterLevelBase:      0.84,
+				conductivityBase:    515,
+				turbidityBase:       2.9,
+				flowRateBase:        0.33,
+				waterTemperatureMid: 8.1,
+				weight:              2,
+			},
+			{
+				name:                "Masthuggskajen",
+				latitude:            57.69860,
+				longitude:           11.94670,
+				waterLevelBase:      0.91,
+				conductivityBase:    530,
+				turbidityBase:       3.4,
+				flowRateBase:        0.38,
+				waterTemperatureMid: 7.7,
+				weight:              3,
 			},
 		}
 
-		for _, data := range records {
+		for i := 0; i < stormSeedCount; i++ {
+			spot := pickStormSpot(rng, spots)
+			timestamp := randomSeedTimestamp(rng, now, 3)
+			season := seasonalFactor(timestamp)
+
+			waterLevel := clampFloat(spot.waterLevelBase+rng.NormFloat64()*0.18+season*0.08, 0.2, 2.4)
+			fillLevelValue := clampFloat(0.16+waterLevel/2.8+rng.NormFloat64()*0.08, 0.05, 0.95)
+			fillLevelResult := 1
+			switch {
+			case fillLevelValue > 0.7:
+				fillLevelResult = 3
+			case fillLevelValue > 0.42:
+				fillLevelResult = 2
+			}
+
+			turbidity := clampFloat(spot.turbidityBase+rng.NormFloat64()*0.9+(1.0-season)*0.4, 0.5, 8.0)
+			waterQuality := 1
+			switch {
+			case turbidity > 6.0:
+				waterQuality = 5
+			case turbidity > 4.8:
+				waterQuality = 4
+			case turbidity > 3.6:
+				waterQuality = 3
+			case turbidity > 2.2:
+				waterQuality = 2
+			}
+
+			data := map[string]any{
+				"name":                   fmt.Sprintf("Seed Storm %s %03d", spot.name, i+1),
+				"latitude":               spot.latitude + rng.NormFloat64()*0.0018,
+				"longitude":              spot.longitude + rng.NormFloat64()*0.0022,
+				"dataRetrievedTimestamp": float64(timestamp.Unix()),
+				"waterLevel":             waterLevel,
+				"waterTemperature":       clampFloat(spot.waterTemperatureMid+season*8.0+rng.NormFloat64()*1.4, 0.0, 22.0),
+				"electricalConductivity": clampFloat(spot.conductivityBase+rng.NormFloat64()*35.0-season*28.0, 340, 780),
+				"turbidity":              turbidity,
+				"flowRate":               clampFloat(spot.flowRateBase+rng.NormFloat64()*0.11+(1.0-season)*0.04, 0.05, 1.4),
+				"fillLevel_value":        fillLevelValue,
+				"fillLevel_result":       fillLevelResult,
+				"waterQuality":           waterQuality,
+			}
+
 			record := core.NewRecord(collection)
 			record.Load(data)
 			if err := app.Save(record); err != nil {
@@ -87,7 +156,7 @@ func init() {
 	}, func(app core.App) error {
 		records, err := app.FindRecordsByFilter(
 			"streetai_storm_water",
-			`name ~ "Gothenburg" || name ~ "Järntorget" || name ~ "Linnéplatsen" || name ~ "Korsvägen"`,
+			`name ~ "Seed Storm "`,
 			"",
 			0,
 			0,
@@ -104,4 +173,61 @@ func init() {
 
 		return nil
 	})
+}
+
+func pickStormSpot(rng *rand.Rand, spots []stormSeedSpot) stormSeedSpot {
+	totalWeight := 0
+	for _, spot := range spots {
+		totalWeight += spot.weight
+	}
+
+	pick := rng.Intn(totalWeight)
+	for _, spot := range spots {
+		pick -= spot.weight
+		if pick < 0 {
+			return spot
+		}
+	}
+
+	return spots[0]
+}
+
+func randomSeedTimestamp(rng *rand.Rand, now time.Time, spanYears int) time.Time {
+	spanSeconds := int64(spanYears * 365 * 24 * 60 * 60)
+	base := now.Add(-time.Duration(spanSeconds) * time.Second)
+
+	// Bias slightly towards more recent records while still covering the full range.
+	normalized := math.Pow(rng.Float64(), 0.78)
+	offsetSeconds := int64(float64(spanSeconds) * normalized)
+	candidate := base.Add(time.Duration(offsetSeconds) * time.Second)
+
+	// Mild seasonal weighting: more uploads during warmer months.
+	weight := 0.55
+	month := candidate.Month()
+	if month >= time.May && month <= time.September {
+		weight = 1.0
+	} else if month == time.April || month == time.October {
+		weight = 0.75
+	}
+	if rng.Float64() > weight {
+		return randomSeedTimestamp(rng, now, spanYears)
+	}
+
+	return candidate
+}
+
+func seasonalFactor(timestamp time.Time) float64 {
+	// January ~ -1.0, July ~ +1.0
+	radians := 2 * math.Pi * (float64(timestamp.YearDay()) / 365.0)
+	return math.Sin(radians - math.Pi/2)
+}
+
+func clampFloat(value float64, min float64, max float64) float64 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }

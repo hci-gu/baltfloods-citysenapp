@@ -67,7 +67,36 @@
   </section>
 
   <aside class="observations-feed shadow-md">
-    <h2 class="heading-sm">Latest observations</h2>
+    <div class="observations-header">
+      <h2 class="heading-sm">Latest observations</h2>
+      <div class="timespan-filter">
+        <button
+          type="button"
+          class="timespan-filter-button body-xs"
+          (click)="toggleObservationTimespanFilter()"
+        >
+          {{ selectedObservationTimespanLabel() }}
+        </button>
+
+        @if (showObservationTimespanFilter()) {
+          <ul class="timespan-filter-options">
+            @for (option of observationTimespanOptions; track option.key) {
+              <li>
+                <button
+                  type="button"
+                  class="timespan-filter-option body-xs"
+                  [class.active]="option.key === selectedObservationTimespan()"
+                  (click)="setObservationTimespan(option.key)"
+                >
+                  {{ option.label }}
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+
     @if (observationFeed().length > 0) {
       <ul class="observations-list">
         @for (observation of observationFeed(); track observation.id) {

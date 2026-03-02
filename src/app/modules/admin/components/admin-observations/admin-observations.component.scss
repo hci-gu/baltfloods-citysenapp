@@ -38,6 +38,11 @@
   color: var(--text-color-secondary);
 }
 
+.role-hint {
+  margin: -6px 0 0;
+  color: var(--text-color-secondary);
+}
+
 .actions {
   display: flex;
   align-items: flex-start;
@@ -152,6 +157,14 @@
   overflow: hidden;
 }
 
+.list-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .observations-list {
   list-style: none;
   margin: 0;
@@ -163,6 +176,12 @@
   min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.observations-paginator {
+  margin-top: 12px;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 10px;
 }
 
 .observation-row {

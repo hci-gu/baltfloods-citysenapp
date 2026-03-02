@@ -9,6 +9,7 @@ export interface PocketbaseUserRecord {
   email: string;
   name?: string;
   verified?: boolean;
+  type?: 'regular' | 'admin';
 }
 
 export interface AuthState {
@@ -43,6 +44,10 @@ export class AuthService {
     return this.authStateSubject.value.record;
   }
 
+  public get token(): string | null {
+    return this.authStateSubject.value.token;
+  }
+
   public login(email: string, password: string): Observable<AuthState> {
     return this.http
       .post<PocketbaseAuthResponse>(
@@ -64,6 +69,7 @@ export class AuthService {
         email,
         password,
         passwordConfirm: password,
+        type: 'regular',
       })
       .pipe(
         switchMap(() => this.login(email, password)),

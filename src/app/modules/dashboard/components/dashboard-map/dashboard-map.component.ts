@@ -55,6 +55,14 @@ interface ObservationFeedItem {
   imageUrl?: string;
 }
 
+type ObservationTimespanKey = '7d' | '30d' | '90d' | '365d' | 'all';
+
+interface ObservationTimespanOption {
+  key: ObservationTimespanKey;
+  label: string;
+  days: number | null;
+}
+
 @Component({
   selector: 'app-dashboard-map',
   templateUrl: './dashboard-map.component.html',
@@ -86,18 +94,41 @@ interface ObservationFeedItem {
 })
 export class DashboardMapComponent implements AfterViewInit {
   private _allDataPoints = signal<DataPoint[]>([]);
+  public showObservationTimespanFilter = signal<boolean>(false);
+  public selectedObservationTimespan = signal<ObservationTimespanKey>('30d');
+  public readonly observationTimespanOptions: ObservationTimespanOption[] = [
+    { key: '7d', label: 'Last 7 days', days: 7 },
+    { key: '30d', label: 'Last 30 days', days: 30 },
+    { key: '90d', label: 'Last 90 days', days: 90 },
+    { key: '365d', label: 'Last year', days: 365 },
+    { key: 'all', label: 'All time', days: null },
+  ];
+  public selectedObservationTimespanLabel = computed(() => {
+    const selectedKey = this.selectedObservationTimespan();
+    return (
+      this.observationTimespanOptions.find((option) => option.key === selectedKey)
+        ?.label ?? 'Last 30 days'
+    );
+  });
 
   public showDataPointTypeFilter = signal<boolean>(false);
   public dataPointTypeFilter = signal<DataPointType[]>([]);
   private _filteredDataPoints$: Observable<DataPoint[]> = combineLatest([
     toObservable(this._allDataPoints),
     toObservable(this.dataPointTypeFilter),
+    toObservable(this.selectedObservationTimespan),
   ]).pipe(
-    map(([allDataPoints, dataPointFilter]) =>
-      dataPointFilter.length > 0
-        ? allDataPoints.filter((point) => dataPointFilter.includes(point.type))
-        : allDataPoints,
-    ),
+    map(([allDataPoints, dataPointFilter, selectedTimespan]) => {
+      const timeFilteredDataPoints = allDataPoints.filter((point) =>
+        this.isDataPointWithinTimespan(point, selectedTimespan),
+      );
+
+      return dataPointFilter.length > 0
+        ? timeFilteredDataPoints.filter((point) =>
+            dataPointFilter.includes(point.type),
+          )
+        : timeFilteredDataPoints;
+    }),
   );
 
   private _activeLocation = signal<LatLong | undefined>(undefined);
@@ -119,7 +150,7 @@ export class DashboardMapComponent implements AfterViewInit {
 
     return null;
   });
-  public observationFeed = computed<ObservationFeedItem[]>(() =>
+  private _observationFeed = computed<ObservationFeedItem[]>(() =>
     this._allDataPoints()
       .slice()
       .sort(
@@ -135,6 +166,24 @@ export class DashboardMapComponent implements AfterViewInit {
         imageUrl: this.getObservationImageUrl(point),
       })),
   );
+  public observationFeed = computed<ObservationFeedItem[]>(() => {
+    const selectedKey = this.selectedObservationTimespan();
+    const selectedOption = this.observationTimespanOptions.find(
+      (option) => option.key === selectedKey,
+    );
+
+    if (!selectedOption || selectedOption.days === null) {
+      return this._observationFeed();
+    }
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - selectedOption.days);
+    const cutoffTime = cutoffDate.getTime();
+
+    return this._observationFeed().filter((item) =>
+      this.isTimestampWithinCutoff(item.lastUpdatedOn, cutoffTime),
+    );
+  });
 
   public dataPointMarkers$: Observable<Marker[]> = combineLatest([
     this._filteredDataPoints$,
@@ -301,6 +350,15 @@ export class DashboardMapComponent implements AfterViewInit {
     void this.setActiveMarker(location);
   }
 
+  public toggleObservationTimespanFilter(): void {
+    this.showObservationTimespanFilter.update((value) => !value);
+  }
+
+  public setObservationTimespan(key: ObservationTimespanKey): void {
+    this.selectedObservationTimespan.set(key);
+    this.showObservationTimespanFilter.set(false);
+  }
+
   public getObservationTypeLabel(type: DataPointType): string {
     switch (type) {
       case DataPointType.WEATHER_CONDITIONS:
@@ -344,6 +402,34 @@ export class DashboardMapComponent implements AfterViewInit {
     }
 
     return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${trimmed.replace(/^\/+/, '')}`;
+  }
+
+  private isDataPointWithinTimespan(
+    point: DataPoint,
+    selectedTimespan: ObservationTimespanKey,
+  ): boolean {
+    const selectedOption = this.observationTimespanOptions.find(
+      (option) => option.key === selectedTimespan,
+    );
+    if (!selectedOption || selectedOption.days === null) {
+      return true;
+    }
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - selectedOption.days);
+    const cutoffTime = cutoffDate.getTime();
+
+    return this.isTimestampWithinCutoff(point.lastUpdatedOn, cutoffTime);
+  }
+
+  private isTimestampWithinCutoff(
+    timestamp: Date | undefined,
+    cutoffTime: number,
+  ): boolean {
+    if (!timestamp) {
+      return true;
+    }
+    return timestamp.getTime() >= cutoffTime;
   }
 
   private async showLoadingDataToast(): Promise<void> {

@@ -165,9 +165,73 @@ $floating-card-margin: 12px;
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 
-  h2 {
+  .observations-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
     margin: 0 0 12px;
+  }
+
+  h2 {
+    margin: 0;
     color: var(--primary-color);
+  }
+
+  .timespan-filter {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .timespan-filter-button {
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: white;
+    color: #344054;
+    cursor: pointer;
+    padding: 6px 10px;
+    white-space: nowrap;
+
+    &:hover {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+  }
+
+  .timespan-filter-options {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 2;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.12);
+    min-width: 132px;
+  }
+
+  .timespan-filter-option {
+    border: 0;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: #344054;
+
+    &:hover {
+      background: #f2f4f7;
+    }
+
+    &.active {
+      color: var(--primary-color);
+      background: #ecfdf3;
+      font-weight: 600;
+    }
   }
 
   .observations-list {
