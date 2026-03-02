@@ -1,9 +1,29 @@
 $z-index: 999;
+$navigation-wave-offset: 35px;
+$floating-card-margin: 12px;
 
 :host {
   width: 100%;
   height: 100%;
+  display: block;
+}
+
+.map-layout {
+  width: 100%;
+  height: 100%;
   position: relative;
+}
+
+.map-pane {
+  width: 100%;
+  height: 100%;
+  position: relative;
+
+  .map {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
 
   .bottom-modal {
     z-index: $z-index - 1;
@@ -11,15 +31,6 @@ $z-index: 999;
     bottom: 0;
     right: 0;
     left: 0;
-  }
-
-  .search {
-    z-index: 998;
-    position: absolute;
-    top: calc(35px + 16px);
-    right: 0;
-    left: 0;
-    padding: 0 32px;
   }
 
   .scheduled-messages {
@@ -135,6 +146,90 @@ $z-index: 999;
   }
 }
 
+.observations-feed {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: $z-index - 2;
+  width: 360px;
+  max-width: 40%;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  margin: calc(#{$navigation-wave-offset} + #{$floating-card-margin}) $floating-card-margin
+    $floating-card-margin;
+  padding: 20px 16px;
+  height: calc(
+    100% - #{$navigation-wave-offset} - (2 * #{$floating-card-margin})
+  );
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+
+  h2 {
+    margin: 0 0 12px;
+    color: var(--primary-color);
+  }
+
+  .observations-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .observation-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 10px 12px;
+
+    &:hover {
+      border-color: var(--primary-color);
+      background: #f3f9f5;
+    }
+  }
+
+  .observation-thumbnail {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex: 0 0 64px;
+    border: 1px solid #d0d5dd;
+    background: #fff;
+  }
+
+  .observation-content {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .observation-name,
+  .observation-type,
+  .observation-time,
+  .observations-empty {
+    margin: 0;
+  }
+
+  .observation-type {
+    color: #475467;
+    margin-top: 4px;
+  }
+
+  .observation-time {
+    color: #667085;
+    margin-top: 2px;
+  }
+}
+
 @keyframes location-loading {
   0% {
     opacity: 1;
@@ -152,5 +247,18 @@ $z-index: 999;
 @keyframes ellipsis {
   to {
     width: 1.25em;
+  }
+}
+
+@media (max-width: 900px) {
+  .observations-feed {
+    top: auto;
+    right: auto;
+    left: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    height: calc(50% - (2 * #{$floating-card-margin}));
+    margin: $floating-card-margin;
   }
 }

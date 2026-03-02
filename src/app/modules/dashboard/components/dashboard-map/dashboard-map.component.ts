@@ -10,7 +10,6 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import {
   DATA_POINT_QUALITY_COLOR_CHART,
   DATA_POINT_TYPE_ICON,
@@ -41,12 +40,20 @@ import {
   take,
   withLatestFrom,
 } from 'rxjs';
-import { SearchLocationInputComponent } from '@shared/components/search-location-input/search-location-input.component';
 import { DashboardDataPointDetailComponent } from '../dashboard-data-point-detail/dashboard-data-point-detail.component';
 import { IconComponent } from '@shared/components/icon/icon.component';
-import { AsyncPipe } from '@angular/common';
+import { AsyncPipe, DatePipe } from '@angular/common';
 import { Toast } from 'primeng/toast';
 import { DashboardFilterComponent } from '../dashboard-filter/dashboard-filter.component';
+
+interface ObservationFeedItem {
+  id: string;
+  name: string;
+  location: LatLong;
+  type: DataPointType;
+  lastUpdatedOn?: Date;
+  imageUrl?: string;
+}
 
 @Component({
   selector: 'app-dashboard-map',
@@ -68,11 +75,10 @@ import { DashboardFilterComponent } from '../dashboard-filter/dashboard-filter.c
   standalone: true,
   imports: [
     MapComponent,
-    SearchLocationInputComponent,
-    ReactiveFormsModule,
     DashboardDataPointDetailComponent,
     IconComponent,
     AsyncPipe,
+    DatePipe,
     Toast,
     PrimeTemplate,
     DashboardFilterComponent,
@@ -113,6 +119,22 @@ export class DashboardMapComponent implements AfterViewInit {
 
     return null;
   });
+  public observationFeed = computed<ObservationFeedItem[]>(() =>
+    this._allDataPoints()
+      .slice()
+      .sort(
+        (a, b) =>
+          (b.lastUpdatedOn?.getTime() ?? 0) - (a.lastUpdatedOn?.getTime() ?? 0),
+      )
+      .map((point, index) => ({
+        id: `${point.type}-${point.name}-${point.location.join(',')}-${point.lastUpdatedOn?.getTime() ?? index}`,
+        name: point.name,
+        location: point.location,
+        type: point.type,
+        lastUpdatedOn: point.lastUpdatedOn,
+        imageUrl: this.getObservationImageUrl(point),
+      })),
+  );
 
   public dataPointMarkers$: Observable<Marker[]> = combineLatest([
     this._filteredDataPoints$,
@@ -137,8 +159,6 @@ export class DashboardMapComponent implements AfterViewInit {
 
   public locationLoading$: Observable<boolean> | undefined;
   public locationPermissionState$: Observable<PermissionState> | undefined;
-
-  public locationFormControl = new FormControl<LatLong | null>(null);
 
   public readonly TOAST_KEY = 'loading';
 
@@ -231,14 +251,6 @@ export class DashboardMapComponent implements AfterViewInit {
 
   public ngAfterViewInit(): void {
     this.showLoadingDataToast();
-
-    this.locationFormControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((latLong) => {
-        if (latLong) {
-          this._mapCenterSubject$.next(latLong);
-        }
-      });
   }
 
   public onMarkerClick(latLong: LatLong): void {
@@ -282,6 +294,56 @@ export class DashboardMapComponent implements AfterViewInit {
       next.add(messageId);
       return next;
     });
+  }
+
+  public onObservationClick(location: LatLong): void {
+    this._mapCenterSubject$.next(location);
+    void this.setActiveMarker(location);
+  }
+
+  public getObservationTypeLabel(type: DataPointType): string {
+    switch (type) {
+      case DataPointType.WEATHER_CONDITIONS:
+        return 'Weather conditions';
+      case DataPointType.AIR_QUALITY:
+        return 'Air quality';
+      case DataPointType.STORM_WATER:
+        return 'Storm water';
+      case DataPointType.PARKING:
+        return 'Parking';
+      case DataPointType.ROAD_WORKS:
+        return 'Road works';
+      case DataPointType.WATERBAG_TESTKIT:
+        return 'Water observations';
+      default:
+        return 'Observation';
+    }
+  }
+
+  private getObservationImageUrl(point: DataPoint): string | undefined {
+    if (point.type !== DataPointType.WATERBAG_TESTKIT || !point.imageUrl) {
+      return undefined;
+    }
+
+    return this.normalizeImageUrl(point.imageUrl);
+  }
+
+  private normalizeImageUrl(imageUrl: string): string {
+    const trimmed = imageUrl.trim();
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('/')) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('../')) {
+      return `/${trimmed.replace(/^(\.\.\/)+/, '')}`;
+    }
+
+    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${trimmed.replace(/^\/+/, '')}`;
   }
 
   private async showLoadingDataToast(): Promise<void> {

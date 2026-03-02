@@ -1,7 +1,5 @@
 import { NgModule } from '@angular/core';
-import { ReactiveFormsModule } from '@angular/forms';
 import { IconComponent } from '@shared/components/icon/icon.component';
-import { SearchLocationInputComponent } from '@shared/components/search-location-input/search-location-input.component';
 import { MessageService } from 'primeng/api';
 import { SkeletonModule } from 'primeng/skeleton';
 import { ToastModule } from 'primeng/toast';
@@ -19,8 +17,6 @@ import { DatePipe } from '@angular/common';
     SkeletonModule,
     ToastModule,
     DashboardRoutingModule,
-    SearchLocationInputComponent,
-    ReactiveFormsModule,
     ChipModule,
     IconComponent,
     DashboardDataPointDetailComponent,

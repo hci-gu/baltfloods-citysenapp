@@ -24,7 +24,7 @@ import {
 import { TranslateService } from '@ngx-translate/core';
 import { MapComponent } from '@shared/components/map/map.component';
 import { MessageService, SharedModule } from 'primeng/api';
-import { firstValueFrom, of, take } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import { Shallow } from 'shallow-render';
 import { DashboardDataPointDetailComponent } from '../dashboard-data-point-detail/dashboard-data-point-detail.component';
 import { DashboardFilterComponent } from '../dashboard-filter/dashboard-filter.component';
@@ -199,27 +199,6 @@ describe('DashboardMapComponent', () => {
   });
 
   describe('focus location', () => {
-    it('should set center off map to search bar address', async () => {
-      const location = [4, 4] as LatLong;
-
-      const { instance } = await shallow
-        .mock(LocationService, {
-          refreshUserLocation: jest.fn(),
-          locationPermissionState$: of('granted' as PermissionState),
-          userLocation$: of({
-            loading: false,
-            location: [0, 0],
-          } as UserLocation),
-        })
-        .render();
-
-      instance.locationFormControl.setValue(location);
-
-      instance.mapCenter$
-        .pipe(take(1))
-        .subscribe((center) => expect(center).toBe(location));
-    });
-
     it('should set center on map when user location is available', async () => {
       const currentLocation = [4, 4] as LatLong;
 
@@ -259,6 +238,28 @@ describe('DashboardMapComponent', () => {
       await fixture.whenStable();
 
       expect(window.alert).toHaveBeenCalled();
+    });
+  });
+
+  describe('observations feed', () => {
+    it('should render observations and focus the selected one on map', async () => {
+      const { find, fixture, instance } = await shallow.render();
+
+      expect(find('.observation-item')).toHaveFound(
+        WEATHER_CONDITION_DATA_POINTS.length +
+          WEATHER_STORM_WATER_DATA_POINTS.length +
+          WEATHER_AIR_QUALITY_DATA_POINTS.length +
+          PARKING_DATA_POINTS.length +
+          ROAD_WORKS_DATA_POINTS.length +
+          WATERBAG_TESTKIT_DATA_POINTS.length,
+      );
+
+      find('.observation-item')[0].nativeElement.click();
+      fixture.detectChanges();
+
+      expect(await firstValueFrom(instance.mapCenter$)).toEqual([
+        61.05871, 28.18871,
+      ]);
     });
   });
 

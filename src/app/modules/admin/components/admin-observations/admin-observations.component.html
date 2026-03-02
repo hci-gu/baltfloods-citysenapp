@@ -1,0 +1,163 @@
+<main class="admin-page">
+  <section class="admin-layout">
+    <section class="left-column">
+      <article class="admin-card stats-card">
+        <h2 class="heading-sm">Upload snapshot</h2>
+        <div class="stats-grid">
+          <section class="stat-item">
+            <p class="stat-label body-xs">Total uploads</p>
+            <p class="stat-value heading-sm">{{ stats().totalUploads }}</p>
+          </section>
+          <section class="stat-item">
+            <p class="stat-label body-xs">Today</p>
+            <p class="stat-value heading-sm">{{ stats().uploadsToday }}</p>
+          </section>
+        </div>
+
+        @if (stats().latestUpload; as latestUpload) {
+          <div class="latest-upload">
+            <p class="body-sm">
+              <strong>Latest:</strong> {{ latestUpload.id }}
+            </p>
+            <p class="body-xs">
+              {{ latestUpload.type }} •
+              {{ latestUpload.timestamp | date: 'dd/MM/yyyy HH:mm' }}
+            </p>
+          </div>
+        } @else {
+          <p class="body-sm">No uploads yet.</p>
+        }
+
+        <div>
+          <p class="body-xs breakdown-title">Types today</p>
+          @if (stats().typeBreakdownToday.length > 0) {
+            <ul class="type-breakdown">
+              @for (item of stats().typeBreakdownToday; track item.type) {
+                <li>
+                  <span>{{ item.type }}</span>
+                  <strong>{{ item.count }}</strong>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="body-xs">No uploads today.</p>
+          }
+        </div>
+      </article>
+
+      <article class="admin-card chart-card">
+        <h2 class="heading-sm">Uploads over time</h2>
+        <p class="body-xs chart-subtitle">
+          Last 30 days · {{ uploadChart().totalPeriodUploads }} uploads
+        </p>
+
+        <div class="chart-wrapper">
+          <svg
+            class="line-chart"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-label="Uploads line chart"
+            role="img"
+          >
+            @for (tick of uploadChart().ticks; track tick.y) {
+              <line
+                class="chart-grid-line"
+                x1="0"
+                [attr.y1]="tick.y"
+                x2="100"
+                [attr.y2]="tick.y"
+              ></line>
+            }
+            <path class="chart-area" [attr.d]="uploadChart().areaPath"></path>
+            <path class="chart-line" [attr.d]="uploadChart().linePath"></path>
+            @for (point of uploadChart().points; track point.x) {
+              <circle
+                class="chart-point"
+                [attr.cx]="point.x"
+                [attr.cy]="point.y"
+                r="1.2"
+              >
+                <title>{{ point.label }}</title>
+              </circle>
+            }
+          </svg>
+        </div>
+
+        <div class="chart-axis">
+          <span>{{ uploadChart().startLabel }}</span>
+          <span>{{ uploadChart().endLabel }}</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="admin-card list-card">
+      <header class="admin-header">
+        <div>
+          <h1 class="heading-sm">Admin observations</h1>
+          <p class="body-sm subtitle">
+            Latest observations. You can delete records from this list.
+          </p>
+        </div>
+
+        <div class="actions">
+          <p-button
+            label="Refresh"
+            severity="secondary"
+            [disabled]="isLoading()"
+            (click)="refresh()"
+          ></p-button>
+          <p-button
+            label="Log out"
+            severity="contrast"
+            (click)="logout()"
+          ></p-button>
+        </div>
+      </header>
+
+      @if (errorMessage()) {
+        <p class="p-error body-sm">{{ errorMessage() }}</p>
+      }
+
+      @if (isLoading()) {
+        <p class="body-sm">Loading observations...</p>
+      } @else if (observationFeed().length > 0) {
+        <ul class="observations-list">
+          @for (observation of observationFeed(); track observation.id) {
+            <li class="observation-row">
+              <div class="observation-content">
+                @if (observation.imageUrl) {
+                  <img
+                    class="observation-thumbnail"
+                    [src]="observation.imageUrl"
+                    [alt]="'Image for ' + observation.name"
+                    loading="lazy"
+                  />
+                }
+                <p class="observation-name body-sm">{{ observation.name }}</p>
+                <p class="observation-type body-xs">
+                  {{ observation.type }}
+                </p>
+                @if (observation.lastUpdatedOn) {
+                  <p class="observation-time body-xs">
+                    {{ observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm' }}
+                  </p>
+                }
+              </div>
+
+              <p-button
+                label="Delete"
+                severity="danger"
+                [outlined]="true"
+                [loading]="isDeleting(observation.id)"
+                [disabled]="isDeleting(observation.id)"
+                (click)="deleteObservation(observation)"
+              ></p-button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="body-sm">No observations yet.</p>
+      }
+    </section>
+  </section>
+</main>

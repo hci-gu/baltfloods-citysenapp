@@ -1,72 +1,111 @@
-<app-map
-  class="full-height"
-  [center$]="mapCenter$"
-  [markers]="(dataPointMarkers$ | async) ?? []"
-  (markerClick)="onMarkerClick($event)"
-></app-map>
+<div class="map-layout">
+  <section class="map-pane">
+    <app-map
+      class="map"
+      [center$]="mapCenter$"
+      [markers]="(dataPointMarkers$ | async) ?? []"
+      (markerClick)="onMarkerClick($event)"
+    ></app-map>
 
-@if (visibleScheduledMessages().length > 0) {
-  <div class="scheduled-messages">
-    @for (message of visibleScheduledMessages(); track message.id) {
-      <section class="scheduled-message shadow-md" aria-live="polite">
-        <button
-          type="button"
-          class="scheduled-message-dismiss"
-          aria-label="Dismiss message"
-          (click)="onDismissScheduledMessage(message.id)"
-        >
-          ×
-        </button>
-        <h2 class="heading-xs">{{ message.title }}</h2>
-        <div class="body-sm" [innerHTML]="message.content"></div>
-      </section>
+    @if (visibleScheduledMessages().length > 0) {
+      <div class="scheduled-messages">
+        @for (message of visibleScheduledMessages(); track message.id) {
+          <section class="scheduled-message shadow-md" aria-live="polite">
+            <button
+              type="button"
+              class="scheduled-message-dismiss"
+              aria-label="Dismiss message"
+              (click)="onDismissScheduledMessage(message.id)"
+            >
+              ×
+            </button>
+            <h2 class="heading-xs">{{ message.title }}</h2>
+            <div class="body-sm" [innerHTML]="message.content"></div>
+          </section>
+        }
+      </div>
     }
-  </div>
-}
 
-<app-search-location-input
-  class="search"
-  [formControl]="locationFormControl"
-></app-search-location-input>
-
-@if (selectedDataPoints(); as selectedDataPoints) {
-  <app-dashboard-data-point-detail
-    @slideInAndOut
-    class="bottom-modal"
-    [dataPoints]="selectedDataPoints"
-    (close)="onDataPointClose()"
-  ></app-dashboard-data-point-detail>
-}
-
-@if (showDataPointTypeFilter()) {
-  <app-dashboard-filter
-    @slideInAndOut
-    class="bottom-modal"
-    [filter]="dataPointTypeFilter()"
-    (close)="onFilterClose()"
-    (toggle)="onFilterToggle($event)"
-  ></app-dashboard-filter>
-}
-
-<div class="actions flex-column">
-  <div class="badge-button">
-    @if (dataPointTypeFilter().length > 0) {
-      <small class="badge">{{ dataPointTypeFilter().length }}</small>
+    @if (selectedDataPoints(); as selectedDataPoints) {
+      <app-dashboard-data-point-detail
+        @slideInAndOut
+        class="bottom-modal"
+        [dataPoints]="selectedDataPoints"
+        (close)="onDataPointClose()"
+      ></app-dashboard-data-point-detail>
     }
-    <app-icon
-      class="filter-button shadow-md"
-      icon="layers"
-      (click)="onFilterOpen()"
-    ></app-icon>
-  </div>
-  <app-icon
-    class="focus-location-button shadow-md"
-    [class.loading]="locationLoading$ | async"
-    [class.has-permission]="(locationPermissionState$ | async) === 'granted'"
-    [icon]="(locationLoading$ | async) ? 'spinner' : 'target'"
-    (click)="onFocusLocationClick()"
-  ></app-icon>
+
+    @if (showDataPointTypeFilter()) {
+      <app-dashboard-filter
+        @slideInAndOut
+        class="bottom-modal"
+        [filter]="dataPointTypeFilter()"
+        (close)="onFilterClose()"
+        (toggle)="onFilterToggle($event)"
+      ></app-dashboard-filter>
+    }
+
+    <div class="actions flex-column">
+      <div class="badge-button">
+        @if (dataPointTypeFilter().length > 0) {
+          <small class="badge">{{ dataPointTypeFilter().length }}</small>
+        }
+        <app-icon
+          class="filter-button shadow-md"
+          icon="layers"
+          (click)="onFilterOpen()"
+        ></app-icon>
+      </div>
+      <app-icon
+        class="focus-location-button shadow-md"
+        [class.loading]="locationLoading$ | async"
+        [class.has-permission]="(locationPermissionState$ | async) === 'granted'"
+        [icon]="(locationLoading$ | async) ? 'spinner' : 'target'"
+        (click)="onFocusLocationClick()"
+      ></app-icon>
+    </div>
+  </section>
+
+  <aside class="observations-feed shadow-md">
+    <h2 class="heading-sm">Latest observations</h2>
+    @if (observationFeed().length > 0) {
+      <ul class="observations-list">
+        @for (observation of observationFeed(); track observation.id) {
+          <li>
+            <button
+              type="button"
+              class="observation-item"
+              (click)="onObservationClick(observation.location)"
+            >
+              @if (observation.imageUrl) {
+                <img
+                  class="observation-thumbnail"
+                  [src]="observation.imageUrl"
+                  [alt]="'Image for ' + observation.name"
+                  loading="lazy"
+                />
+              }
+              <div class="observation-content">
+                <p class="observation-name body-sm">{{ observation.name }}</p>
+                <p class="observation-type body-xs">
+                  {{ getObservationTypeLabel(observation.type) }}
+                </p>
+                @if (observation.lastUpdatedOn) {
+                  <p class="observation-time body-xs">
+                    {{ observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm' }}
+                  </p>
+                }
+              </div>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="body-sm observations-empty">No observations yet.</p>
+    }
+  </aside>
 </div>
+
 <p-toast position="bottom-center" [key]="TOAST_KEY" styleClass="toast">
   <ng-template let-message pTemplate="headless">
     <section class="toast-content flex-row">
