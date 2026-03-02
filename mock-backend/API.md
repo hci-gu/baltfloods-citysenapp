@@ -169,6 +169,24 @@ Response item shape:
 - `observationType` (string)
 - Optional metrics: `airTemp`, `waterTemp`, `depthOfView`, `algaeLevel`, `waterPh`, `turbidity`, `dissolvedOxygen`, `nitrate`, `phosphate`
 
+## Scheduled messages API (main page banners)
+
+**Base URL**: `/messages`
+
+### GET `/active`
+Returns currently active scheduled messages for public display.
+
+Response item shape:
+- `id` (string)
+- `title` (string)
+- `content` (string, rich text HTML)
+- `start` (string, datetime)
+- `end` (string, datetime)
+
+Active window logic:
+- A message is returned when current server time is between `start` and `end` (inclusive).
+- Messages with missing or invalid time range are ignored.
+
 ## Push API (web push subscriptions)
 
 **Base URL**: `pushApiUrl` (see `src/environments/environment.*.ts`)

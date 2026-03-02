@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -130,6 +131,15 @@ func main() {
 			return e.JSON(http.StatusOK, map[string]any{
 				"id": record.Id,
 			})
+		})
+
+		messageGroup := se.Router.Group("/messages")
+		messageGroup.GET("/active", func(e *core.RequestEvent) error {
+			records, err := findActiveScheduledMessages(se.App, time.Now().UTC())
+			if err != nil {
+				return apis.NewApiError(500, "Failed to load active scheduled messages.", err)
+			}
+			return e.JSON(http.StatusOK, mapScheduledMessages(records))
 		})
 
 		pushGroup := se.Router.Group("/push")
@@ -445,6 +455,60 @@ func mapServiceDefinitions(records []*core.Record) []map[string]any {
 			"type":         record.GetRaw("type"),
 			"keywords":     record.GetRaw("keywords"),
 			"group":        record.GetRaw("group"),
+		})
+	}
+	return items
+}
+
+func findActiveScheduledMessages(app core.App, now time.Time) ([]*core.Record, error) {
+	collection, err := app.FindCollectionByNameOrId("scheduled_messages")
+	if err != nil {
+		return []*core.Record{}, nil
+	}
+
+	records, err := app.FindRecordsByFilter(collection.Name, "", "+start", 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	activeRecords := make([]*core.Record, 0, len(records))
+	for _, record := range records {
+		start := record.GetDateTime("start")
+		end := record.GetDateTime("end")
+		if start.IsZero() || end.IsZero() {
+			continue
+		}
+
+		startTime := start.Time()
+		endTime := end.Time()
+		if endTime.Before(startTime) {
+			continue
+		}
+
+		if !now.Before(startTime) && !now.After(endTime) {
+			activeRecords = append(activeRecords, record)
+		}
+	}
+
+	sort.Slice(activeRecords, func(i, j int) bool {
+		return activeRecords[i].
+			GetDateTime("start").
+			Time().
+			Before(activeRecords[j].GetDateTime("start").Time())
+	})
+
+	return activeRecords, nil
+}
+
+func mapScheduledMessages(records []*core.Record) []map[string]any {
+	items := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		items = append(items, map[string]any{
+			"id":      record.Id,
+			"title":   record.GetString("title"),
+			"content": record.GetString("content"),
+			"start":   record.GetDateTime("start").String(),
+			"end":     record.GetDateTime("end").String(),
 		})
 	}
 	return items

@@ -6,6 +6,7 @@ export const environment = {
   privacyPolicyUrl: 'https://kartta.lappeenranta.fi/eFeedback/fi/PrivacyPolicy',
   production: true,
   pushApiUrl: '/push',
+  scheduledMessagesApiUrl: '/messages',
   radarApiKey: 'your_secret_key',
   sentryDsn: 'your_secret_key',
   serviceApiApiKey: 'your_secret_key',

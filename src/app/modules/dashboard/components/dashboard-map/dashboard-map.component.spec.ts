@@ -17,6 +17,10 @@ import {
 import { LatLong } from '@core/models/location';
 import { DataPointsApi } from '@core/services/datapoints-api/datapoints-api.service';
 import { LocationService, UserLocation } from '@core/services/location.service';
+import {
+  ScheduledMessage,
+  ScheduledMessagesService,
+} from '@core/services/scheduled-messages.service';
 import { TranslateService } from '@ngx-translate/core';
 import { MapComponent } from '@shared/components/map/map.component';
 import { MessageService, SharedModule } from 'primeng/api';
@@ -56,6 +60,9 @@ describe('DashboardMapComponent', () => {
           loading: false,
           location: [1, 1],
         } as UserLocation),
+      })
+      .mock(ScheduledMessagesService, {
+        getActiveMessages: jest.fn().mockReturnValue(of([] as ScheduledMessage[])),
       })
       .provideMock(AsyncPipe)
       .import(BrowserAnimationsModule)
@@ -334,6 +341,31 @@ describe('DashboardMapComponent', () => {
       expect(find('.badge').nativeElement.innerHTML).toBe('1');
     });
   });
+
+  describe('scheduled banners', () => {
+    it('should render active scheduled messages', async () => {
+      const { find, fixture } = await shallow
+        .mock(ScheduledMessagesService, {
+          getActiveMessages: jest
+            .fn()
+            .mockReturnValue(of(ACTIVE_SCHEDULED_MESSAGES)),
+        })
+        .render();
+
+      expect(find('.scheduled-message')).toHaveFound(1);
+      expect(find('.scheduled-message h2').nativeElement.innerHTML).toBe(
+        'Scheduled maintenance',
+      );
+      expect(find('.scheduled-message .body-sm').nativeElement.innerHTML).toBe(
+        '<p>Map data updates are delayed.</p>',
+      );
+
+      find('.scheduled-message-dismiss').triggerEventHandler('click');
+      fixture.detectChanges();
+
+      expect(find('.scheduled-message')).toHaveFound(0);
+    });
+  });
 });
 
 const WEATHER_CONDITION_DATA_POINTS: WeatherConditionDataPoint[] = [
@@ -452,5 +484,15 @@ const WATERBAG_TESTKIT_DATA_POINTS: WaterbagTestKitDataPoint[] = [
       nitrate: { value: 1, result: 1 },
       phosphate: { value: 1, result: 1 },
     },
+  },
+];
+
+const ACTIVE_SCHEDULED_MESSAGES: ScheduledMessage[] = [
+  {
+    id: 'message-1',
+    title: 'Scheduled maintenance',
+    content: '<p>Map data updates are delayed.</p>',
+    start: '2026-02-25 08:00:00.000Z',
+    end: '2026-02-25 12:00:00.000Z',
   },
 ];

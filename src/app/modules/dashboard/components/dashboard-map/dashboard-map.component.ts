@@ -21,6 +21,10 @@ import {
 import { LatLong } from '@core/models/location';
 import { DataPointsApi } from '@core/services/datapoints-api/datapoints-api.service';
 import { LocationService, UserLocation } from '@core/services/location.service';
+import {
+  ScheduledMessage,
+  ScheduledMessagesService,
+} from '@core/services/scheduled-messages.service';
 import { environment } from '@environments/environment';
 import { TranslateService } from '@ngx-translate/core';
 import { MapComponent, Marker } from '@shared/components/map/map.component';
@@ -91,6 +95,13 @@ export class DashboardMapComponent implements AfterViewInit {
   );
 
   private _activeLocation = signal<LatLong | undefined>(undefined);
+  public activeScheduledMessages = signal<ScheduledMessage[]>([]);
+  private dismissedScheduledMessageIds = signal<Set<string>>(new Set());
+  public visibleScheduledMessages = computed(() =>
+    this.activeScheduledMessages().filter(
+      (message) => !this.dismissedScheduledMessageIds().has(message.id),
+    ),
+  );
   public selectedDataPoints = computed(() => {
     const latLong = this._activeLocation();
 
@@ -143,6 +154,7 @@ export class DashboardMapComponent implements AfterViewInit {
   public constructor(
     private readonly locationService: LocationService,
     private readonly dataPointsApi: DataPointsApi,
+    private readonly scheduledMessagesService: ScheduledMessagesService,
     private readonly messageService: MessageService,
     private readonly translateService: TranslateService,
   ) {
@@ -203,6 +215,11 @@ export class DashboardMapComponent implements AfterViewInit {
         this.handleDataPointsByType(points, DataPointType.ROAD_WORKS),
       );
 
+    this.scheduledMessagesService
+      .getActiveMessages()
+      .pipe(take(1), takeUntilDestroyed())
+      .subscribe((messages) => this.activeScheduledMessages.set(messages));
+
     this._focusLocation$
       .pipe(take(1), takeUntilDestroyed())
       .subscribe(this.onInitialFocusLocation.bind(this));
@@ -256,6 +273,14 @@ export class DashboardMapComponent implements AfterViewInit {
 
   public onFocusLocationClick(): void {
     this._focusLocation$.next();
+  }
+
+  public onDismissScheduledMessage(messageId: string): void {
+    this.dismissedScheduledMessageIds.update((current) => {
+      const next = new Set(current);
+      next.add(messageId);
+      return next;
+    });
   }
 
   private async showLoadingDataToast(): Promise<void> {

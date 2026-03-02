@@ -4,6 +4,26 @@
   [markers]="(dataPointMarkers$ | async) ?? []"
   (markerClick)="onMarkerClick($event)"
 ></app-map>
+
+@if (visibleScheduledMessages().length > 0) {
+  <div class="scheduled-messages">
+    @for (message of visibleScheduledMessages(); track message.id) {
+      <section class="scheduled-message shadow-md" aria-live="polite">
+        <button
+          type="button"
+          class="scheduled-message-dismiss"
+          aria-label="Dismiss message"
+          (click)="onDismissScheduledMessage(message.id)"
+        >
+          ×
+        </button>
+        <h2 class="heading-xs">{{ message.title }}</h2>
+        <div class="body-sm" [innerHTML]="message.content"></div>
+      </section>
+    }
+  </div>
+}
+
 <app-search-location-input
   class="search"
   [formControl]="locationFormControl"
