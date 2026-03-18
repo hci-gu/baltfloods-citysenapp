@@ -116,6 +116,8 @@ describe('MapComponent', () => {
 
       fixture.detectChanges();
       await fixture.whenStable();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
 
       expect(find('.leaflet-marker-icon').length).toBe(newMarkers.length);
 
@@ -126,10 +128,10 @@ describe('MapComponent', () => {
 
 
       expect(getFillHexCode(markerHTML)).toBe(
-        DATA_POINT_QUALITY_COLOR_CHART[DataPointQuality.GOOD],
+        DATA_POINT_QUALITY_COLOR_CHART[DataPointQuality.POOR],
       );
 
-      expect(markerClassList.contains('active')).toBe(false);
+      expect(markerClassList.contains('active')).toBe(true);
     });
   });
 

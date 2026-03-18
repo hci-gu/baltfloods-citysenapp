@@ -134,6 +134,14 @@ Creates a water observation.
 
 Content-Type: `multipart/form-data`
 
+Auth (optional): include `Authorization: Bearer <pocketbase_user_token>` to
+attach the created observation to that user. Anonymous submissions are still
+allowed and will store `user` as empty.
+
+Visibility defaults:
+- authenticated `users` submitter: `visible = true`
+- anonymous submitter: `visible = false`
+
 Form fields:
 - Required:
   - `latitude` (number)

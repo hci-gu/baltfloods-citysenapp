@@ -99,6 +99,7 @@ export type WaterbagTestKitResponse = {
 
 export type ObservationWaterResponse = {
   id: string;
+  name?: string;
   latitude: number;
   longitude: number;
   dataRetrievedTimestamp: number;

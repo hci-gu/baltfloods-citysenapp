@@ -239,6 +239,30 @@
   color: var(--text-color-secondary);
 }
 
+.observation-visibility {
+  margin: 0;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+
+  &.hidden {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fcd34d;
+  }
+}
+
+.observation-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 @media (max-width: 1100px) {
   .admin-page {
     overflow-y: auto;

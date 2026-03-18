@@ -17,6 +17,7 @@ import {
 import { LatLong } from '@core/models/location';
 import { DataPointsApi } from '@core/services/datapoints-api/datapoints-api.service';
 import { LocationService, UserLocation } from '@core/services/location.service';
+import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
 import {
   ScheduledMessage,
   ScheduledMessagesService,
@@ -24,11 +25,12 @@ import {
 import { TranslateService } from '@ngx-translate/core';
 import { MapComponent } from '@shared/components/map/map.component';
 import { MessageService, SharedModule } from 'primeng/api';
-import { firstValueFrom, of } from 'rxjs';
+import { EMPTY, firstValueFrom, of } from 'rxjs';
 import { Shallow } from 'shallow-render';
 import { DashboardDataPointDetailComponent } from '../dashboard-data-point-detail/dashboard-data-point-detail.component';
 import { DashboardMapComponent } from './dashboard-map.component';
 import { AsyncPipe } from '@angular/common';
+import { SensorHistoryPoint } from '@core/services/datapoints-api/datapoints-api.service';
 
 describe('DashboardMapComponent', () => {
   let shallow: Shallow<DashboardMapComponent>;
@@ -48,6 +50,7 @@ describe('DashboardMapComponent', () => {
           .fn()
           .mockReturnValue(of(WEATHER_AIR_QUALITY_DATA_POINTS)),
         getParking: jest.fn().mockReturnValue(of(PARKING_DATA_POINTS)),
+        getStormWaterHistory: jest.fn().mockReturnValue(of([] as SensorHistoryPoint[])),
         getWaterbagTestKits: jest
           .fn()
           .mockReturnValue(of(WATERBAG_TESTKIT_DATA_POINTS)),
@@ -63,6 +66,9 @@ describe('DashboardMapComponent', () => {
       })
       .mock(ScheduledMessagesService, {
         getActiveMessages: jest.fn().mockReturnValue(of([] as ScheduledMessage[])),
+      })
+      .mock(ObservationRealtimeService, {
+        observationChanges$: EMPTY,
       })
       .provideMock(AsyncPipe)
       .import(BrowserAnimationsModule)
@@ -258,11 +264,11 @@ describe('DashboardMapComponent', () => {
       expect(await firstValueFrom(instance.mapCenter$)).toEqual([1, 1]);
     });
 
-    it('should default to last year with a 30 day active window', async () => {
+    it('should default to 1 year with a 30 day active window', async () => {
       const { find, fixture } = await shallow.render();
 
       expect(find('.timespan-filter-button').nativeElement.textContent).toContain(
-        'Last year',
+        '1 year',
       );
       expect(find('.observation-item')).toHaveFound(
         WEATHER_CONDITION_DATA_POINTS.length +
@@ -276,7 +282,7 @@ describe('DashboardMapComponent', () => {
       fixture.detectChanges();
       find('.timespan-filter-option')
         .map((item) => item.nativeElement as HTMLButtonElement)
-        .find((button) => button.textContent?.includes('All time'))
+        .find((button) => button.textContent?.includes('5 years'))
         ?.click();
       fixture.detectChanges();
 
@@ -302,7 +308,7 @@ describe('DashboardMapComponent', () => {
       fixture.detectChanges();
       find('.timespan-filter-option')
         .map((item) => item.nativeElement as HTMLButtonElement)
-        .find((button) => button.textContent?.includes('All time'))
+        .find((button) => button.textContent?.includes('5 years'))
         ?.click();
       fixture.detectChanges();
 
@@ -310,6 +316,57 @@ describe('DashboardMapComponent', () => {
         expect.arrayContaining([
           expect.objectContaining({ location: [61.05871, 28.18871] }),
         ]),
+      );
+    });
+
+    it('should show sensor values over time for an Intoto storm-water point', async () => {
+      const sensorHistory: SensorHistoryPoint[] = [
+        { timestamp: new Date('2026-03-10T00:00:00Z'), value: 16.7 },
+        { timestamp: new Date('2026-03-11T00:00:00Z'), value: 16.9 },
+        { timestamp: new Date('2026-03-12T00:00:00Z'), value: 17.1 },
+      ];
+
+      const { find, findComponent, fixture, inject } = await shallow
+        .mock(DataPointsApi, {
+          getWeatherConditions: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_CONDITION_DATA_POINTS)),
+          getWeatherStormWater: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_STORM_WATER_DATA_POINTS)),
+          getWeatherAirQuality: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_AIR_QUALITY_DATA_POINTS)),
+          getParking: jest.fn().mockReturnValue(of(PARKING_DATA_POINTS)),
+          getStormWaterHistory: jest.fn().mockReturnValue(of(sensorHistory)),
+          getWaterbagTestKits: jest
+            .fn()
+            .mockReturnValue(of(WATERBAG_TESTKIT_DATA_POINTS)),
+          getRoadWorks: jest.fn().mockReturnValue(of(ROAD_WORKS_DATA_POINTS)),
+        })
+        .render();
+
+      findComponent(MapComponent).markerClick.emit([4, 4]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const dataPointsApi = inject(DataPointsApi);
+      expect(dataPointsApi.getStormWaterHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Lappeenranta Weather Hub',
+          historySeries: expect.objectContaining({
+            provider: 'intoto',
+            seriesId: 121,
+          }),
+        }),
+        expect.any(Date),
+        expect.any(Date),
+      );
+      expect(find('.timeline-header-main h3').nativeElement.textContent).toContain(
+        'Sensor values over time',
+      );
+      expect(find('.timeline-chart[aria-label="Sensor values over time chart"]')).toHaveFound(
+        1,
       );
     });
   });
@@ -457,6 +514,11 @@ const WEATHER_STORM_WATER_DATA_POINTS: WeatherStormWaterDataPoint[] = [
     quality: DataPointQuality.FAIR,
     name: 'Lappeenranta Weather Hub',
     data: {},
+    historySeries: {
+      provider: 'intoto',
+      seriesId: 121,
+      unitLabel: 'meter NN2000',
+    },
   },
   {
     location: [100, 100],

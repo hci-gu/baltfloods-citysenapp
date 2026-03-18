@@ -18,6 +18,8 @@ export const environment = {
   streetAiApiKey: 'your_secret_key',
   streetAiApiUrl: 'https://external.streetai.net/api/v1',
   streetAiUploadUrl: 'https://opendata.streetai.net/uploads',
+  intoToApiUrl: 'https://api.intoto.io/api/v1',
+  intoToApiKey: 'your_secret_key',
   termsOfUseUrl: 'https://kartta.lappeenranta.fi/eFeedback/fi/TermsOfUse',
   trackingCode: 'your_secret_key',
   vapidPublicKey: 'your_public_vapid_key'

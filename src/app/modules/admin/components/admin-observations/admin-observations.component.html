@@ -128,6 +128,12 @@
                     <p class="observation-type body-xs">
                       {{ observation.type }}
                     </p>
+                    <p
+                      class="observation-visibility body-xs"
+                      [class.hidden]="!observation.visible"
+                    >
+                      {{ observation.visible ? 'Visible' : 'Hidden' }}
+                    </p>
                     @if (observation.lastUpdatedOn) {
                       <p class="observation-time body-xs">
                         {{ observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm' }}
@@ -136,14 +142,30 @@
                   </div>
 
                   @if (canDelete()) {
-                    <p-button
-                      label="Delete"
-                      severity="danger"
-                      [outlined]="true"
-                      [loading]="isDeleting(observation.id)"
-                      [disabled]="isDeleting(observation.id)"
-                      (click)="deleteObservation(observation)"
-                    ></p-button>
+                    <div class="observation-actions">
+                      <p-button
+                        [label]="observation.visible ? 'Hide' : 'Show'"
+                        severity="secondary"
+                        [outlined]="true"
+                        [loading]="isVisibilityUpdating(observation.id)"
+                        [disabled]="
+                          isVisibilityUpdating(observation.id) ||
+                          isDeleting(observation.id)
+                        "
+                        (click)="toggleVisibility(observation)"
+                      ></p-button>
+                      <p-button
+                        label="Delete"
+                        severity="danger"
+                        [outlined]="true"
+                        [loading]="isDeleting(observation.id)"
+                        [disabled]="
+                          isDeleting(observation.id) ||
+                          isVisibilityUpdating(observation.id)
+                        "
+                        (click)="deleteObservation(observation)"
+                      ></p-button>
+                    </div>
                   }
                 </li>
               }

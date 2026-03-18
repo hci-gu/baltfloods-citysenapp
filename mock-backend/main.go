@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -20,14 +21,18 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/pocketbase/pocketbase/tools/routine"
+	"github.com/pocketbase/pocketbase/tools/subscriptions"
 
 	_ "app/migrations"
 )
 
 const (
-	observationTypeStormWater       = "storm_water"
-	observationTypeWaterbagTestkit  = "waterbag_testkit"
-	observationTypeWaterObservation = "water_observation"
+	observationTypeStormWater      = "storm_water"
+	observationTypeWaterbagTestkit = "waterbag_testkit"
+	observationTypeWaterOverflow   = "water_overflow"
+	observationRefreshTopic        = "observations-refresh"
+	observationBackendAPIURL       = "https://baltfloods-api.prod.appadem.in"
 )
 
 func main() {
@@ -58,7 +63,45 @@ func main() {
 		return e.Next()
 	})
 
+	app.OnRecordCreateRequest("observations").BindFunc(func(e *core.RecordRequestEvent) error {
+		ensureObservationImageURL(e.Record)
+		return e.Next()
+	})
+
+	app.OnRecordUpdateRequest("observations").BindFunc(func(e *core.RecordRequestEvent) error {
+		ensureObservationImageURL(e.Record)
+		return e.Next()
+	})
+
+	app.OnRecordAfterCreateSuccess("observations").BindFunc(func(e *core.RecordEvent) error {
+		if err := e.Next(); err != nil {
+			return err
+		}
+		broadcastObservationRefresh(e.App, "create")
+		return nil
+	})
+
+	app.OnRecordAfterUpdateSuccess("observations").BindFunc(func(e *core.RecordEvent) error {
+		if err := e.Next(); err != nil {
+			return err
+		}
+		broadcastObservationRefresh(e.App, "update")
+		return nil
+	})
+
+	app.OnRecordAfterDeleteSuccess("observations").BindFunc(func(e *core.RecordEvent) error {
+		if err := e.Next(); err != nil {
+			return err
+		}
+		broadcastObservationRefresh(e.App, "delete")
+		return nil
+	})
+
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		if err := backfillObservationImageURLs(se.App); err != nil {
+			log.Printf("failed to backfill observation image URLs: %v", err)
+		}
+
 		streetAIKey := os.Getenv("STREET_AI_API_KEY")
 
 		streetGroup := se.Router.Group("/street-ai")
@@ -90,7 +133,7 @@ func main() {
 			if err != nil {
 				return apis.NewApiError(500, "Failed to load storm water data.", err)
 			}
-			return e.JSON(http.StatusOK, mapStormWater(records))
+			return e.JSON(http.StatusOK, mapStormWater(records, canViewHiddenObservations(e)))
 		})
 		streetGroup.GET("/{jurisdictionId}/parking", func(e *core.RequestEvent) error {
 			if err := requireStreetAIKey(e, streetAIKey); err != nil {
@@ -120,7 +163,7 @@ func main() {
 			if err != nil {
 				return apis.NewApiError(500, "Failed to load waterbag testkit data.", err)
 			}
-			return e.JSON(http.StatusOK, mapWaterbagTestkit(records))
+			return e.JSON(http.StatusOK, mapWaterbagTestkit(records, canViewHiddenObservations(e)))
 		})
 
 		serviceGroup := se.Router.Group("/service-api")
@@ -147,7 +190,7 @@ func main() {
 			if err != nil {
 				return apis.NewApiError(500, "Failed to load water observations.", err)
 			}
-			return e.JSON(http.StatusOK, mapWaterObservations(records))
+			return e.JSON(http.StatusOK, mapWaterObservations(records, canViewHiddenObservations(e)))
 		})
 		observationGroup.POST("/water", func(e *core.RequestEvent) error {
 			record, err := createWaterObservation(se.App, e)
@@ -284,6 +327,35 @@ func fetchRecords(app core.App, collectionName string, jurisdictionId string) ([
 	return app.FindRecordsByFilter(collectionName, "", "", 0, 0)
 }
 
+func canViewHiddenObservations(e *core.RequestEvent) bool {
+	return e.Auth != nil &&
+		e.Auth.Collection() != nil &&
+		e.Auth.Collection().Name == "users" &&
+		e.Auth.GetString("type") == "admin"
+}
+
+func broadcastObservationRefresh(app core.App, action string) {
+	message := subscriptions.Message{
+		Name: observationRefreshTopic,
+		Data: []byte(`{"action":"` + action + `"}`),
+	}
+
+	for _, client := range app.SubscriptionsBroker().Clients() {
+		if !client.HasSubscription(observationRefreshTopic) {
+			continue
+		}
+
+		currentClient := client
+		routine.FireAndForget(func() {
+			currentClient.Send(message)
+		})
+	}
+}
+
+func isObservationVisible(record *core.Record, includeHidden bool) bool {
+	return includeHidden || record.GetBool("visible")
+}
+
 func mapWeatherConditions(records []*core.Record) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
@@ -324,10 +396,13 @@ func mapAirQuality(records []*core.Record) []map[string]any {
 	return items
 }
 
-func mapStormWater(records []*core.Record) []map[string]any {
+func mapStormWater(records []*core.Record, includeHidden bool) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
 		if record.GetString("type") != observationTypeStormWater {
+			continue
+		}
+		if !isObservationVisible(record, includeHidden) {
 			continue
 		}
 
@@ -418,10 +493,13 @@ func mapRoadWorks(records []*core.Record) []map[string]any {
 	return items
 }
 
-func mapWaterbagTestkit(records []*core.Record) []map[string]any {
+func mapWaterbagTestkit(records []*core.Record, includeHidden bool) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
 		if record.GetString("type") != observationTypeWaterbagTestkit {
+			continue
+		}
+		if !isObservationVisible(record, includeHidden) {
 			continue
 		}
 
@@ -432,6 +510,9 @@ func mapWaterbagTestkit(records []*core.Record) []map[string]any {
 		}
 
 		data := observationData(record)
+		if _, userSubmitted := data["observationType"]; userSubmitted {
+			continue
+		}
 
 		items = append(items, map[string]any{
 			"id": record.Id,
@@ -599,7 +680,15 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 	}
 
 	record := core.NewRecord(collection)
-	record.Set("type", observationTypeWaterObservation)
+	isAuthenticatedUser := e.Auth != nil &&
+		e.Auth.Collection() != nil &&
+		e.Auth.Collection().Name == "users"
+	if isAuthenticatedUser && collection.Fields.GetByName("user") != nil {
+		record.Set("user", e.Auth.Id)
+	}
+	if collection.Fields.GetByName("visible") != nil {
+		record.Set("visible", isAuthenticatedUser)
+	}
 
 	if err := setRequiredNumber(record, "latitude", e.Request.FormValue("latitude")); err != nil {
 		return nil, err
@@ -618,9 +707,15 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 		return nil, apis.NewApiError(400, "Invalid observation type.", nil)
 	}
 	isWaterOverflowObservation := observationType == "water_overflow"
+	if isWaterOverflowObservation {
+		record.Set("type", observationTypeWaterOverflow)
+	} else {
+		record.Set("type", observationTypeWaterbagTestkit)
+	}
 
 	timestamp := time.Now().Unix()
 	record.Set("dataRetrievedTimestamp", float64(timestamp))
+	record.Set("name", fmt.Sprintf("Observation %s %d", observationType, timestamp))
 
 	data := map[string]any{
 		"observationType": observationType,
@@ -716,22 +811,39 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 	if err := app.Save(record); err != nil {
 		return nil, apis.NewApiError(500, "Failed to store observation.", err)
 	}
+	if ensureObservationImageURL(record) {
+		if err := app.Save(record); err != nil {
+			return nil, apis.NewApiError(500, "Failed to store observation image URL.", err)
+		}
+	}
 
 	return record, nil
 }
 
-func mapWaterObservations(records []*core.Record) []map[string]any {
+func mapWaterObservations(records []*core.Record, includeHidden bool) []map[string]any {
 	items := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		if record.GetString("type") != observationTypeWaterObservation {
+		recordType := record.GetString("type")
+		if recordType != observationTypeWaterOverflow &&
+			recordType != observationTypeWaterbagTestkit {
+			continue
+		}
+		if !isObservationVisible(record, includeHidden) {
 			continue
 		}
 
 		data := observationData(record)
 		imageUrl := observationImageURL(record, "observations")
 		observationType := firstNonNil(data["observationType"], record.GetRaw("observationType"))
-		if observationType == nil {
-			continue
+		if recordType == observationTypeWaterOverflow {
+			if observationType == nil {
+				observationType = observationTypeWaterOverflow
+			}
+		} else {
+			// Only include manually submitted water observations.
+			if observationType == nil {
+				continue
+			}
 		}
 
 		algaeLevel := data["algaeLevel"]
@@ -743,9 +855,11 @@ func mapWaterObservations(records []*core.Record) []map[string]any {
 
 		items = append(items, map[string]any{
 			"id":                     record.Id,
+			"name":                   firstNonNil(record.GetRaw("name"), record.Id),
 			"latitude":               firstNonNil(record.GetRaw("latitude"), data["latitude"]),
 			"longitude":              firstNonNil(record.GetRaw("longitude"), data["longitude"]),
 			"dataRetrievedTimestamp": resolveObservationTimestamp(record),
+			"photo":                  record.GetRaw("photo"),
 			"imageUrl":               imageUrl,
 			"observationType":        observationType,
 			"airTemp":                data["airTemp"],
@@ -1062,11 +1176,12 @@ func metricWithOptionalFields(data map[string]any, key string, optionalFields ..
 }
 
 func observationImageURL(record *core.Record, collectionName string) string {
-	if filename := firstFileName(record.Get("photo")); filename != "" {
-		return "../api/files/" + collectionName + "/" + record.Id + "/" + filename
-	}
-	if value, ok := record.GetRaw("imageUrl").(string); ok {
+	_ = collectionName
+	if value := strings.TrimSpace(record.GetString("imageUrl")); value != "" {
 		return value
+	}
+	if filename := firstFileName(record.Get("photo")); filename != "" {
+		return observationPhotoURL(record.Id, filename)
 	}
 	return ""
 }
@@ -1077,10 +1192,71 @@ func firstFileName(value any) string {
 		if len(typed) > 0 {
 			return typed[0]
 		}
+	case []*filesystem.File:
+		for _, file := range typed {
+			if file != nil {
+				if file.Name != "" {
+					return file.Name
+				}
+				if file.OriginalName != "" {
+					return file.OriginalName
+				}
+			}
+		}
+	case []filesystem.File:
+		for _, file := range typed {
+			if file.Name != "" {
+				return file.Name
+			}
+			if file.OriginalName != "" {
+				return file.OriginalName
+			}
+		}
+	case []any:
+		for _, entry := range typed {
+			if filename := firstFileName(entry); filename != "" {
+				return filename
+			}
+		}
 	case string:
 		return typed
 	}
 	return ""
+}
+
+func ensureObservationImageURL(record *core.Record) bool {
+	if strings.TrimSpace(record.GetString("imageUrl")) != "" {
+		return false
+	}
+	filename := firstFileName(record.Get("photo"))
+	if filename == "" {
+		return false
+	}
+	record.Set("imageUrl", observationPhotoURL(record.Id, filename))
+	return true
+}
+
+func observationPhotoURL(recordID string, filename string) string {
+	return strings.TrimRight(observationBackendAPIURL, "/") +
+		"/api/files/observations/" + recordID + "/" + url.PathEscape(filename)
+}
+
+func backfillObservationImageURLs(app core.App) error {
+	records, err := fetchRecords(app, "observations", "")
+	if err != nil {
+		return err
+	}
+
+	for _, record := range records {
+		if !ensureObservationImageURL(record) {
+			continue
+		}
+		if err := app.Save(record); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func firstNonNil(values ...any) any {

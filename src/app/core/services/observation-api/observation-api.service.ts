@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { LatLong } from '@core/models/location';
 import { environment } from '@environments/environment';
+import { AuthService } from '@core/services/auth.service';
 
 export type ObservationType = 'water_system' | 'stormwater' | 'water_overflow';
 export type AlgaeLevel = 'none' | 'little' | 'rich' | 'very_rich';
@@ -33,7 +34,10 @@ export interface WaterObservationResponse {
 export class ObservationApiService {
   private baseUrl = environment.observationApiUrl;
 
-  public constructor(private readonly httpClient: HttpClient) {}
+  public constructor(
+    private readonly httpClient: HttpClient,
+    private readonly authService: AuthService,
+  ) {}
 
   public submitWaterObservation(
     payload: WaterObservationPayload,
@@ -76,9 +80,32 @@ export class ObservationApiService {
       formData.append('cc0Accepted', String(payload.cc0Accepted));
     }
 
+    const headers = this.createAuthHeaders();
+
     return this.httpClient.post<WaterObservationResponse>(
       `${this.baseUrl}/water`,
       formData,
+      headers ? { headers } : undefined,
+    );
+  }
+
+  private createAuthHeaders(): HttpHeaders | null {
+    const token = this.authService.token;
+    if (!token || !this.looksLikeJwt(token)) {
+      return null;
+    }
+
+    return new HttpHeaders({
+      Authorization: `Bearer ${token}`,
+    });
+  }
+
+  private looksLikeJwt(token: string): boolean {
+    const parts = token.split('.');
+    const jwtPartPattern = /^[A-Za-z0-9_-]+$/;
+    return (
+      parts.length === 3 &&
+      parts.every((part) => part.length > 0 && jwtPartPattern.test(part))
     );
   }
 

@@ -31,12 +31,19 @@
     border-bottom: 1px solid #eaecf0;
   }
 
-  .metric-container + a {
-    padding: 16px 0;
+  .observation-image {
     display: block;
-    width: 100%;
-    text-align: center;
-    color: var(--primary-color);
+    width: calc(100% - 64px);
+    margin: 16px 32px;
+    border-radius: 12px;
+    border: 1px solid #eaecf0;
+    object-fit: cover;
+    max-height: 280px;
+  }
+
+  .metric-container + .observation-image {
+    display: block;
+    margin-top: 16px;
   }
 
   ul {

@@ -14,10 +14,11 @@ import {
   ObservationRecordsPage,
   ObservationRecordsService,
 } from '@core/services/observation-records.service';
+import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
 import { AuthService } from '@core/services/auth.service';
 import { environment } from '@environments/environment';
 import { Router } from '@angular/router';
-import { forkJoin, interval, startWith, switchMap } from 'rxjs';
+import { debounceTime, forkJoin, interval, startWith, switchMap } from 'rxjs';
 import { SharedModule } from '@shared/shared.module';
 import { PaginatorModule } from 'primeng/paginator';
 
@@ -25,6 +26,7 @@ interface ObservationFeedItem {
   id: string;
   name: string;
   type: string;
+  visible: boolean;
   lastUpdatedOn?: Date;
   imageUrl?: string;
 }
@@ -95,13 +97,15 @@ export class AdminObservationsComponent {
   public currentPage = signal<number>(1);
   public totalItems = signal<number>(0);
   public deletingRecordIds = signal<Set<string>>(new Set());
+  public updatingVisibilityRecordIds = signal<Set<string>>(new Set());
   public isAuthenticated = computed(() => !!this.authState().token);
   public isAdminUser = computed(
     () => this.authState().record?.type === 'admin',
   );
-  public canDelete = computed(
+  public canManageObservations = computed(
     () => this.isAuthenticated() && this.isAdminUser(),
   );
+  public canDelete = this.canManageObservations;
 
   public observationFeed = computed<ObservationFeedItem[]>(() =>
     this._observations()
@@ -112,8 +116,9 @@ export class AdminObservationsComponent {
       )
       .map((observation) => ({
         id: observation.id,
-        name: observation.id,
+        name: observation.name?.trim() || observation.id,
         type: this.getObservationTypeLabel(observation),
+        visible: observation.visible ?? false,
         lastUpdatedOn: this.getTimestamp(observation),
         imageUrl: this.getObservationImageUrl(observation),
       })),
@@ -216,6 +221,7 @@ export class AdminObservationsComponent {
 
   public constructor(
     private readonly observationRecordsService: ObservationRecordsService,
+    private readonly observationRealtimeService: ObservationRealtimeService,
     private readonly authService: AuthService,
     private readonly router: Router,
   ) {
@@ -254,6 +260,13 @@ export class AdminObservationsComponent {
           this._latestObservation.set(latest.items[0] ?? null);
         },
       });
+
+    this.observationRealtimeService.observationChanges$
+      .pipe(debounceTime(200), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.loadObservationPage(this.currentPage());
+        this.loadInsights();
+      });
   }
 
   public refresh(): void {
@@ -283,6 +296,10 @@ export class AdminObservationsComponent {
 
   public isDeleting(recordId: string): boolean {
     return this.deletingRecordIds().has(recordId);
+  }
+
+  public isVisibilityUpdating(recordId: string): boolean {
+    return this.updatingVisibilityRecordIds().has(recordId);
   }
 
   public deleteObservation(item: ObservationFeedItem): void {
@@ -342,6 +359,53 @@ export class AdminObservationsComponent {
     });
   }
 
+  public toggleVisibility(item: ObservationFeedItem): void {
+    if (!this.canManageObservations()) {
+      return;
+    }
+
+    const token = this.authService.token;
+    if (!token) {
+      this.errorMessage.set('Sign in as an admin to update observations.');
+      return;
+    }
+
+    const nextVisible = !item.visible;
+    this.errorMessage.set('');
+    this.updatingVisibilityRecordIds.update((current) => {
+      const next = new Set(current);
+      next.add(item.id);
+      return next;
+    });
+
+    this.observationRecordsService
+      .updateObservation(item.id, { visible: nextVisible }, token)
+      .subscribe({
+        next: () => {
+          this.removeVisibilityUpdatingRecordId(item.id);
+          this._observations.update((records) =>
+            records.map((record) =>
+              record.id === item.id ? { ...record, visible: nextVisible } : record,
+            ),
+          );
+          this.loadObservationPage(this.currentPage());
+          this.loadInsights();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.removeVisibilityUpdatingRecordId(item.id);
+          if (error.status === 401 || error.status === 403) {
+            this.errorMessage.set(
+              'Only authenticated admin users can update observations.',
+            );
+            return;
+          }
+          this.errorMessage.set(
+            'Failed to update observation visibility. Please try again.',
+          );
+        },
+      });
+  }
+
   public getObservationTypeLabel(observation: ObservationRecord): string {
     const recordType = observation.type ?? '';
     const observationType = observation.data?.['observationType'];
@@ -351,20 +415,17 @@ export class AdminObservationsComponent {
     }
 
     if (recordType === 'waterbag_testkit') {
+      if (observationType === 'stormwater') {
+        return 'Storm water';
+      }
+      if (observationType === 'water_system') {
+        return 'Water system';
+      }
       return 'Water observations';
     }
 
-    if (recordType === 'water_observation') {
-      switch (observationType) {
-      case 'water_system':
-        return 'Water system';
-      case 'stormwater':
-        return 'Storm water';
-      case 'water_overflow':
-        return 'Water overflow';
-      default:
-        return 'Water observation';
-      }
+    if (recordType === 'water_overflow') {
+      return 'Water overflow';
     }
 
     return recordType || 'Observation';
@@ -372,6 +433,14 @@ export class AdminObservationsComponent {
 
   private removeDeletingRecordId(recordId: string): void {
     this.deletingRecordIds.update((current) => {
+      const next = new Set(current);
+      next.delete(recordId);
+      return next;
+    });
+  }
+
+  private removeVisibilityUpdatingRecordId(recordId: string): void {
+    this.updatingVisibilityRecordIds.update((current) => {
       const next = new Set(current);
       next.delete(recordId);
       return next;
@@ -416,22 +485,11 @@ export class AdminObservationsComponent {
   private getObservationImageUrl(
     observation: ObservationRecord,
   ): string | undefined {
-    if (observation.imageUrl && observation.imageUrl.trim()) {
-      return this.normalizeImageUrl(observation.imageUrl);
-    }
-
-    const photo = observation.photo;
-    const filename = Array.isArray(photo)
-      ? photo.find((item) => typeof item === 'string' && item.length > 0)
-      : typeof photo === 'string'
-        ? photo
-        : undefined;
-
-    if (!filename) {
+    if (!observation.imageUrl || !observation.imageUrl.trim()) {
       return undefined;
     }
 
-    return `${environment.pocketbaseUrl}/files/observations/${observation.id}/${encodeURIComponent(filename)}`;
+    return this.normalizeImageUrl(observation.imageUrl);
   }
 
   private getTimestamp(observation: ObservationRecord): Date {
@@ -466,21 +524,38 @@ export class AdminObservationsComponent {
   }
 
   private normalizeImageUrl(imageUrl: string): string {
-    const trimmed = imageUrl.trim();
+    let normalized = imageUrl.trim();
+    const pocketbaseBase = environment.pocketbaseUrl.replace(/\/$/, '');
 
-    if (/^https?:\/\//i.test(trimmed)) {
-      return trimmed;
+    if (normalized.startsWith('../')) {
+      normalized = normalized.replace(/^(\.\.\/)+/, '');
     }
 
-    if (trimmed.startsWith('/')) {
-      return trimmed;
+    if (/^https?:\/\//i.test(normalized)) {
+      return normalized;
     }
 
-    if (trimmed.startsWith('../')) {
-      return `/${trimmed.replace(/^(\.\.\/)+/, '')}`;
+    if (normalized.startsWith('/api/')) {
+      return normalized;
     }
 
-    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${trimmed.replace(/^\/+/, '')}`;
+    if (normalized.startsWith('api/')) {
+      return `/${normalized.replace(/^\/+/, '')}`;
+    }
+
+    if (normalized.startsWith('/files/')) {
+      return `${pocketbaseBase}/${normalized.replace(/^\/+/, '')}`;
+    }
+
+    if (normalized.startsWith('files/')) {
+      return `${pocketbaseBase}/${normalized}`;
+    }
+
+    if (normalized.startsWith('/')) {
+      return normalized;
+    }
+
+    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
   }
 
   private toTypeBreakdown(observations: ObservationRecord[]): TypeCountItem[] {

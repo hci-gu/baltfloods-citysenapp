@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	unifiedObservationTypeStormWater       = "storm_water"
-	unifiedObservationTypeWaterbagTestkit  = "waterbag_testkit"
-	unifiedObservationTypeWaterObservation = "water_observation"
+	unifiedObservationTypeStormWater      = "storm_water"
+	unifiedObservationTypeWaterbagTestkit = "waterbag_testkit"
+	unifiedObservationTypeWaterOverflow   = "water_overflow"
 )
 
 func init() {
@@ -60,10 +60,12 @@ func init() {
 					return err
 				}
 			case unifiedObservationTypeWaterbagTestkit:
-				if err := migrateObservationToLegacyWaterbag(app, waterbagCollection, record, false); err != nil {
+				data := unifiedObservationData(record)
+				_, userObservation := data["observationType"]
+				if err := migrateObservationToLegacyWaterbag(app, waterbagCollection, record, userObservation); err != nil {
 					return err
 				}
-			case unifiedObservationTypeWaterObservation:
+			case unifiedObservationTypeWaterOverflow:
 				if err := migrateObservationToLegacyWaterbag(app, waterbagCollection, record, true); err != nil {
 					return err
 				}
@@ -84,13 +86,14 @@ func ensureUnifiedObservationsCollection(app core.App) (*core.Collection, error)
 	observations.Fields = core.NewFieldsList(
 		&core.SelectField{
 			Name:      "type",
-			Values:    []string{unifiedObservationTypeStormWater, unifiedObservationTypeWaterbagTestkit, unifiedObservationTypeWaterObservation},
+			Values:    []string{unifiedObservationTypeStormWater, unifiedObservationTypeWaterbagTestkit, unifiedObservationTypeWaterOverflow},
 			MaxSelect: 1,
 		},
 		&core.TextField{Name: "name"},
 		&core.NumberField{Name: "latitude"},
 		&core.NumberField{Name: "longitude"},
 		&core.NumberField{Name: "dataRetrievedTimestamp"},
+		&core.BoolField{Name: "visible"},
 		&core.TextField{Name: "imageUrl"},
 		&core.FileField{Name: "photo", MaxSelect: 1},
 		&core.JSONField{Name: "data"},
@@ -119,6 +122,7 @@ func migrateStormWaterIntoObservations(app core.App, observations *core.Collecti
 		target.Set("latitude", record.GetRaw("latitude"))
 		target.Set("longitude", record.GetRaw("longitude"))
 		target.Set("dataRetrievedTimestamp", record.GetRaw("dataRetrievedTimestamp"))
+		target.Set("visible", true)
 
 		target.Set("data", map[string]any{
 			"waterLevel":             record.GetRaw("waterLevel"),
@@ -161,6 +165,7 @@ func migrateWaterbagIntoObservations(app core.App, observations *core.Collection
 		target.Set("latitude", latitude)
 		target.Set("longitude", longitude)
 		target.Set("dataRetrievedTimestamp", unifiedFirstNonNil(record.GetRaw("dataRetrievedTimestamp"), float64(unifiedResolveTimestamp(record))))
+		target.Set("visible", true)
 
 		imageURL := record.GetRaw("imageUrl")
 		if imageURL == nil {
@@ -187,31 +192,38 @@ func migrateWaterbagIntoObservations(app core.App, observations *core.Collection
 				"dissolvedOxygen": unifiedMetricMap(record, "dissolvedOxygen_value", "dissolvedOxygen_dataRetrievedTimestamp", "result", record.GetRaw("dissolvedOxygen_result"), "calculatedValue", record.GetRaw("dissolvedOxygen_calculatedValue")),
 			})
 		} else {
-			target.Set("type", unifiedObservationTypeWaterObservation)
+			if observationType == "water_overflow" {
+				target.Set("type", unifiedObservationTypeWaterOverflow)
+				target.Set("data", map[string]any{
+					"observationType": "water_overflow",
+				})
+			} else {
+				target.Set("type", unifiedObservationTypeWaterbagTestkit)
 
-			data := map[string]any{
-				"observationType":    observationType,
-				"identificationCode": record.GetRaw("identificationCode"),
-				"termsAccepted":      record.GetRaw("termsAccepted"),
-				"cc0Accepted":        record.GetRaw("cc0Accepted"),
-				"airTemp":            unifiedFirstNonNil(record.GetRaw("airTemp_value"), record.GetRaw("airTemp")),
-				"waterTemp":          unifiedFirstNonNil(record.GetRaw("waterTemp_value"), record.GetRaw("waterTemp")),
-				"depthOfView":        unifiedFirstNonNil(record.GetRaw("visibility_value"), record.GetRaw("depthOfView")),
-				"waterPh":            unifiedFirstNonNil(record.GetRaw("waterPh_value"), record.GetRaw("waterPh")),
-				"turbidity":          unifiedFirstNonNil(record.GetRaw("turbidity_value"), record.GetRaw("turbidity")),
-				"dissolvedOxygen":    unifiedFirstNonNil(record.GetRaw("dissolvedOxygen_value"), record.GetRaw("dissolvedOxygen")),
-				"nitrate":            unifiedFirstNonNil(record.GetRaw("nitrate_value"), record.GetRaw("nitrate")),
-				"phosphate":          unifiedFirstNonNil(record.GetRaw("phosphate_value"), record.GetRaw("phosphate")),
-			}
+				data := map[string]any{
+					"observationType":    observationType,
+					"identificationCode": record.GetRaw("identificationCode"),
+					"termsAccepted":      record.GetRaw("termsAccepted"),
+					"cc0Accepted":        record.GetRaw("cc0Accepted"),
+					"airTemp":            unifiedFirstNonNil(record.GetRaw("airTemp_value"), record.GetRaw("airTemp")),
+					"waterTemp":          unifiedFirstNonNil(record.GetRaw("waterTemp_value"), record.GetRaw("waterTemp")),
+					"depthOfView":        unifiedFirstNonNil(record.GetRaw("visibility_value"), record.GetRaw("depthOfView")),
+					"waterPh":            unifiedFirstNonNil(record.GetRaw("waterPh_value"), record.GetRaw("waterPh")),
+					"turbidity":          unifiedFirstNonNil(record.GetRaw("turbidity_value"), record.GetRaw("turbidity")),
+					"dissolvedOxygen":    unifiedFirstNonNil(record.GetRaw("dissolvedOxygen_value"), record.GetRaw("dissolvedOxygen")),
+					"nitrate":            unifiedFirstNonNil(record.GetRaw("nitrate_value"), record.GetRaw("nitrate")),
+					"phosphate":          unifiedFirstNonNil(record.GetRaw("phosphate_value"), record.GetRaw("phosphate")),
+				}
 
-			algaeLevel := record.GetRaw("algaeLevel")
-			if algaeLevel == nil {
-				algaeLevel = unifiedMapAlgaeValueToLevel(record.GetRaw("algae_value"))
+				algaeLevel := record.GetRaw("algaeLevel")
+				if algaeLevel == nil {
+					algaeLevel = unifiedMapAlgaeValueToLevel(record.GetRaw("algae_value"))
+				}
+				if algaeLevel != nil {
+					data["algaeLevel"] = algaeLevel
+				}
+				target.Set("data", data)
 			}
-			if algaeLevel != nil {
-				data["algaeLevel"] = algaeLevel
-			}
-			target.Set("data", data)
 		}
 
 		if err := app.Save(target); err != nil {

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: baltfloods
-          image: 'registry.k8s.gu.se/appademin/baltfloods:0.0.2'
+          image: 'registry.k8s.gu.se/appademin/baltfloods:0.1.2'
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

@@ -14,7 +14,6 @@ import { LatLong } from '@core/models/location';
 import { environment } from '@environments/environment';
 import { isSameLocation } from '../../utils/location-utils';
 import * as leaflet from 'leaflet';
-import 'leaflet.heat';
 import { isEqual } from 'lodash-es';
 import { Observable, Subscription, firstValueFrom } from 'rxjs';
 
@@ -25,6 +24,13 @@ export interface Marker {
   active?: boolean;
   displayMode?: 'default' | 'heatmap';
   heatIntensity?: number;
+}
+
+export interface MapBounds {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
 }
 
 @Component({
@@ -39,12 +45,16 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   @Output() public markerClick = new EventEmitter<LatLong>();
   @Output() public mapClick = new EventEmitter<LatLong>();
+  @Output() public mapCenterChange = new EventEmitter<LatLong>();
+  @Output() public mapBoundsChange = new EventEmitter<MapBounds>();
 
   public map: leaflet.Map | undefined;
 
   private readonly zoom = 13;
   private centerSubscription: Subscription | null = null;
   private heatLayer: leaflet.HeatLayer | null = null;
+  private heatLayerLoadPromise: Promise<boolean> | null = null;
+  private markerRenderSequence = 0;
 
   public constructor(private readonly http: HttpClient) {}
 
@@ -78,6 +88,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
         attributionControl: false,
       })
       .on('click', this.onClickMap.bind(this))
+      .on('moveend', this.onMoveEnd.bind(this))
       .setView(
         new leaflet.LatLng(...(environment.defaultLocation as LatLong)),
         this.zoom,
@@ -93,6 +104,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private initialiseMarkers(): void {
     this.ngOnChanges({ markers: new SimpleChange([], this.markers, true) });
+    this.emitCurrentViewport();
   }
 
   private destroyMap(): void {
@@ -150,13 +162,14 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private renderMarkers(previousMarkers: Marker[], newMarkers: Marker[]): void {
+    const renderSequence = ++this.markerRenderSequence;
     this.clearMarkers();
     if (newMarkers.length === 0) {
       return;
     }
 
     if (newMarkers[0].displayMode === 'heatmap') {
-      this.renderHeatLayer(newMarkers);
+      void this.renderHeatLayer(newMarkers, renderSequence);
       return;
     }
 
@@ -203,8 +216,21 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
   }
 
-  private renderHeatLayer(markers: Marker[]): void {
+  private async renderHeatLayer(
+    markers: Marker[],
+    renderSequence: number,
+  ): Promise<void> {
     if (!this.map || markers.length === 0) {
+      return;
+    }
+
+    const hasHeatLayerFactory = await this.ensureHeatLayerFactory();
+    if (renderSequence !== this.markerRenderSequence || !this.map) {
+      return;
+    }
+
+    if (!hasHeatLayerFactory) {
+      markers.forEach((marker) => void this.renderMarker(marker));
       return;
     }
 
@@ -214,8 +240,16 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       Math.max(0.05, Math.min(marker.heatIntensity ?? 0.2, 1)),
     ]);
 
-    this.heatLayer = leaflet
-      .heatLayer(heatPoints, {
+    const heatLayerFactory = (
+      leaflet as unknown as {
+        heatLayer: (
+          latlngs: Array<[number, number, number]>,
+          options?: leaflet.HeatMapOptions,
+        ) => leaflet.HeatLayer;
+      }
+    ).heatLayer;
+
+    this.heatLayer = heatLayerFactory(heatPoints, {
         radius: 30,
         blur: 22,
         minOpacity: 0.35,
@@ -227,8 +261,32 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
           0.8: '#f97316',
           1.0: '#dc2626',
         },
-      })
-      .addTo(this.map);
+      }).addTo(this.map);
+  }
+
+  private async ensureHeatLayerFactory(): Promise<boolean> {
+    if (this.hasHeatLayerFactory()) {
+      return true;
+    }
+
+    if (!this.heatLayerLoadPromise) {
+      (globalThis as { L?: typeof leaflet }).L = leaflet;
+      this.heatLayerLoadPromise = import('leaflet.heat')
+        .then(() => this.hasHeatLayerFactory())
+        .catch(() => false);
+    }
+
+    return this.heatLayerLoadPromise;
+  }
+
+  private hasHeatLayerFactory(): boolean {
+    return (
+      typeof (
+        leaflet as unknown as {
+          heatLayer?: unknown;
+        }
+      ).heatLayer === 'function'
+    );
   }
 
   private async getMarkerDivIcon(marker: Marker): Promise<leaflet.DivIcon> {
@@ -283,5 +341,27 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   private onClickMap(e: leaflet.LeafletMouseEvent): void {
     const { lat, lng } = e.latlng;
     this.mapClick.emit([lat, lng]);
+  }
+
+  private onMoveEnd(): void {
+    this.emitCurrentViewport();
+  }
+
+  private emitCurrentViewport(): void {
+    const center = this.map?.getCenter();
+    const bounds = this.map?.getBounds();
+
+    if (center) {
+      this.mapCenterChange.emit([center.lat, center.lng]);
+    }
+
+    if (bounds) {
+      this.mapBoundsChange.emit({
+        south: bounds.getSouth(),
+        west: bounds.getWest(),
+        north: bounds.getNorth(),
+        east: bounds.getEast(),
+      });
+    }
   }
 }

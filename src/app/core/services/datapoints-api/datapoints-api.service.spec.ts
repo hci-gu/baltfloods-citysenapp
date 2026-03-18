@@ -1,16 +1,27 @@
 import { HttpClient } from '@angular/common/http';
 import { DataPointQuality, DataPointType } from '../../models/data-point';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import { Shallow } from 'shallow-render';
 import { CoreModule } from '../../core.module';
 import { MockHttpClient } from '../mock-http-client';
 import { DataPointsApi } from './datapoints-api.service';
+import { AuthService } from '../auth.service';
+import { IntotoApiService } from '../intoto-api/intoto-api.service';
 
 describe('DataPointsApi', () => {
   let shallow: Shallow<DataPointsApi>;
 
   beforeEach(() => {
-    shallow = new Shallow(DataPointsApi, CoreModule).mock(HttpClient, { get: new MockHttpClient().get });
+    shallow = new Shallow(DataPointsApi, CoreModule)
+      .mock(HttpClient, { get: new MockHttpClient().get })
+      .mock(AuthService, { token: null })
+      .mock(IntotoApiService, {
+        getMyAreas: jest.fn().mockReturnValue(of([])),
+        getSeriesCategories: jest.fn().mockReturnValue(of([])),
+        getSeriesSubCategories: jest.fn().mockReturnValue(of([])),
+        getSeriesUnits: jest.fn().mockReturnValue(of([])),
+        getSeriesData: jest.fn().mockReturnValue(of([])),
+      });
   });
 
   it('should return an observable of weather conditions', async () => {
@@ -81,6 +92,84 @@ describe('DataPointsApi', () => {
         lastUpdatedOn: new Date(1711635283 * 1000)
       },
     ]);
+  });
+
+  it('should include nearby intoto storm water points for the current map center', async () => {
+    const { instance } = shallow
+      .mock(IntotoApiService, {
+        getMyAreas: jest.fn().mockReturnValue(
+          of([
+            {
+              id: 1,
+              name: 'Kristiansand',
+              description: null,
+              childAreas: null,
+              locations: [
+                {
+                  id: 10,
+                  name: 'Boen bru',
+                  locationType: 72,
+                  wgs84latitude: 58.2464,
+                  wgs84longitude: 8.1401,
+                  wgs84elevation: null,
+                  series: [
+                    {
+                      id: 121,
+                      description: 'Water NN2000 in m',
+                      providerInfo: 'Intoto',
+                      seriesCategory: 2,
+                      seriesSubCategory: 55602,
+                      seriesAggregationPeriod: 1,
+                      seriesAggregationMethod: 1,
+                      seriesUnit: 210,
+                    },
+                  ],
+                },
+              ],
+            },
+          ]),
+        ),
+        getSeriesCategories: jest.fn().mockReturnValue(
+          of([{ value: 2, name: 'Water', description: null }]),
+        ),
+        getSeriesSubCategories: jest.fn().mockReturnValue(
+          of([{ value: 55602, name: 'NN2000', description: null }]),
+        ),
+        getSeriesUnits: jest.fn().mockReturnValue(
+          of([{ value: 210, name: 'Meter', description: null }]),
+        ),
+        getSeriesData: jest.fn().mockReturnValue(
+          of([
+            {
+              error: false,
+              timestamp: '2026-03-18T12:02:43.000000Z',
+              value: 16.8,
+            },
+          ]),
+        ),
+      })
+      .createService();
+
+    const response = await firstValueFrom(
+      instance.getWeatherStormWater([58.25, 8.16]),
+    );
+
+    expect(response).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Boen bru',
+          location: [58.2464, 8.1401],
+          type: DataPointType.STORM_WATER,
+          quality: DataPointQuality.DEFAULT,
+          data: {
+            waterLevel: 16.8,
+          },
+          dataUnitOverrides: {
+            waterLevel: ' meter NN2000',
+          },
+        }),
+      ]),
+    );
   });
 
   it('should return an observable of the air quality', async () => {

@@ -5,6 +5,8 @@
       [center$]="mapCenter$"
       [markers]="(dataPointMarkers$ | async) ?? []"
       (markerClick)="onMarkerClick($event)"
+      (mapCenterChange)="onMapCenterChange($event)"
+      (mapBoundsChange)="onMapBoundsChange($event)"
     ></app-map>
 
     @if (visibleScheduledMessages().length > 0) {
@@ -147,6 +149,38 @@
             }
           </div>
         </div>
+
+        <div class="map-control-row">
+          <span class="map-control-label body-xs">
+            <app-icon class="map-control-icon" icon="layers"></app-icon>
+            Full period
+          </span>
+          <div class="map-control-dropdown">
+            <button
+              type="button"
+              class="map-control-dropdown-button body-xs"
+              (click)="toggleFullPeriodDropdown()"
+            >
+              {{ selectedObservationTimespanLabel() }}
+            </button>
+            @if (showFullPeriodDropdown()) {
+              <ul class="map-control-options-list">
+                @for (option of observationTimespanOptions; track option.key) {
+                  <li>
+                    <button
+                      type="button"
+                      class="map-control-option body-xs"
+                      [class.active]="option.key === selectedObservationTimespan()"
+                      (click)="setObservationTimespan(option.key)"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
       </div>
     </section>
 
@@ -194,7 +228,13 @@
         </div>
 
         <div class="timeline-header-main">
-          <h3 class="heading-xs">Observations over time</h3>
+          <h3 class="heading-xs">
+            {{
+              selectedSensorPoint()
+                ? "Sensor values over time"
+                : "Observations over time"
+            }}
+          </h3>
           <p class="body-xs">
             {{ selectedObservationTimespanLabel() }} ·
             {{ selectedTimelineWindowLabel() }}
@@ -202,73 +242,132 @@
         </div>
       </header>
 
-      @if (observationTimeline().series.length > 0) {
-        <div class="timeline-legend">
-          @for (series of observationTimeline().series; track series.type) {
+      @if (selectedSensorHistoryLoading()) {
+        <p class="timeline-empty body-xs">Loading sensor values...</p>
+      } @else {
+        @if (selectedSensorTimeline(); as sensorTimeline) {
+          <div class="timeline-legend">
             <span class="legend-item body-xs">
-              <i [style.background-color]="series.color"></i>
-              {{ series.label }}
+              <i [style.background-color]="getObservationTypeColor(DATA_POINT_TYPE.STORM_WATER)"></i>
+              {{ selectedSensorPoint()?.name }}{{ sensorTimeline.unitLabel ? ' · ' + sensorTimeline.unitLabel : '' }}
             </span>
-          }
-        </div>
+          </div>
 
-        <div class="timeline-chart-wrapper" #timelineChartWrapper>
-          <svg
-            class="timeline-chart"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            role="img"
-            aria-label="Observation timeline chart"
-          >
-            @for (tick of observationTimeline().ticks; track tick.y) {
-              <line
-                class="timeline-grid-line"
-                x1="0"
-                [attr.y1]="tick.y"
-                x2="100"
-                [attr.y2]="tick.y"
-              ></line>
-            }
+          <div class="timeline-chart-wrapper" #timelineChartWrapper>
+            <svg
+              class="timeline-chart"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label="Sensor values over time chart"
+            >
+              <line class="timeline-grid-line" x1="0" y1="7" x2="100" y2="7"></line>
+              <line class="timeline-grid-line" x1="0" y1="92" x2="100" y2="92"></line>
 
-            @for (series of observationTimeline().series; track series.type) {
               <path
                 class="timeline-series-line"
-                [attr.d]="series.path"
-                [attr.stroke]="series.color"
+                [attr.d]="sensorTimeline.path"
+                [attr.stroke]="getObservationTypeColor(DATA_POINT_TYPE.STORM_WATER)"
               ></path>
 
-              @for (point of series.points; track point.markerPath) {
-                @if (point.count > 0) {
-                  <path
-                    class="timeline-series-point"
-                    [attr.d]="point.markerPath"
-                    [attr.stroke]="series.color"
-                  ></path>
+              @for (point of sensorTimeline.points; track point.markerPath) {
+                <path
+                  class="timeline-series-point"
+                  [attr.d]="point.markerPath"
+                  [attr.stroke]="getObservationTypeColor(DATA_POINT_TYPE.STORM_WATER)"
+                ></path>
+              }
+            </svg>
+
+            <div
+              class="timeline-selection-window"
+              [style.left.%]="observationTimelineWindowStyle().leftPercent"
+              [style.width.%]="observationTimelineWindowStyle().widthPercent"
+              (pointerdown)="onTimelineWindowPointerDown($event, timelineChartWrapper)"
+              (pointermove)="onTimelineWindowPointerMove($event, timelineChartWrapper)"
+              (pointerup)="onTimelineWindowPointerUp($event)"
+              (pointercancel)="onTimelineWindowPointerUp($event)"
+            >
+              <span class="timeline-window-handle left"></span>
+              <span class="timeline-window-handle right"></span>
+            </div>
+          </div>
+
+          <div class="timeline-axis body-xs">
+            <span>{{ sensorTimeline.startLabel }}</span>
+            <span>{{ sensorTimeline.endLabel }}</span>
+          </div>
+          <p class="body-xs">
+            Range: {{ sensorTimeline.minValue }} - {{ sensorTimeline.maxValue }}{{ sensorTimeline.unitLabel }}
+          </p>
+        } @else if (observationTimeline().series.length > 0) {
+          <div class="timeline-legend">
+            @for (series of observationTimeline().series; track series.type) {
+              <span class="legend-item body-xs">
+                <i [style.background-color]="series.color"></i>
+                {{ series.label }}
+              </span>
+            }
+          </div>
+
+          <div class="timeline-chart-wrapper" #timelineChartWrapper>
+            <svg
+              class="timeline-chart"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label="Observation timeline chart"
+            >
+              @for (tick of observationTimeline().ticks; track tick.y) {
+                <line
+                  class="timeline-grid-line"
+                  x1="0"
+                  [attr.y1]="tick.y"
+                  x2="100"
+                  [attr.y2]="tick.y"
+                ></line>
+              }
+
+              @for (series of observationTimeline().series; track series.type) {
+                <path
+                  class="timeline-series-line"
+                  [attr.d]="series.path"
+                  [attr.stroke]="series.color"
+                ></path>
+
+                @for (point of series.points; track point.markerPath) {
+                  @if (point.count > 0) {
+                    <path
+                      class="timeline-series-point"
+                      [attr.d]="point.markerPath"
+                      [attr.stroke]="series.color"
+                    ></path>
+                  }
                 }
               }
-            }
-          </svg>
+            </svg>
 
-          <div
-            class="timeline-selection-window"
-            [style.left.%]="observationTimelineWindowStyle().leftPercent"
-            [style.width.%]="observationTimelineWindowStyle().widthPercent"
-            (pointerdown)="onTimelineWindowPointerDown($event, timelineChartWrapper)"
-            (pointermove)="onTimelineWindowPointerMove($event, timelineChartWrapper)"
-            (pointerup)="onTimelineWindowPointerUp($event)"
-            (pointercancel)="onTimelineWindowPointerUp($event)"
-          >
-            <span class="timeline-window-handle left"></span>
-            <span class="timeline-window-handle right"></span>
+            <div
+              class="timeline-selection-window"
+              [style.left.%]="observationTimelineWindowStyle().leftPercent"
+              [style.width.%]="observationTimelineWindowStyle().widthPercent"
+              (pointerdown)="onTimelineWindowPointerDown($event, timelineChartWrapper)"
+              (pointermove)="onTimelineWindowPointerMove($event, timelineChartWrapper)"
+              (pointerup)="onTimelineWindowPointerUp($event)"
+              (pointercancel)="onTimelineWindowPointerUp($event)"
+            >
+              <span class="timeline-window-handle left"></span>
+              <span class="timeline-window-handle right"></span>
+            </div>
           </div>
-        </div>
 
-        <div class="timeline-axis body-xs">
-          <span>{{ observationTimeline().startLabel }}</span>
-          <span>{{ observationTimeline().endLabel }}</span>
-        </div>
-      } @else {
-        <p class="timeline-empty body-xs">No observations in this period.</p>
+          <div class="timeline-axis body-xs">
+            <span>{{ observationTimeline().startLabel }}</span>
+            <span>{{ observationTimeline().endLabel }}</span>
+          </div>
+        } @else {
+          <p class="timeline-empty body-xs">No observations in this period.</p>
+        }
       }
     </section>
   </section>

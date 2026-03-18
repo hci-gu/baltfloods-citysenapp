@@ -37,10 +37,11 @@ func init() {
 
 		observations, err := app.FindCollectionByNameOrId("observations")
 		if err == nil && observations != nil {
-			publicRule := ""
+			visibleOrAdminRule := `visible = true || @request.auth.type = "admin"`
 			adminDeleteRule := `@request.auth.type = "admin"`
-			observations.ListRule = &publicRule
-			observations.ViewRule = &publicRule
+			observations.ListRule = &visibleOrAdminRule
+			observations.ViewRule = &visibleOrAdminRule
+			observations.UpdateRule = &adminDeleteRule
 			observations.DeleteRule = &adminDeleteRule
 
 			if err := app.Save(observations); err != nil {
@@ -54,6 +55,7 @@ func init() {
 		if err == nil && observations != nil {
 			observations.ListRule = nil
 			observations.ViewRule = nil
+			observations.UpdateRule = nil
 			observations.DeleteRule = nil
 			if err := app.Save(observations); err != nil {
 				return err

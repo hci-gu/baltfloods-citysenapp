@@ -15,27 +15,39 @@ import {
   DataPoint,
   DataPointQuality,
   DataPointType,
+  WeatherStormWaterDataPoint,
 } from '@core/models/data-point';
 import { LatLong } from '@core/models/location';
-import { DataPointsApi } from '@core/services/datapoints-api/datapoints-api.service';
+import {
+  DataPointsApi,
+  SensorHistoryPoint,
+} from '@core/services/datapoints-api/datapoints-api.service';
 import { LocationService, UserLocation } from '@core/services/location.service';
+import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
 import {
   ScheduledMessage,
   ScheduledMessagesService,
 } from '@core/services/scheduled-messages.service';
 import { environment } from '@environments/environment';
 import { TranslateService } from '@ngx-translate/core';
-import { MapComponent, Marker } from '@shared/components/map/map.component';
+import {
+  MapBounds,
+  MapComponent,
+  Marker,
+} from '@shared/components/map/map.component';
 import { isSameLocation } from '@shared/utils/location-utils';
 import { groupBy } from 'lodash-es';
 import { MessageService, PrimeTemplate } from 'primeng/api';
 import {
   BehaviorSubject,
   combineLatest,
+  debounceTime,
   filter,
   map,
   Observable,
+  of,
   Subject,
+  switchMap,
   take,
   withLatestFrom,
 } from 'rxjs';
@@ -53,15 +65,20 @@ interface ObservationFeedItem {
   imageUrl?: string;
 }
 
-type ObservationTimespanKey = '7d' | '30d' | '90d' | '365d' | 'all';
+type ObservationTimespanKey = '6m' | '1y' | '3y' | '5y';
 type MapDisplayMode = 'default' | 'heatmap';
-type TimelineSelectionRangeKey = '7d' | '14d' | '30d' | '60d' | '90d';
+type TimelineSelectionRangeKey =
+  | '7d'
+  | '14d'
+  | '30d'
+  | '60d'
+  | '90d';
 type MobileBottomPanel = 'list' | 'timeline';
 
 interface ObservationTimespanOption {
   key: ObservationTimespanKey;
   label: string;
-  days: number | null;
+  days: number;
 }
 
 interface TimelineSelectionRangeOption {
@@ -116,6 +133,23 @@ interface ObservationTimelineWindowStyle {
   widthPercent: number;
 }
 
+interface SensorValueTimelinePoint {
+  x: number;
+  y: number;
+  markerPath: string;
+  value: number;
+}
+
+interface SensorValueTimeline {
+  path: string;
+  points: SensorValueTimelinePoint[];
+  minValue: number;
+  maxValue: number;
+  startLabel: string;
+  endLabel: string;
+  unitLabel: string;
+}
+
 const OBSERVATION_TIMELINE_COLOR: Record<DataPointType, string> = {
   [DataPointType.WEATHER_CONDITIONS]: '#0284c7',
   [DataPointType.AIR_QUALITY]: '#ea580c',
@@ -135,12 +169,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
   animations: [
     trigger('slideInAndOut', [
       transition(':enter', [
-        style({ transform: 'translateY(100%)' }),
-        animate('200ms ease-in-out', style({ transform: 'translateY(0)' })),
+        style({ opacity: 0 }),
+        animate('180ms ease-out', style({ opacity: 1 })),
       ]),
       transition(':leave', [
-        style({ transform: 'translateY(0)' }),
-        animate('150ms ease-in-out', style({ transform: 'translateY(100%)' })),
+        style({ opacity: 1 }),
+        animate('120ms ease-in', style({ opacity: 0 })),
       ]),
     ]),
   ],
@@ -156,6 +190,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
   ],
 })
 export class DashboardMapComponent implements AfterViewInit {
+  public readonly DATA_POINT_TYPE = DataPointType;
   private _allDataPoints = signal<DataPoint[]>([]);
   private readonly timelinePaddingTop = 7;
   private readonly timelinePaddingBottom = 8;
@@ -165,23 +200,23 @@ export class DashboardMapComponent implements AfterViewInit {
   public showTypeFilterDropdown = signal<boolean>(false);
   public showDisplayModeDropdown = signal<boolean>(false);
   public showSelectionRangeDropdown = signal<boolean>(false);
+  public showFullPeriodDropdown = signal<boolean>(false);
   public showMobileControlsCard = signal<boolean>(false);
   public activeMobileBottomPanel = signal<MobileBottomPanel>('list');
   public selectedDisplayMode = signal<MapDisplayMode>('default');
   public showObservationTimespanFilter = signal<boolean>(false);
-  public selectedObservationTimespan = signal<ObservationTimespanKey>('365d');
+  public selectedObservationTimespan = signal<ObservationTimespanKey>('1y');
   public readonly observationTimespanOptions: ObservationTimespanOption[] = [
-    { key: '7d', label: 'Last 7 days', days: 7 },
-    { key: '30d', label: 'Last 30 days', days: 30 },
-    { key: '90d', label: 'Last 90 days', days: 90 },
-    { key: '365d', label: 'Last year', days: 365 },
-    { key: 'all', label: 'All time', days: null },
+    { key: '6m', label: '6 months', days: 183 },
+    { key: '1y', label: '1 year', days: 365 },
+    { key: '3y', label: '3 years', days: 365 * 3 },
+    { key: '5y', label: '5 years', days: 365 * 5 },
   ];
   public selectedObservationTimespanLabel = computed(() => {
     const selectedKey = this.selectedObservationTimespan();
     return (
       this.observationTimespanOptions.find((option) => option.key === selectedKey)
-        ?.label ?? 'Last year'
+        ?.label ?? '1 year'
     );
   });
   private observationTimespanBounds = computed<ObservationTimespanBounds>(() => {
@@ -192,31 +227,10 @@ export class DashboardMapComponent implements AfterViewInit {
       (option) => option.key === selectedKey,
     );
 
-    if (selectedOption?.days) {
-      const start = new Date(now);
-      start.setDate(now.getDate() - (selectedOption.days - 1));
-      const startMs = this.getDayStart(start).getTime();
-      return {
-        startMs,
-        endMs,
-        durationMs: Math.max(DAY_MS, endMs - startMs),
-      };
-    }
-
-    const observationsWithDate = this._observationFeed().filter(
-      (item) => item.lastUpdatedOn,
-    ) as Array<ObservationFeedItem & { lastUpdatedOn: Date }>;
-    const earliest = observationsWithDate.length
-      ? observationsWithDate.reduce(
-          (min, item) =>
-            item.lastUpdatedOn.getTime() < min.getTime()
-              ? item.lastUpdatedOn
-              : min,
-          observationsWithDate[0].lastUpdatedOn,
-        )
-      : this.getDayStart(new Date(endMs - 364 * DAY_MS));
-
-    const startMs = this.getDayStart(earliest).getTime();
+    const durationDays = selectedOption?.days ?? 365;
+    const start = new Date(now);
+    start.setDate(now.getDate() - (durationDays - 1));
+    const startMs = this.getDayStart(start).getTime();
     return {
       startMs,
       endMs,
@@ -316,18 +330,22 @@ export class DashboardMapComponent implements AfterViewInit {
     }
     return `${selected.length} selected`;
   });
+  private visibleMapBounds = signal<MapBounds | null>(null);
   private _filteredDataPoints$: Observable<DataPoint[]> = combineLatest([
     toObservable(this._allDataPoints),
     toObservable(this.dataPointTypeFilter),
     toObservable(this.observationTimelineWindow),
+    toObservable(this.visibleMapBounds),
   ]).pipe(
-    map(([allDataPoints, dataPointFilter, selectedWindow]) => {
-      const timeFilteredDataPoints = allDataPoints.filter((point) =>
-        this.isTimestampWithinRange(
-          point.lastUpdatedOn,
-          selectedWindow.startMs,
-          selectedWindow.endMs,
-        ),
+    map(([allDataPoints, dataPointFilter, selectedWindow, bounds]) => {
+      const timeFilteredDataPoints = allDataPoints.filter(
+        (point) =>
+          this.isPointWithinBounds(point.location, bounds) &&
+          this.isTimestampWithinRange(
+            point.lastUpdatedOn,
+            selectedWindow.startMs,
+            selectedWindow.endMs,
+          ),
       );
 
       return dataPointFilter.length > 0
@@ -350,11 +368,13 @@ export class DashboardMapComponent implements AfterViewInit {
     const latLong = this._activeLocation();
     const selectedWindow = this.observationTimelineWindow();
     const activeTypeFilter = this.dataPointTypeFilter();
+    const bounds = this.visibleMapBounds();
 
     if (latLong) {
       return this._allDataPoints().filter(
         (point) =>
           isSameLocation(point.location, latLong) &&
+          this.isPointWithinBounds(point.location, bounds) &&
           this.isTimestampWithinRange(
             point.lastUpdatedOn,
             selectedWindow.startMs,
@@ -366,8 +386,40 @@ export class DashboardMapComponent implements AfterViewInit {
 
     return null;
   });
+  private selectedSensorHistoryPoints = signal<SensorHistoryPoint[]>([]);
+  public selectedSensorHistoryLoading = signal<boolean>(false);
+  public selectedSensorPoint = computed<WeatherStormWaterDataPoint | null>(() => {
+    const selected = this.selectedDataPoints();
+    if (!selected) {
+      return null;
+    }
+
+    const point = selected.find(
+      (item): item is WeatherStormWaterDataPoint =>
+        item.type === DataPointType.STORM_WATER &&
+        !!item.historySeries &&
+        item.historySeries.provider === 'intoto',
+    );
+
+    return point ?? null;
+  });
+  public selectedSensorTimeline = computed<SensorValueTimeline | null>(() => {
+    const point = this.selectedSensorPoint();
+    const historyPoints = this.selectedSensorHistoryPoints();
+    if (!point || historyPoints.length === 0) {
+      return null;
+    }
+
+    return this.buildSensorValueTimeline(
+      historyPoints,
+      point.historySeries?.unitLabel ?? '',
+    );
+  });
   private _observationFeed = computed<ObservationFeedItem[]>(() =>
     this._allDataPoints()
+      .filter((point) =>
+        this.isPointWithinBounds(point.location, this.visibleMapBounds()),
+      )
       .slice()
       .sort(
         (a, b) =>
@@ -532,14 +584,18 @@ export class DashboardMapComponent implements AfterViewInit {
     environment.defaultLocation as LatLong,
   );
   public mapCenter$ = this._mapCenterSubject$.asObservable();
+  private currentMapCenter: LatLong = environment.defaultLocation as LatLong;
 
   private _focusLocation$ = new Subject<void>();
+  private lastObservationRefreshCenter?: LatLong;
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly debugIntoto = !environment.production;
 
   public constructor(
     private readonly locationService: LocationService,
     private readonly dataPointsApi: DataPointsApi,
+    private readonly observationRealtimeService: ObservationRealtimeService,
     private readonly scheduledMessagesService: ScheduledMessagesService,
     private readonly messageService: MessageService,
     private readonly translateService: TranslateService,
@@ -567,13 +623,6 @@ export class DashboardMapComponent implements AfterViewInit {
       );
 
     this.dataPointsApi
-      .getWeatherStormWater()
-      .pipe(take(1), takeUntilDestroyed())
-      .subscribe((points) =>
-        this.handleDataPointsByType(points, DataPointType.STORM_WATER),
-      );
-
-    this.dataPointsApi
       .getWeatherAirQuality()
       .pipe(take(1), takeUntilDestroyed())
       .subscribe((points) =>
@@ -587,12 +636,7 @@ export class DashboardMapComponent implements AfterViewInit {
         this.handleDataPointsByType(points, DataPointType.PARKING),
       );
 
-    this.dataPointsApi
-      .getWaterbagTestKits()
-      .pipe(take(1), takeUntilDestroyed())
-      .subscribe((points) =>
-        this.handleDataPointsByType(points, DataPointType.WATERBAG_TESTKIT),
-      );
+    this.refreshObservationDataPoints(this._mapCenterSubject$.value);
 
     this.dataPointsApi
       .getRoadWorks()
@@ -601,10 +645,41 @@ export class DashboardMapComponent implements AfterViewInit {
         this.handleDataPointsByType(points, DataPointType.ROAD_WORKS),
       );
 
+    this.observationRealtimeService.observationChanges$
+      .pipe(debounceTime(200), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() =>
+        this.refreshObservationDataPoints(this._mapCenterSubject$.value, true),
+      );
+
     this.scheduledMessagesService
       .getActiveMessages()
       .pipe(take(1), takeUntilDestroyed())
       .subscribe((messages) => this.activeScheduledMessages.set(messages));
+
+    combineLatest([
+      toObservable(this.selectedSensorPoint),
+      toObservable(this.observationTimelineWindow),
+    ])
+      .pipe(
+        switchMap(([point, window]) => {
+          if (!point) {
+            this.selectedSensorHistoryLoading.set(false);
+            return of([] as SensorHistoryPoint[]);
+          }
+
+          this.selectedSensorHistoryLoading.set(true);
+          return this.dataPointsApi.getStormWaterHistory(
+            point,
+            new Date(window.startMs),
+            new Date(window.endMs),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((historyPoints) => {
+        this.selectedSensorHistoryPoints.set(historyPoints);
+        this.selectedSensorHistoryLoading.set(false);
+      });
 
     this._focusLocation$
       .pipe(take(1), takeUntilDestroyed())
@@ -616,6 +691,8 @@ export class DashboardMapComponent implements AfterViewInit {
   }
 
   public onMarkerClick(latLong: LatLong): void {
+    this.currentMapCenter = latLong;
+    this._mapCenterSubject$.next(latLong);
     this.setActiveMarker(latLong);
   }
 
@@ -623,22 +700,41 @@ export class DashboardMapComponent implements AfterViewInit {
     this.setActiveMarker();
   }
 
+  public onMapCenterChange(latLong: LatLong): void {
+    this.currentMapCenter = latLong;
+    this.refreshObservationDataPoints(latLong, true);
+  }
+
+  public onMapBoundsChange(bounds: MapBounds): void {
+    this.visibleMapBounds.set(bounds);
+  }
+
   public toggleTypeFilterDropdown(): void {
     this.showTypeFilterDropdown.update((open) => !open);
     this.showDisplayModeDropdown.set(false);
     this.showSelectionRangeDropdown.set(false);
+    this.showFullPeriodDropdown.set(false);
   }
 
   public toggleDisplayModeDropdown(): void {
     this.showDisplayModeDropdown.update((open) => !open);
     this.showTypeFilterDropdown.set(false);
     this.showSelectionRangeDropdown.set(false);
+    this.showFullPeriodDropdown.set(false);
   }
 
   public toggleSelectionRangeDropdown(): void {
     this.showSelectionRangeDropdown.update((open) => !open);
     this.showTypeFilterDropdown.set(false);
     this.showDisplayModeDropdown.set(false);
+    this.showFullPeriodDropdown.set(false);
+  }
+
+  public toggleFullPeriodDropdown(): void {
+    this.showFullPeriodDropdown.update((open) => !open);
+    this.showTypeFilterDropdown.set(false);
+    this.showDisplayModeDropdown.set(false);
+    this.showSelectionRangeDropdown.set(false);
   }
 
   public toggleMobileControlsCard(): void {
@@ -647,6 +743,7 @@ export class DashboardMapComponent implements AfterViewInit {
       this.showTypeFilterDropdown.set(false);
       this.showDisplayModeDropdown.set(false);
       this.showSelectionRangeDropdown.set(false);
+      this.showFullPeriodDropdown.set(false);
     }
   }
 
@@ -698,6 +795,7 @@ export class DashboardMapComponent implements AfterViewInit {
   }
 
   public onObservationClick(location: LatLong): void {
+    this.currentMapCenter = location;
     this._mapCenterSubject$.next(location);
     void this.setActiveMarker(location);
   }
@@ -710,6 +808,7 @@ export class DashboardMapComponent implements AfterViewInit {
     this.selectedObservationTimespan.set(key);
     this.timelineWindowStartRatio.set(1);
     this.showObservationTimespanFilter.set(false);
+    this.showFullPeriodDropdown.set(false);
   }
 
   public onTimelineWindowPointerDown(
@@ -784,21 +883,38 @@ export class DashboardMapComponent implements AfterViewInit {
   }
 
   private normalizeImageUrl(imageUrl: string): string {
-    const trimmed = imageUrl.trim();
+    let normalized = imageUrl.trim();
+    const pocketbaseBase = environment.pocketbaseUrl.replace(/\/$/, '');
 
-    if (/^https?:\/\//i.test(trimmed)) {
-      return trimmed;
+    if (normalized.startsWith('../')) {
+      normalized = normalized.replace(/^(\.\.\/)+/, '');
     }
 
-    if (trimmed.startsWith('/')) {
-      return trimmed;
+    if (/^https?:\/\//i.test(normalized)) {
+      return normalized;
     }
 
-    if (trimmed.startsWith('../')) {
-      return `/${trimmed.replace(/^(\.\.\/)+/, '')}`;
+    if (normalized.startsWith('/api/')) {
+      return normalized;
     }
 
-    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${trimmed.replace(/^\/+/, '')}`;
+    if (normalized.startsWith('api/')) {
+      return `/${normalized.replace(/^\/+/, '')}`;
+    }
+
+    if (normalized.startsWith('/files/')) {
+      return `${pocketbaseBase}/${normalized.replace(/^\/+/, '')}`;
+    }
+
+    if (normalized.startsWith('files/')) {
+      return `${pocketbaseBase}/${normalized}`;
+    }
+
+    if (normalized.startsWith('/')) {
+      return normalized;
+    }
+
+    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
   }
 
   private isTimestampWithinRange(
@@ -907,6 +1023,7 @@ export class DashboardMapComponent implements AfterViewInit {
     permissionState: PermissionState,
   ): void {
     if (userLocation.location && permissionState === 'granted') {
+      this.currentMapCenter = userLocation.location;
       this._mapCenterSubject$.next(userLocation.location);
     }
 
@@ -963,10 +1080,116 @@ export class DashboardMapComponent implements AfterViewInit {
     });
   }
 
+  private buildSensorValueTimeline(
+    historyPoints: SensorHistoryPoint[],
+    unitLabel: string,
+  ): SensorValueTimeline {
+    const sortedPoints = historyPoints
+      .slice()
+      .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+    const leftX = this.timelinePaddingHorizontal;
+    const rightX = 100 - this.timelinePaddingHorizontal;
+    const topY = this.timelinePaddingTop;
+    const bottomY = 100 - this.timelinePaddingBottom;
+    const plotWidth = rightX - leftX;
+    const plotHeight = bottomY - topY;
+    const minValue = Math.min(...sortedPoints.map((point) => point.value));
+    const maxValue = Math.max(...sortedPoints.map((point) => point.value));
+    const valueRange = Math.max(1e-6, maxValue - minValue);
+    const startMs = sortedPoints[0].timestamp.getTime();
+    const endMs = sortedPoints[sortedPoints.length - 1].timestamp.getTime();
+    const durationMs = Math.max(1, endMs - startMs);
+
+    const points = sortedPoints.map((point) => {
+      const progress = (point.timestamp.getTime() - startMs) / durationMs;
+      const normalizedValue = (point.value - minValue) / valueRange;
+      const x = leftX + progress * plotWidth;
+      const y = bottomY - normalizedValue * plotHeight;
+
+      return {
+        x,
+        y,
+        value: point.value,
+        markerPath: `M ${x.toFixed(2)} ${y.toFixed(2)} L ${x.toFixed(2)} ${y.toFixed(2)}`,
+      };
+    });
+
+    return {
+      path: points
+        .map((point, index) =>
+          `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
+        )
+        .join(' '),
+      points,
+      minValue,
+      maxValue,
+      startLabel: sortedPoints[0].timestamp.toLocaleDateString(),
+      endLabel: sortedPoints[sortedPoints.length - 1].timestamp.toLocaleDateString(),
+      unitLabel,
+    };
+  }
+
+  private refreshObservationDataPoints(
+    center: LatLong = this.currentMapCenter,
+    force = false,
+  ): void {
+    if (
+      !force &&
+      this.lastObservationRefreshCenter &&
+      isSameLocation(this.lastObservationRefreshCenter, center)
+    ) {
+      return;
+    }
+
+    this.lastObservationRefreshCenter = center;
+
+    if (this.debugIntoto) {
+      console.log('[DashboardMap] refreshObservationDataPoints', {
+        center,
+        force,
+        selectedObservationTimespan: this.selectedObservationTimespan(),
+        selectedTimelineWindow: this.observationTimelineWindow(),
+      });
+    }
+
+    this.dataPointsApi
+      .getWeatherStormWater(center)
+      .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe((points) => {
+        if (this.debugIntoto) {
+          console.log('[DashboardMap] storm water points received', {
+            count: points.length,
+            points: points.map((point) => ({
+              name: point.name,
+              location: point.location,
+              lastUpdatedOn: point.lastUpdatedOn?.toISOString(),
+              data: point.data,
+            })),
+          });
+        }
+
+        this.handleDataPointsByType(points, DataPointType.STORM_WATER);
+      });
+
+    this.dataPointsApi
+      .getWaterbagTestKits()
+      .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+      .subscribe((points) =>
+        this.handleDataPointsByType(points, DataPointType.WATERBAG_TESTKIT),
+      );
+  }
+
   private handleDataPointsByType(
     dataPoints: DataPoint[],
     type: DataPointType,
   ): void {
+    if (this.debugIntoto && type === DataPointType.STORM_WATER) {
+      console.log('[DashboardMap] handleDataPointsByType(STORM_WATER)', {
+        incomingCount: dataPoints.length,
+        filteredWindow: this.observationTimelineWindow(),
+      });
+    }
+
     this._allDataPoints.update((current) =>
       current.filter((point) => point.type !== type).concat(dataPoints),
     );
@@ -991,5 +1214,26 @@ export class DashboardMapComponent implements AfterViewInit {
         this._roadWorksDataPointMarkersLoadingSubject$.next(false);
         break;
     }
+  }
+
+  private isPointWithinBounds(
+    location: LatLong,
+    bounds: MapBounds | null,
+  ): boolean {
+    if (!bounds) {
+      return true;
+    }
+
+    const [latitude, longitude] = location;
+    const longitudeInBounds =
+      bounds.west <= bounds.east
+        ? longitude >= bounds.west && longitude <= bounds.east
+        : longitude >= bounds.west || longitude <= bounds.east;
+
+    return (
+      latitude >= bounds.south &&
+      latitude <= bounds.north &&
+      longitudeInBounds
+    );
   }
 }

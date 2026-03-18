@@ -75,17 +75,35 @@
               [label]="getQualityTranslation(dataPoint.quality) | translate"
             ></p-chip>
           </li>
-          <li>
-            <p class="button-sm">
-              {{ "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate }}
-            </p>
-            <small class="body-sm">
-              {{
-                "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL_RESULT." +
-                  dataPoint.data["fillLevel"].toString() | translate
-              }}
-            </small>
-          </li>
+          @if (hasStormWaterFillLevel(dataPoint)) {
+            <li>
+              <p class="button-sm">
+                {{ "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate }}
+              </p>
+              <small class="body-sm">
+                {{
+                  "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL_RESULT." +
+                    dataPoint.data["fillLevel"].toString() | translate
+                }}
+              </small>
+            </li>
+          }
+          @for (metric of getStormWaterMetrics(dataPoint); track metric.key) {
+            <li>
+              <p class="button-sm">
+                {{
+                  getDataPointTranslation(
+                    DATA_POINT_TYPE.STORM_WATER,
+                    metric.key
+                  )
+                }}
+              </p>
+              <small class="body-sm">
+                {{ getStormWeatherMetricValue(metric.value, metric.key)
+                }}{{ getMetricUnitForDataPoint(dataPoint, metric.key) }}</small
+              >
+            </li>
+          }
         </ul>
       }
       @case (DATA_POINT_TYPE.AIR_QUALITY) {
@@ -186,9 +204,12 @@
           }
         </ul>
         @if (dataPoint.imageUrl) {
-          <a target="_blank" [href]="imageUrlBase + '/' + dataPoint.imageUrl">{{
-            "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.VIEW_IMAGE" | translate
-          }}</a>
+          <img
+            class="observation-image"
+            [src]="getDataPointImageUrl(dataPoint.imageUrl)"
+            [alt]="'Image for ' + dataPoint.name"
+            loading="lazy"
+          />
         }
       }
       @case (DATA_POINT_TYPE.ROAD_WORKS) {

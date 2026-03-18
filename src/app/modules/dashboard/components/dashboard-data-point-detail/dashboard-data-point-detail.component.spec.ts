@@ -11,6 +11,7 @@ import {
   WeatherStormWaterDataPoint,
 } from '@core/models/data-point';
 import { RadarService } from '@core/services/radar.service';
+import { environment } from '@environments/environment';
 import { TranslateService } from '@ngx-translate/core';
 import { SharedModule } from 'primeng/api';
 import { Chip } from 'primeng/chip';
@@ -164,6 +165,7 @@ describe('DashboardDataPointDetailComponent', () => {
       it('when type is waterbag testkit', async () => {
         const name = 'Testkit';
         const quality = DataPointQuality.GOOD;
+        const imageUrl = '/api/files/observations/testkit-id/photo.jpg';
 
         const dataPoints: WaterbagTestKitDataPoint[] = [
           {
@@ -172,6 +174,7 @@ describe('DashboardDataPointDetailComponent', () => {
             quality,
             lastUpdatedOn: new Date(1711635283),
             location: [61.05871, 28.18871],
+            imageUrl,
             data: {
               airTemp: { value: 1, result: 1 },
               waterTemp: { value: 1, result: 1 },
@@ -199,6 +202,10 @@ describe('DashboardDataPointDetailComponent', () => {
         );
         expect(find('p.body-xs').nativeElement.innerHTML).toEqual(address);
         expect(findComponent(Chip).length).toEqual(8);
+        expect(find('.observation-image')).toHaveFound(1);
+        expect(find('.observation-image').nativeElement.getAttribute('src')).toBe(
+          imageUrl,
+        );
       });
 
       it('when type is parking', async () => {
@@ -298,6 +305,45 @@ describe('DashboardDataPointDetailComponent', () => {
         expect(find('p.button-sm').length).toEqual(3);
         expect(find('small.body-sm')[0].nativeElement.innerHTML).toEqual('1');
       });
+    });
+  });
+
+  describe('image urls', () => {
+    const minimalDataPoints: WeatherConditionDataPoint[] = [
+      {
+        type: DataPointType.WEATHER_CONDITIONS,
+        location: [1, 1],
+        quality: DataPointQuality.DEFAULT,
+        name: 'Point',
+        data: {},
+      },
+    ];
+
+    it('should keep pocketbase api file paths', async () => {
+      const { instance } = await shallow.render(
+        '<app-dashboard-data-point-detail [dataPoints]="dataPoints"></app-dashboard-data-point-detail>',
+        { bind: { dataPoints: minimalDataPoints } },
+      );
+
+      expect(
+        instance.getDataPointImageUrl('api/files/observations/abc123/photo.png'),
+      ).toBe('/api/files/observations/abc123/photo.png');
+      expect(
+        instance.getDataPointImageUrl(
+          '../api/files/observations/abc123/photo.png',
+        ),
+      ).toBe('/api/files/observations/abc123/photo.png');
+    });
+
+    it('should prefix legacy relative uploads with street ai upload url', async () => {
+      const { instance } = await shallow.render(
+        '<app-dashboard-data-point-detail [dataPoints]="dataPoints"></app-dashboard-data-point-detail>',
+        { bind: { dataPoints: minimalDataPoints } },
+      );
+
+      expect(instance.getDataPointImageUrl('uploads/waterbag/example.jpg')).toBe(
+        `${environment.streetAiUploadUrl}/uploads/waterbag/example.jpg`,
+      );
     });
   });
 });

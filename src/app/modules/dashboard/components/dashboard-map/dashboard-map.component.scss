@@ -28,21 +28,27 @@ $floating-card-margin: 12px;
   .bottom-modal {
     z-index: $z-index - 1;
     position: absolute;
-    bottom: 0;
-    right: 0;
-    left: 0;
+    left: 50%;
+    top: 50%;
+    width: min(760px, calc(100% - 32px));
+    max-height: min(56vh, 520px);
+    overflow: auto;
+    transform: translate(-50%, -115%);
+    border-radius: 12px;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.26);
   }
 
   .scheduled-messages {
-    z-index: 997;
+    z-index: $z-index - 1;
     position: absolute;
-    bottom: 120px;
-    right: 0;
-    left: 0;
-    padding: 0 32px;
+    bottom: 230px;
+    left: $floating-card-margin;
+    right: calc(360px + (2 * #{$floating-card-margin}));
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    max-width: 640px;
   }
 
   .scheduled-message {
@@ -601,9 +607,20 @@ $floating-card-margin: 12px;
   }
 
   .map-pane {
+    .bottom-modal {
+      top: 46%;
+      width: calc(100% - 20px);
+      max-height: 42vh;
+      transform: translate(-50%, -108%);
+      border-radius: 10px;
+    }
+
     .scheduled-messages {
       bottom: calc(var(--mobile-bottom-panel-height) + 10px);
+      left: 0;
+      right: 0;
       padding: 0 10px;
+      max-width: none;
     }
 
     .actions {

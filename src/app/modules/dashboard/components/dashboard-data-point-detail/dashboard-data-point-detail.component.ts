@@ -14,6 +14,7 @@ import {
   DataPoint,
   DataPointQuality,
   DataPointType,
+  WeatherStormWaterDataPoint,
   WATERBAG_TESTKIT_METRIC_UNIT,
   WaterbagTestKitDataPoint,
   WaterbagTestKitDataPointData,
@@ -48,7 +49,6 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
 
   public address = signal<string | null>(null);
   public name = signal<string | null>(null);
-  public imageUrlBase = environment.streetAiUploadUrl;
 
   public DATA_POINT_TYPE = DataPointType;
 
@@ -151,9 +151,72 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
     return undefined;
   }
 
+  public getMetricUnitForDataPoint(
+    point: DataPoint,
+    key: string,
+  ): string | undefined {
+    if (
+      point.type === DataPointType.STORM_WATER &&
+      point.dataUnitOverrides?.[key]
+    ) {
+      return point.dataUnitOverrides[key];
+    }
+
+    return this.getMetricUnit(point.type, key);
+  }
+
+  public getStormWaterMetrics(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): Array<{ key: string; value: string | number }> {
+    return Object.entries(dataPoint.data)
+      .filter(([key]) => key !== 'fillLevel')
+      .map(([key, value]) => ({ key, value }));
+  }
+
+  public hasStormWaterFillLevel(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): boolean {
+    return dataPoint.data['fillLevel'] !== undefined;
+  }
+
   public getDataPointTranslation(type: DataPointType, key: string): string {
     const i18nKey = `DASHBOARD.DATA_POINTS.${Object.values(DataPointType)[type]}.${key.toUpperCase()}`;
     return this.translateService.instant(i18nKey);
+  }
+
+  public getDataPointImageUrl(imageUrl: string): string {
+    let normalized = imageUrl.trim();
+    const pocketbaseBase = environment.pocketbaseUrl.replace(/\/$/, '');
+
+    if (normalized.startsWith('../')) {
+      normalized = normalized.replace(/^(\.\.\/)+/, '');
+    }
+
+    if (/^https?:\/\//i.test(normalized)) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('/api/')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('api/')) {
+      return `/${normalized.replace(/^\/+/, '')}`;
+    }
+
+    if (normalized.startsWith('/files/')) {
+      return `${pocketbaseBase}/${normalized.replace(/^\/+/, '')}`;
+    }
+
+    if (normalized.startsWith('files/')) {
+      return `${pocketbaseBase}/${normalized}`;
+    }
+
+    if (normalized.startsWith('/')) {
+      return normalized;
+    }
+
+    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
   }
 
   private async setHeaderValues(): Promise<void> {

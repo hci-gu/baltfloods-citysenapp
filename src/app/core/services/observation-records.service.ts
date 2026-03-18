@@ -1,5 +1,6 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { AuthService } from '@core/services/auth.service';
 import { environment } from '@environments/environment';
 import { map, Observable } from 'rxjs';
 
@@ -21,7 +22,10 @@ export interface ObservationRecordsPage {
 
 export interface ObservationRecord {
   id: string;
+  name?: string;
   type?: string;
+  visible?: boolean;
+  user?: string | string[];
   dataRetrievedTimestamp?: number | string;
   created?: string;
   imageUrl?: string;
@@ -35,16 +39,22 @@ export interface ObservationRecord {
 export class ObservationRecordsService {
   private readonly baseUrl = environment.pocketbaseUrl;
 
-  public constructor(private readonly http: HttpClient) {}
+  public constructor(
+    private readonly http: HttpClient,
+    private readonly authService: AuthService,
+  ) {}
 
   public listObservations(
     page: number,
     perPage: number,
   ): Observable<ObservationRecordsPage> {
+    const headers = this.createOptionalAuthHeaders();
+
     return this.http
       .get<PocketbaseListResponse<ObservationRecord>>(
         `${this.baseUrl}/collections/observations/records`,
         {
+          ...(headers ? { headers } : {}),
           params: {
             page: `${page}`,
             perPage: `${perPage}`,
@@ -67,11 +77,13 @@ export class ObservationRecordsService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
+    const headers = this.createOptionalAuthHeaders();
 
     return this.http
       .get<PocketbaseListResponse<ObservationRecord>>(
         `${this.baseUrl}/collections/observations/records`,
         {
+          ...(headers ? { headers } : {}),
           params: {
             page: '1',
             perPage: '500',
@@ -91,6 +103,42 @@ export class ObservationRecordsService {
           Authorization: `Bearer ${authToken}`,
         }),
       },
+    );
+  }
+
+  public updateObservation(
+    recordId: string,
+    data: Partial<ObservationRecord>,
+    authToken: string,
+  ): Observable<ObservationRecord> {
+    return this.http.patch<ObservationRecord>(
+      `${this.baseUrl}/collections/observations/records/${recordId}`,
+      data,
+      {
+        headers: new HttpHeaders({
+          Authorization: `Bearer ${authToken}`,
+        }),
+      },
+    );
+  }
+
+  private createOptionalAuthHeaders(): HttpHeaders | null {
+    const token = this.authService.token;
+    if (!token || !this.looksLikeJwt(token)) {
+      return null;
+    }
+
+    return new HttpHeaders({
+      Authorization: `Bearer ${token}`,
+    });
+  }
+
+  private looksLikeJwt(token: string): boolean {
+    const parts = token.split('.');
+    const jwtPartPattern = /^[A-Za-z0-9_-]+$/;
+    return (
+      parts.length === 3 &&
+      parts.every((part) => part.length > 0 && jwtPartPattern.test(part))
     );
   }
 }

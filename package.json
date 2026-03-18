@@ -31,6 +31,7 @@
     "prestorybook": "npm run generate-icons",
     "storybook": "ng run citizen-webapp:storybook",
     "build-storybook": "ng run citizen-webapp:build-storybook",
+    "inspect:intoto": "node scripts/intoto-inspect.mjs",
     "sonar-scanner": "sonar-scanner",
     "sentry-cli": "sentry-cli"
   },

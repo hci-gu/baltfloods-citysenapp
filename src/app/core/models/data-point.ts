@@ -23,6 +23,12 @@ export type WeatherConditionDataPoint = BaseDataPoint<DataPointType.WEATHER_COND
 
 export type WeatherStormWaterDataPoint = BaseDataPoint<DataPointType.STORM_WATER> & {
   data: Record<string, string | number>;
+  dataUnitOverrides?: Partial<Record<string, string>>;
+  historySeries?: {
+    provider: 'intoto';
+    seriesId: number;
+    unitLabel?: string;
+  };
 };
 
 export type WeatherAirQualityDataPoint = BaseDataPoint<DataPointType.AIR_QUALITY>;
