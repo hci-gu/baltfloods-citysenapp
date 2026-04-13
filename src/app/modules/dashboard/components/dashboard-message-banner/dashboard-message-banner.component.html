@@ -1,0 +1,25 @@
+<section
+  class="dashboard-message shadow-md"
+  [class.dashboard-message-warning]="message.type === 'warning'"
+  [class.dashboard-message-info]="message.type === 'info'"
+  aria-live="polite"
+>
+  <div class="dashboard-message-header">
+    <div class="dashboard-message-heading">
+      <span class="dashboard-message-type body-xs">
+        <app-icon [icon]="getMessageIcon(message.type)"></app-icon>
+        {{ getMessageTypeLabel(message.type) }}
+      </span>
+      <h2 class="heading-xs">{{ message.title }}</h2>
+    </div>
+    <button
+      type="button"
+      class="dashboard-message-dismiss"
+      aria-label="Dismiss message"
+      (click)="onDismiss()"
+    >
+      ×
+    </button>
+  </div>
+  <div class="body-sm" [innerHTML]="message.content"></div>
+</section>

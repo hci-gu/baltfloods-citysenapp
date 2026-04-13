@@ -10,6 +10,12 @@ import {
   SimpleChanges,
 } from '@angular/core';
 import {
+  SENSOR_THRESHOLD_COLORS,
+  SENSOR_THRESHOLDS_BY_SERIES_ID,
+  SensorThresholdConfig,
+  SensorThresholdSeverity,
+} from '@core/config/sensor-thresholds';
+import {
   DATA_POINT_QUALITY_COLOR_CHART,
   DataPoint,
   DataPointQuality,
@@ -173,6 +179,122 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
       .map(([key, value]) => ({ key, value }));
   }
 
+  public getSensorValue(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): number | null {
+    const value = dataPoint.data['waterLevel'];
+    return typeof value === 'number' ? value : null;
+  }
+
+  public getSensorValueLabel(dataPoint: WeatherStormWaterDataPoint): string {
+    const value = this.getSensorValue(dataPoint);
+
+    if (value === null) {
+      return 'No reading';
+    }
+
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 3,
+    }).format(value);
+  }
+
+  public getSensorStatusLabel(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): string {
+    const severity = this.getSensorSeverity(dataPoint);
+
+    switch (severity) {
+      case 'yellow':
+        return 'Watch';
+      case 'orange':
+        return 'Warning';
+      case 'red':
+        return 'Critical';
+      default:
+        return 'Normal';
+    }
+  }
+
+  public getSensorStatusDescription(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): string {
+    const severity = this.getSensorSeverity(dataPoint);
+
+    switch (severity) {
+      case 'yellow':
+        return 'Above the watch threshold.';
+      case 'orange':
+        return 'Above the warning threshold.';
+      case 'red':
+        return 'Above the highest configured threshold.';
+      default:
+        return 'Within the normal range.';
+    }
+  }
+
+  public getSensorStatusBackgroundColor(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): string {
+    return SENSOR_THRESHOLD_COLORS[this.getSensorSeverity(dataPoint)];
+  }
+
+  public getSensorStatusTextColor(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): string {
+    return this.getSensorSeverity(dataPoint) === 'yellow' ? '#111827' : 'white';
+  }
+
+  public getSensorAlertThresholdSummary(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): string {
+    const thresholdConfig = this.getSensorThresholdConfig(dataPoint);
+
+    if (!thresholdConfig) {
+      return 'No alert thresholds configured.';
+    }
+
+    const yellowThreshold = thresholdConfig.bands.find(
+      (band) => band.severity === 'yellow',
+    )?.value;
+    const orangeThreshold = thresholdConfig.bands.find(
+      (band) => band.severity === 'orange',
+    )?.value;
+    const highestThreshold = thresholdConfig.bands.reduce(
+      (max, band) => Math.max(max, band.value),
+      Number.NEGATIVE_INFINITY,
+    );
+    const unitLabel = thresholdConfig.unitLabel;
+    const parts = [
+      yellowThreshold !== undefined
+        ? `Yellow ${yellowThreshold} ${unitLabel}`
+        : null,
+      orangeThreshold !== undefined
+        ? `Orange ${orangeThreshold} ${unitLabel}`
+        : null,
+      Number.isFinite(highestThreshold)
+        ? `Red above ${highestThreshold} ${unitLabel}`
+        : null,
+    ].filter((value): value is string => value !== null);
+
+    return parts.join('  •  ');
+  }
+
+  public getSensorUnitLabel(dataPoint: WeatherStormWaterDataPoint): string {
+    return (
+      dataPoint.dataUnitOverrides?.['waterLevel'] ??
+      dataPoint.historySeries?.unitLabel ??
+      this.getMetricUnit(dataPoint.type, 'waterLevel') ??
+      ''
+    );
+  }
+
+  public isIntotoStormWaterDataPoint(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): boolean {
+    return dataPoint.historySeries?.provider === 'intoto';
+  }
+
   public hasStormWaterFillLevel(
     dataPoint: WeatherStormWaterDataPoint,
   ): boolean {
@@ -217,6 +339,55 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
     }
 
     return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
+  }
+
+  private getSensorSeverity(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): SensorThresholdSeverity {
+    const value = this.getSensorValue(dataPoint);
+    const thresholdConfig = this.getSensorThresholdConfig(dataPoint);
+
+    if (value === null || !thresholdConfig) {
+      return 'green';
+    }
+
+    const matchingBands = thresholdConfig.bands.filter(
+      (band) => value >= band.value,
+    );
+
+    if (matchingBands.length === 0) {
+      return 'green';
+    }
+
+    const highestBand = matchingBands.reduce((currentHighest, band) =>
+      band.value > currentHighest.value ? band : currentHighest,
+    );
+    const highestConfiguredValue = thresholdConfig.bands.reduce(
+      (max, band) => Math.max(max, band.value),
+      Number.NEGATIVE_INFINITY,
+    );
+
+    if (
+      highestBand.severity !== 'red' &&
+      value >= highestConfiguredValue &&
+      Number.isFinite(highestConfiguredValue)
+    ) {
+      return 'red';
+    }
+
+    return highestBand.severity;
+  }
+
+  private getSensorThresholdConfig(
+    dataPoint: WeatherStormWaterDataPoint,
+  ): SensorThresholdConfig | null {
+    const seriesId = dataPoint.historySeries?.seriesId;
+
+    if (seriesId === undefined) {
+      return null;
+    }
+
+    return SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null;
   }
 
   private async setHeaderValues(): Promise<void> {

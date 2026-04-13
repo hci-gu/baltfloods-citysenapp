@@ -12,18 +12,10 @@
     @if (visibleScheduledMessages().length > 0) {
       <div class="scheduled-messages">
         @for (message of visibleScheduledMessages(); track message.id) {
-          <section class="scheduled-message shadow-md" aria-live="polite">
-            <button
-              type="button"
-              class="scheduled-message-dismiss"
-              aria-label="Dismiss message"
-              (click)="onDismissScheduledMessage(message.id)"
-            >
-              ×
-            </button>
-            <h2 class="heading-xs">{{ message.title }}</h2>
-            <div class="body-sm" [innerHTML]="message.content"></div>
-          </section>
+          <app-dashboard-message-banner
+            [message]="message"
+            (dismiss)="onDismissScheduledMessage($event)"
+          ></app-dashboard-message-banner>
         }
       </div>
     }
@@ -76,7 +68,11 @@
                       [attr.data-type]="option"
                       (click)="onFilterToggle(option)"
                     >
-                      <i [style.background-color]="getObservationTypeColor(option)"></i>
+                      <i
+                        [style.background-color]="
+                          getObservationTypeColor(option)
+                        "
+                      ></i>
                       {{ getObservationTypeLabel(option) }}
                     </button>
                   </li>
@@ -170,7 +166,9 @@
                     <button
                       type="button"
                       class="map-control-option body-xs"
-                      [class.active]="option.key === selectedObservationTimespan()"
+                      [class.active]="
+                        option.key === selectedObservationTimespan()
+                      "
                       (click)="setObservationTimespan(option.key)"
                     >
                       {{ option.label }}
@@ -197,7 +195,9 @@
       <app-icon
         class="focus-location-button shadow-md"
         [class.loading]="locationLoading$ | async"
-        [class.has-permission]="(locationPermissionState$ | async) === 'granted'"
+        [class.has-permission]="
+          (locationPermissionState$ | async) === 'granted'
+        "
         [icon]="(locationLoading$ | async) ? 'spinner' : 'target'"
         (click)="onFocusLocationClick()"
       ></app-icon>
@@ -208,7 +208,11 @@
       [class.mobile-panel-hidden]="activeMobileBottomPanel() !== 'timeline'"
     >
       <header class="timeline-header">
-        <div class="mobile-panel-tabs" role="tablist" aria-label="Bottom panel tabs">
+        <div
+          class="mobile-panel-tabs"
+          role="tablist"
+          aria-label="Bottom panel tabs"
+        >
           <button
             type="button"
             class="mobile-panel-tab body-xs"
@@ -235,10 +239,7 @@
                 : "Observations over time"
             }}
           </h3>
-          <p class="body-xs">
-            {{ selectedObservationTimespanLabel() }} ·
-            {{ selectedTimelineWindowLabel() }}
-          </p>
+          <p class="body-xs">{{ selectedTimelineHeaderLabel() }}</p>
         </div>
       </header>
 
@@ -248,12 +249,72 @@
         @if (selectedSensorTimeline(); as sensorTimeline) {
           <div class="timeline-legend">
             <span class="legend-item body-xs">
-              <i [style.background-color]="getObservationTypeColor(DATA_POINT_TYPE.STORM_WATER)"></i>
-              {{ selectedSensorPoint()?.name }}{{ sensorTimeline.unitLabel ? ' · ' + sensorTimeline.unitLabel : '' }}
+              <i
+                [style.background-color]="
+                  getObservationTypeColor(DATA_POINT_TYPE.STORM_WATER)
+                "
+              ></i>
+              {{ selectedSensorPoint()?.name
+              }}{{
+                sensorTimeline.unitLabel ? " · " + sensorTimeline.unitLabel : ""
+              }}
             </span>
           </div>
 
-          <div class="timeline-chart-wrapper" #timelineChartWrapper>
+          <div class="sensor-view-range">
+            <label class="sensor-view-range-field body-xs">
+              <span>From</span>
+              <input
+                type="date"
+                [value]="selectedSensorViewStartInput()"
+                [max]="selectedSensorViewEndInput()"
+                (input)="onSensorViewStartDateChange($any($event.target).value)"
+              />
+            </label>
+            <label class="sensor-view-range-field body-xs">
+              <span>To</span>
+              <input
+                type="date"
+                [value]="selectedSensorViewEndInput()"
+                [min]="selectedSensorViewStartInput()"
+                (input)="onSensorViewEndDateChange($any($event.target).value)"
+              />
+            </label>
+            <button
+              type="button"
+              class="sensor-view-range-reset body-xs"
+              (click)="showFullSensorViewRange()"
+            >
+              Full period
+            </button>
+          </div>
+
+          @if (sensorTimeline.thresholdLines.length > 0) {
+            <div class="timeline-threshold-legend">
+              @for (
+                thresholdLine of sensorTimeline.thresholdLines;
+                track thresholdLine.id
+              ) {
+                <span class="timeline-threshold-item body-xs">
+                  <i [style.background-color]="thresholdLine.color"></i>
+                  {{ thresholdLine.label }} · {{ thresholdLine.value }}
+                </span>
+              }
+            </div>
+          }
+
+          <div
+            class="timeline-chart-wrapper timeline-chart-wrapper-sensor"
+            #timelineChartWrapper
+            (pointerdown)="
+              onSensorCursorPointerDown($event, timelineChartWrapper)
+            "
+            (pointermove)="
+              onSensorCursorPointerMove($event, timelineChartWrapper)
+            "
+            (pointerup)="onSensorCursorPointerUp($event)"
+            (pointercancel)="onSensorCursorPointerUp($event)"
+          >
             <svg
               class="timeline-chart"
               viewBox="0 0 100 100"
@@ -261,44 +322,83 @@
               role="img"
               aria-label="Sensor values over time chart"
             >
-              <line class="timeline-grid-line" x1="0" y1="7" x2="100" y2="7"></line>
-              <line class="timeline-grid-line" x1="0" y1="92" x2="100" y2="92"></line>
+              <line
+                class="timeline-grid-line"
+                x1="0"
+                y1="7"
+                x2="100"
+                y2="7"
+              ></line>
+              <line
+                class="timeline-grid-line"
+                x1="0"
+                y1="92"
+                x2="100"
+                y2="92"
+              ></line>
 
-              <path
-                class="timeline-series-line"
-                [attr.d]="sensorTimeline.path"
-                [attr.stroke]="getObservationTypeColor(DATA_POINT_TYPE.STORM_WATER)"
-              ></path>
+              @for (
+                thresholdLine of sensorTimeline.thresholdLines;
+                track thresholdLine.id
+              ) {
+                <line
+                  class="timeline-threshold-line"
+                  x1="0"
+                  [attr.y1]="thresholdLine.y"
+                  x2="100"
+                  [attr.y2]="thresholdLine.y"
+                  [attr.stroke]="thresholdLine.color"
+                ></line>
+              }
+
+              @for (segment of sensorTimeline.segments; track segment.path) {
+                <path
+                  class="timeline-series-line"
+                  [attr.d]="segment.path"
+                  [attr.stroke]="segment.color"
+                ></path>
+              }
 
               @for (point of sensorTimeline.points; track point.markerPath) {
                 <path
                   class="timeline-series-point"
                   [attr.d]="point.markerPath"
-                  [attr.stroke]="getObservationTypeColor(DATA_POINT_TYPE.STORM_WATER)"
+                  [attr.stroke]="point.color"
                 ></path>
+              }
+
+              @if (selectedSensorCursor(); as sensorCursor) {
+                <circle
+                  class="timeline-series-selected-point"
+                  [attr.cx]="sensorCursor.x"
+                  [attr.cy]="sensorCursor.y"
+                  [attr.stroke]="sensorCursor.color"
+                  r="1.6"
+                ></circle>
               }
             </svg>
 
-            <div
-              class="timeline-selection-window"
-              [style.left.%]="observationTimelineWindowStyle().leftPercent"
-              [style.width.%]="observationTimelineWindowStyle().widthPercent"
-              (pointerdown)="onTimelineWindowPointerDown($event, timelineChartWrapper)"
-              (pointermove)="onTimelineWindowPointerMove($event, timelineChartWrapper)"
-              (pointerup)="onTimelineWindowPointerUp($event)"
-              (pointercancel)="onTimelineWindowPointerUp($event)"
-            >
-              <span class="timeline-window-handle left"></span>
-              <span class="timeline-window-handle right"></span>
-            </div>
+            @if (selectedSensorCursor(); as sensorCursor) {
+              <div class="timeline-cursor-line" [style.left.%]="sensorCursor.x">
+                <span class="timeline-cursor-handle"></span>
+              </div>
+            }
           </div>
 
           <div class="timeline-axis body-xs">
             <span>{{ sensorTimeline.startLabel }}</span>
             <span>{{ sensorTimeline.endLabel }}</span>
           </div>
+          @if (selectedSensorCursor(); as sensorCursor) {
+            <p class="body-xs timeline-selected-sample">
+              Selected:
+              {{ sensorCursor.timestamp | date: "dd/MM/yyyy HH:mm" }} ·
+              {{ sensorCursor.value }}{{ sensorTimeline.unitLabel }}
+            </p>
+          }
           <p class="body-xs">
-            Range: {{ sensorTimeline.minValue }} - {{ sensorTimeline.maxValue }}{{ sensorTimeline.unitLabel }}
+            Range: {{ sensorTimeline.minValue }} - {{ sensorTimeline.maxValue
+            }}{{ sensorTimeline.unitLabel }}
           </p>
         } @else if (observationTimeline().series.length > 0) {
           <div class="timeline-legend">
@@ -351,8 +451,12 @@
               class="timeline-selection-window"
               [style.left.%]="observationTimelineWindowStyle().leftPercent"
               [style.width.%]="observationTimelineWindowStyle().widthPercent"
-              (pointerdown)="onTimelineWindowPointerDown($event, timelineChartWrapper)"
-              (pointermove)="onTimelineWindowPointerMove($event, timelineChartWrapper)"
+              (pointerdown)="
+                onTimelineWindowPointerDown($event, timelineChartWrapper)
+              "
+              (pointermove)="
+                onTimelineWindowPointerMove($event, timelineChartWrapper)
+              "
               (pointerup)="onTimelineWindowPointerUp($event)"
               (pointercancel)="onTimelineWindowPointerUp($event)"
             >
@@ -377,7 +481,11 @@
     [class.mobile-panel-hidden]="activeMobileBottomPanel() !== 'list'"
   >
     <div class="observations-header">
-      <div class="mobile-panel-tabs" role="tablist" aria-label="Bottom panel tabs">
+      <div
+        class="mobile-panel-tabs"
+        role="tablist"
+        aria-label="Bottom panel tabs"
+      >
         <button
           type="button"
           class="mobile-panel-tab body-xs"
@@ -414,7 +522,9 @@
                   <button
                     type="button"
                     class="timespan-filter-option body-xs"
-                    [class.active]="option.key === selectedObservationTimespan()"
+                    [class.active]="
+                      option.key === selectedObservationTimespan()
+                    "
                     (click)="setObservationTimespan(option.key)"
                   >
                     {{ option.label }}
@@ -447,11 +557,11 @@
               <div class="observation-content">
                 <p class="observation-name body-sm">{{ observation.name }}</p>
                 <p class="observation-type body-xs">
-                  {{ getObservationTypeLabel(observation.type) }}
+                  {{ observation.typeLabel }}
                 </p>
                 @if (observation.lastUpdatedOn) {
                   <p class="observation-time body-xs">
-                    {{ observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm' }}
+                    {{ observation.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
                   </p>
                 }
               </div>

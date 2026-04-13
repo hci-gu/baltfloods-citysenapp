@@ -48,63 +48,117 @@
         </ul>
       }
       @case (DATA_POINT_TYPE.STORM_WATER) {
-        <ul class="metric-container">
-          <li>
-            <p class="button-sm">
-              {{
-                "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON"
-                  | translate
-              }}
-            </p>
-            <p class="body-sm">
-              {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
-            </p>
-          </li>
-          <li>
-            <p class="button-sm">
-              {{ "MISC.QUALITY" | translate }}
-            </p>
-            <p-chip
-              class="chip"
-              [style]="{
-                'background-color': getDataQualityBackgroundColor(
-                  dataPoint.quality
-                ),
-                color: getDataQualityTextColor(dataPoint.quality),
-              }"
-              [label]="getQualityTranslation(dataPoint.quality) | translate"
-            ></p-chip>
-          </li>
-          @if (hasStormWaterFillLevel(dataPoint)) {
+        @if (isIntotoStormWaterDataPoint(dataPoint)) {
+          <section class="sensor-detail">
+            <div class="sensor-detail__hero">
+              <div class="sensor-detail__value-block">
+                <p class="sensor-detail__eyebrow">Sensor reading</p>
+                <div class="sensor-detail__value-row">
+                  <p class="sensor-detail__value">
+                    {{ getSensorValueLabel(dataPoint) }}
+                  </p>
+                  <p class="sensor-detail__unit">
+                    {{ getSensorUnitLabel(dataPoint) }}
+                  </p>
+                </div>
+                <p class="sensor-detail__type">Water level</p>
+              </div>
+
+              <div class="sensor-detail__status-block">
+                <p class="sensor-detail__eyebrow">Status</p>
+                <p-chip
+                  class="chip sensor-detail__status-chip"
+                  [style]="{
+                    'background-color': getSensorStatusBackgroundColor(dataPoint),
+                    color: getSensorStatusTextColor(dataPoint),
+                  }"
+                  [label]="getSensorStatusLabel(dataPoint)"
+                ></p-chip>
+                <p class="sensor-detail__status-copy body-sm">
+                  {{ getSensorStatusDescription(dataPoint) }}
+                </p>
+              </div>
+            </div>
+
+            <ul class="sensor-detail__meta">
+              <li>
+                <p class="button-sm">
+                  {{
+                    "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON"
+                      | translate
+                  }}
+                </p>
+                <p class="body-sm">
+                  {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
+                </p>
+              </li>
+              <li>
+                <p class="button-sm">Alert thresholds</p>
+                <p class="body-sm">
+                  {{ getSensorAlertThresholdSummary(dataPoint) }}
+                </p>
+              </li>
+            </ul>
+          </section>
+        } @else {
+          <ul class="metric-container">
             <li>
               <p class="button-sm">
-                {{ "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate }}
-              </p>
-              <small class="body-sm">
                 {{
-                  "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL_RESULT." +
-                    dataPoint.data["fillLevel"].toString() | translate
+                  "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON"
+                    | translate
                 }}
-              </small>
+              </p>
+              <p class="body-sm">
+                {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
+              </p>
             </li>
-          }
-          @for (metric of getStormWaterMetrics(dataPoint); track metric.key) {
             <li>
               <p class="button-sm">
-                {{
-                  getDataPointTranslation(
-                    DATA_POINT_TYPE.STORM_WATER,
-                    metric.key
-                  )
-                }}
+                {{ "MISC.QUALITY" | translate }}
               </p>
-              <small class="body-sm">
-                {{ getStormWeatherMetricValue(metric.value, metric.key)
-                }}{{ getMetricUnitForDataPoint(dataPoint, metric.key) }}</small
-              >
+              <p-chip
+                class="chip"
+                [style]="{
+                  'background-color': getDataQualityBackgroundColor(
+                    dataPoint.quality
+                  ),
+                  color: getDataQualityTextColor(dataPoint.quality),
+                }"
+                [label]="getQualityTranslation(dataPoint.quality) | translate"
+              ></p-chip>
             </li>
-          }
-        </ul>
+            @if (hasStormWaterFillLevel(dataPoint)) {
+              <li>
+                <p class="button-sm">
+                  {{ "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate }}
+                </p>
+                <small class="body-sm">
+                  {{
+                    "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL_RESULT." +
+                      dataPoint.data["fillLevel"].toString() | translate
+                  }}
+                </small>
+              </li>
+            }
+            @for (metric of getStormWaterMetrics(dataPoint); track metric.key) {
+              <li>
+                <p class="button-sm">
+                  {{
+                    getDataPointTranslation(
+                      DATA_POINT_TYPE.STORM_WATER,
+                      metric.key
+                    )
+                  }}
+                </p>
+                <small class="body-sm">
+                  {{ getStormWeatherMetricValue(metric.value, metric.key)
+                  }}{{ getMetricUnitForDataPoint(dataPoint, metric.key) }}</small
+                >
+              </li>
+            }
+          </ul>
+        }
       }
       @case (DATA_POINT_TYPE.AIR_QUALITY) {
         <ul class="metric-container">

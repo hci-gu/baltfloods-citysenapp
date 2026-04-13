@@ -98,6 +98,48 @@ describe('DashboardDataPointDetailComponent', () => {
         expect(find('li').length).toEqual(3);
       });
 
+      it('when type is intoto sensor storm water point', async () => {
+        const dataPoints: WeatherStormWaterDataPoint[] = [
+          {
+            name: 'Boen bru',
+            type: DataPointType.STORM_WATER,
+            quality: DataPointQuality.DEFAULT,
+            data: {
+              waterLevel: 19.7,
+            },
+            lastUpdatedOn: new Date(1711635283 * 1000),
+            location: [58.25, 8.15],
+            dataUnitOverrides: {
+              waterLevel: 'meter NN2000',
+            },
+            historySeries: {
+              provider: 'intoto',
+              seriesId: 121,
+              unitLabel: 'meter NN2000',
+            },
+          },
+        ];
+
+        const { fixture, find } = await shallow.render(
+          '<app-dashboard-data-point-detail [dataPoints]="dataPoints"></app-dashboard-data-point-detail>',
+          { bind: { dataPoints } },
+        );
+
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(find('.sensor-detail')).toHaveFound(1);
+        expect(find('.sensor-detail__value').nativeElement.textContent.trim()).toBe(
+          '19.7',
+        );
+        expect(
+          find('.sensor-detail__status-copy').nativeElement.textContent,
+        ).toContain('Above the highest configured threshold.');
+        expect(find('.sensor-detail__meta').nativeElement.textContent).toContain(
+          'Yellow 18 MASL',
+        );
+      });
+
       it('when type is weather condition', async () => {
         const name = 'Hurricane Delta';
 

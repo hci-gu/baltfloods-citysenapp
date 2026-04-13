@@ -31,6 +31,74 @@
     border-bottom: 1px solid #eaecf0;
   }
 
+  .sensor-detail {
+    margin: 0 32px;
+    padding: 24px 0;
+    border-bottom: 1px solid #eaecf0;
+  }
+
+  .sensor-detail__hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .sensor-detail__value-block,
+  .sensor-detail__status-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sensor-detail__eyebrow {
+    color: #667085;
+  }
+
+  .sensor-detail__value-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .sensor-detail__value {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+    color: #101828;
+  }
+
+  .sensor-detail__unit {
+    font-size: 18px;
+    font-weight: 600;
+    color: #667085;
+  }
+
+  .sensor-detail__type {
+    font-size: 18px;
+    font-weight: 600;
+    color: #101828;
+  }
+
+  .sensor-detail__status-chip {
+    width: fit-content;
+  }
+
+  .sensor-detail__status-copy {
+    color: #667085;
+  }
+
+  .sensor-detail__meta {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #eaecf0;
+    list-style-type: none;
+  }
+
   .observation-image {
     display: block;
     width: calc(100% - 64px);
@@ -57,5 +125,17 @@
 
   app-icon {
     cursor: pointer;
+  }
+
+  @media (max-width: 960px) {
+    .sensor-detail__hero,
+    .sensor-detail__meta,
+    .metric-container {
+      grid-template-columns: 1fr;
+    }
+
+    .sensor-detail__value {
+      font-size: 34px;
+    }
   }
 }

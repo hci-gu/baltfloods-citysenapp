@@ -10,6 +10,12 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import {
+  SENSOR_THRESHOLD_COLORS,
+  SENSOR_THRESHOLDS_BY_SERIES_ID,
+  SensorThresholdConfig,
+  SensorThresholdSeverity,
+} from '@core/config/sensor-thresholds';
+import {
   DATA_POINT_QUALITY_COLOR_CHART,
   DATA_POINT_TYPE_ICON,
   DataPoint,
@@ -25,6 +31,7 @@ import {
 import { LocationService, UserLocation } from '@core/services/location.service';
 import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
 import {
+  DashboardMessage,
   ScheduledMessage,
   ScheduledMessagesService,
 } from '@core/services/scheduled-messages.service';
@@ -43,15 +50,19 @@ import {
   combineLatest,
   debounceTime,
   filter,
+  finalize,
   map,
   Observable,
   of,
+  shareReplay,
   Subject,
   switchMap,
+  tap,
   take,
   withLatestFrom,
 } from 'rxjs';
 import { DashboardDataPointDetailComponent } from '../dashboard-data-point-detail/dashboard-data-point-detail.component';
+import { DashboardMessageBannerComponent } from '../dashboard-message-banner/dashboard-message-banner.component';
 import { IconComponent } from '@shared/components/icon/icon.component';
 import { AsyncPipe, DatePipe } from '@angular/common';
 import { Toast } from 'primeng/toast';
@@ -61,18 +72,14 @@ interface ObservationFeedItem {
   name: string;
   location: LatLong;
   type: DataPointType;
+  typeLabel: string;
   lastUpdatedOn?: Date;
   imageUrl?: string;
 }
 
 type ObservationTimespanKey = '6m' | '1y' | '3y' | '5y';
 type MapDisplayMode = 'default' | 'heatmap';
-type TimelineSelectionRangeKey =
-  | '7d'
-  | '14d'
-  | '30d'
-  | '60d'
-  | '90d';
+type TimelineSelectionRangeKey = '7d' | '14d' | '30d' | '60d' | '90d';
 type MobileBottomPanel = 'list' | 'timeline';
 
 interface ObservationTimespanOption {
@@ -137,17 +144,47 @@ interface SensorValueTimelinePoint {
   x: number;
   y: number;
   markerPath: string;
+  timestamp: Date;
   value: number;
+  color: string;
+  severity: SensorThresholdSeverity;
 }
 
 interface SensorValueTimeline {
-  path: string;
+  segments: Array<{
+    path: string;
+    color: string;
+  }>;
   points: SensorValueTimelinePoint[];
+  thresholdLines: Array<{
+    id: string;
+    y: number;
+    value: number;
+    color: string;
+    label: string;
+  }>;
   minValue: number;
   maxValue: number;
   startLabel: string;
   endLabel: string;
   unitLabel: string;
+}
+
+interface SensorTimelineCursor {
+  x: number;
+  y: number;
+  timestamp: Date;
+  value: number;
+  color: string;
+  severity: SensorThresholdSeverity;
+}
+
+interface SensorHistoryCacheEntry {
+  cacheKey: string;
+  seriesId: number;
+  startMs: number;
+  endMs: number;
+  historyPoints: SensorHistoryPoint[];
 }
 
 const OBSERVATION_TIMELINE_COLOR: Record<DataPointType, string> = {
@@ -160,6 +197,7 @@ const OBSERVATION_TIMELINE_COLOR: Record<DataPointType, string> = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const INTOTO_SENSOR_MARKER_ICON = 'sensor-water-level-icon.svg';
 
 @Component({
   selector: 'app-dashboard-map',
@@ -182,6 +220,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
   imports: [
     MapComponent,
     DashboardDataPointDetailComponent,
+    DashboardMessageBannerComponent,
     IconComponent,
     AsyncPipe,
     DatePipe,
@@ -197,6 +236,10 @@ export class DashboardMapComponent implements AfterViewInit {
   private readonly timelinePaddingHorizontal = 2;
   private timelineWindowStartRatio = signal<number>(1);
   private timelineWindowDragOffsetRatio = 0;
+  private sensorCursorRatio = signal<number>(1);
+  private sensorViewStartDate = signal<string | null>(null);
+  private sensorViewEndDate = signal<string | null>(null);
+  private sensorViewFullPeriod = signal<boolean>(false);
   public showTypeFilterDropdown = signal<boolean>(false);
   public showDisplayModeDropdown = signal<boolean>(false);
   public showSelectionRangeDropdown = signal<boolean>(false);
@@ -215,28 +258,31 @@ export class DashboardMapComponent implements AfterViewInit {
   public selectedObservationTimespanLabel = computed(() => {
     const selectedKey = this.selectedObservationTimespan();
     return (
-      this.observationTimespanOptions.find((option) => option.key === selectedKey)
-        ?.label ?? '1 year'
+      this.observationTimespanOptions.find(
+        (option) => option.key === selectedKey,
+      )?.label ?? '1 year'
     );
   });
-  private observationTimespanBounds = computed<ObservationTimespanBounds>(() => {
-    const now = new Date();
-    const endMs = this.getDayEnd(now).getTime();
-    const selectedKey = this.selectedObservationTimespan();
-    const selectedOption = this.observationTimespanOptions.find(
-      (option) => option.key === selectedKey,
-    );
+  private observationTimespanBounds = computed<ObservationTimespanBounds>(
+    () => {
+      const now = new Date();
+      const endMs = this.getDayEnd(now).getTime();
+      const selectedKey = this.selectedObservationTimespan();
+      const selectedOption = this.observationTimespanOptions.find(
+        (option) => option.key === selectedKey,
+      );
 
-    const durationDays = selectedOption?.days ?? 365;
-    const start = new Date(now);
-    start.setDate(now.getDate() - (durationDays - 1));
-    const startMs = this.getDayStart(start).getTime();
-    return {
-      startMs,
-      endMs,
-      durationMs: Math.max(DAY_MS, endMs - startMs),
-    };
-  });
+      const durationDays = selectedOption?.days ?? 365;
+      const start = new Date(now);
+      start.setDate(now.getDate() - (durationDays - 1));
+      const startMs = this.getDayStart(start).getTime();
+      return {
+        startMs,
+        endMs,
+        durationMs: Math.max(DAY_MS, endMs - startMs),
+      };
+    },
+  );
   public observationTimelineWindow = computed<ObservationTimelineWindow>(() => {
     const bounds = this.observationTimespanBounds();
     const selectionDurationMs = Math.min(
@@ -261,12 +307,11 @@ export class DashboardMapComponent implements AfterViewInit {
       widthRatio: selectionDurationMs / bounds.durationMs,
     };
   });
-  public observationTimelineWindowStyle = computed<ObservationTimelineWindowStyle>(
-    () => ({
+  public observationTimelineWindowStyle =
+    computed<ObservationTimelineWindowStyle>(() => ({
       leftPercent: this.observationTimelineWindow().startRatio * 100,
       widthPercent: this.observationTimelineWindow().widthRatio * 100,
-    }),
-  );
+    }));
   public selectedTimelineWindowLabel = computed(() => {
     const window = this.observationTimelineWindow();
     return `${new Date(window.startMs).toLocaleDateString()} - ${new Date(
@@ -358,13 +403,49 @@ export class DashboardMapComponent implements AfterViewInit {
 
   private _activeLocation = signal<LatLong | undefined>(undefined);
   public activeScheduledMessages = signal<ScheduledMessage[]>([]);
-  private dismissedScheduledMessageIds = signal<Set<string>>(new Set());
-  public visibleScheduledMessages = computed(() =>
-    this.activeScheduledMessages().filter(
-      (message) => !this.dismissedScheduledMessageIds().has(message.id),
-    ),
+  private sensorHistoryCache = signal<Record<string, SensorHistoryCacheEntry>>(
+    {},
   );
-  public selectedDataPoints = computed(() => {
+  private sensorHistoryRequests = new Map<
+    string,
+    Observable<SensorHistoryPoint[]>
+  >();
+  private dismissedScheduledMessageIds = signal<Set<string>>(new Set());
+  public sensorWarningMessages = computed<DashboardMessage[]>(() => {
+    const bounds = this.observationTimespanBounds();
+    const cache = this.sensorHistoryCache();
+
+    return this.getIntotoStormWaterPoints(this._allDataPoints())
+      .filter((point) =>
+        this.isPointWithinBounds(point.location, this.visibleMapBounds()),
+      )
+      .map((point) => {
+        const seriesId = point.historySeries?.seriesId;
+        if (seriesId === undefined) {
+          return null;
+        }
+
+        const cacheEntry = cache[this.getSensorHistoryCacheKey(seriesId, bounds)];
+        if (!cacheEntry) {
+          return null;
+        }
+
+        return this.buildSensorWarningMessage(point, cacheEntry.historyPoints);
+      })
+      .filter((message): message is DashboardMessage => message !== null);
+  });
+  public visibleScheduledMessages = computed(() =>
+    [...this.activeScheduledMessages(), ...this.sensorWarningMessages()]
+      .filter((message) => !this.dismissedScheduledMessageIds().has(message.id))
+      .sort((left, right) => {
+        if (left.type !== right.type) {
+          return left.type === 'warning' ? -1 : 1;
+        }
+
+        return (right.start ?? '').localeCompare(left.start ?? '');
+      }),
+  );
+  private selectedDataPointsBase = computed(() => {
     const latLong = this._activeLocation();
     const selectedWindow = this.observationTimelineWindow();
     const activeTypeFilter = this.dataPointTypeFilter();
@@ -388,21 +469,64 @@ export class DashboardMapComponent implements AfterViewInit {
   });
   private selectedSensorHistoryPoints = signal<SensorHistoryPoint[]>([]);
   public selectedSensorHistoryLoading = signal<boolean>(false);
-  public selectedSensorPoint = computed<WeatherStormWaterDataPoint | null>(() => {
-    const selected = this.selectedDataPoints();
-    if (!selected) {
-      return null;
+  public selectedSensorPoint = computed<WeatherStormWaterDataPoint | null>(
+    () => {
+      const selected = this.selectedDataPointsBase();
+      if (!selected) {
+        return null;
+      }
+
+      const point = selected.find(
+        (item): item is WeatherStormWaterDataPoint =>
+          item.type === DataPointType.STORM_WATER &&
+          !!item.historySeries &&
+          item.historySeries.provider === 'intoto',
+      );
+
+      return point ?? null;
+    },
+  );
+  public selectedSensorViewBounds = computed<ObservationTimespanBounds>(() => {
+    const fullBounds = this.observationTimespanBounds();
+    const fullStart = new Date(fullBounds.startMs);
+    const fullEnd = new Date(fullBounds.endMs);
+    const defaultStart = this.getDefaultSensorViewStartDate(fullEnd);
+    const parsedStart = this.parseDateInput(this.sensorViewStartDate());
+    const parsedEnd = this.parseDateInput(this.sensorViewEndDate());
+    const startDate = this.sensorViewFullPeriod()
+      ? fullStart
+      : (parsedStart ?? defaultStart);
+    const endDate = parsedEnd ?? fullEnd;
+    let startMs = Math.max(
+      this.getDayStart(startDate).getTime(),
+      fullBounds.startMs,
+    );
+    let endMs = Math.min(this.getDayEnd(endDate).getTime(), fullBounds.endMs);
+
+    if (startMs > endMs) {
+      startMs = endMs;
     }
 
-    const point = selected.find(
-      (item): item is WeatherStormWaterDataPoint =>
-        item.type === DataPointType.STORM_WATER &&
-        !!item.historySeries &&
-        item.historySeries.provider === 'intoto',
-    );
-
-    return point ?? null;
+    return {
+      startMs,
+      endMs,
+      durationMs: Math.max(DAY_MS, endMs - startMs),
+    };
   });
+  public selectedSensorViewStartInput = computed(() =>
+    this.formatDateForInput(new Date(this.selectedSensorViewBounds().startMs)),
+  );
+  public selectedSensorViewEndInput = computed(() =>
+    this.formatDateForInput(new Date(this.selectedSensorViewBounds().endMs)),
+  );
+  public selectedSensorThresholdConfig = computed<SensorThresholdConfig | null>(
+    () => {
+      const seriesId = this.selectedSensorPoint()?.historySeries?.seriesId;
+      return seriesId
+        ? (SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null)
+        : null;
+    },
+  );
   public selectedSensorTimeline = computed<SensorValueTimeline | null>(() => {
     const point = this.selectedSensorPoint();
     const historyPoints = this.selectedSensorHistoryPoints();
@@ -413,7 +537,71 @@ export class DashboardMapComponent implements AfterViewInit {
     return this.buildSensorValueTimeline(
       historyPoints,
       point.historySeries?.unitLabel ?? '',
+      this.selectedSensorViewBounds(),
+      this.selectedSensorThresholdConfig(),
     );
+  });
+  public selectedSensorCursor = computed<SensorTimelineCursor | null>(() => {
+    const sensorTimeline = this.selectedSensorTimeline();
+    if (!sensorTimeline || sensorTimeline.points.length === 0) {
+      return null;
+    }
+
+    const bounds = this.selectedSensorViewBounds();
+    const targetTimestamp =
+      bounds.startMs + this.sensorCursorRatio() * bounds.durationMs;
+
+    return sensorTimeline.points.reduce((closest, point) =>
+      Math.abs(point.timestamp.getTime() - targetTimestamp) <
+      Math.abs(closest.timestamp.getTime() - targetTimestamp)
+        ? point
+        : closest,
+    );
+  });
+  private selectedSensorDisplayPoint =
+    computed<WeatherStormWaterDataPoint | null>(() => {
+      const sensorPoint = this.selectedSensorPoint();
+      const sensorCursor = this.selectedSensorCursor();
+
+      if (!sensorPoint || !sensorCursor) {
+        return null;
+      }
+
+      return {
+        ...sensorPoint,
+        lastUpdatedOn: sensorCursor.timestamp,
+        data: {
+          ...sensorPoint.data,
+          waterLevel: Math.round(sensorCursor.value * 1000) / 1000,
+        },
+      };
+    });
+  public selectedDataPoints = computed(() => {
+    const selected = this.selectedDataPointsBase();
+    const selectedSensorPoint = this.selectedSensorPoint();
+    const selectedSensorDisplayPoint = this.selectedSensorDisplayPoint();
+
+    if (!selected) {
+      return null;
+    }
+
+    if (!selectedSensorPoint || !selectedSensorDisplayPoint) {
+      return selected;
+    }
+
+    return selected.map((point) =>
+      point === selectedSensorPoint ? selectedSensorDisplayPoint : point,
+    );
+  });
+  public selectedTimelineHeaderLabel = computed(() => {
+    if (this.selectedSensorPoint()) {
+      const bounds = this.selectedSensorViewBounds();
+      return `View · ${new Date(bounds.startMs).toLocaleDateString()} - ${new Date(
+        bounds.endMs,
+      ).toLocaleDateString()}`;
+    }
+
+    return `${this.selectedObservationTimespanLabel()} · ${this.selectedTimelineWindowLabel()}`;
   });
   private _observationFeed = computed<ObservationFeedItem[]>(() =>
     this._allDataPoints()
@@ -430,6 +618,7 @@ export class DashboardMapComponent implements AfterViewInit {
         name: point.name,
         location: point.location,
         type: point.type,
+        typeLabel: this.getObservationFeedTypeLabel(point),
         lastUpdatedOn: point.lastUpdatedOn,
         imageUrl: this.getObservationImageUrl(point),
       })),
@@ -438,12 +627,13 @@ export class DashboardMapComponent implements AfterViewInit {
     const selectedWindow = this.observationTimelineWindow();
     const activeTypeFilter = this.dataPointTypeFilter();
 
-    return this._observationFeed().filter((item) =>
-      this.isTimestampWithinRange(
-        item.lastUpdatedOn,
-        selectedWindow.startMs,
-        selectedWindow.endMs,
-      ) && this.matchesTypeFilter(item.type, activeTypeFilter),
+    return this._observationFeed().filter(
+      (item) =>
+        this.isTimestampWithinRange(
+          item.lastUpdatedOn,
+          selectedWindow.startMs,
+          selectedWindow.endMs,
+        ) && this.matchesTypeFilter(item.type, activeTypeFilter),
     );
   });
   public observationTimeline = computed<ObservationTimeline>(() => {
@@ -469,8 +659,7 @@ export class DashboardMapComponent implements AfterViewInit {
       1,
       Math.floor((end.getTime() - start.getTime()) / DAY_MS) + 1,
     );
-    const bucketSizeDays =
-      totalDays > 540 ? 30 : totalDays > 180 ? 7 : 1;
+    const bucketSizeDays = totalDays > 540 ? 30 : totalDays > 180 ? 7 : 1;
     const bucketCount = Math.max(1, Math.ceil(totalDays / bucketSizeDays));
 
     const leftX = this.timelinePaddingHorizontal;
@@ -527,8 +716,9 @@ export class DashboardMapComponent implements AfterViewInit {
           color: OBSERVATION_TIMELINE_COLOR[type],
           total: counts.reduce((sum, value) => sum + value, 0),
           path: points
-            .map((point, index) =>
-              `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
+            .map(
+              (point, index) =>
+                `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
             )
             .join(' '),
           points,
@@ -657,22 +847,32 @@ export class DashboardMapComponent implements AfterViewInit {
       .subscribe((messages) => this.activeScheduledMessages.set(messages));
 
     combineLatest([
+      toObservable(this._allDataPoints),
+      toObservable(this.observationTimespanBounds),
+    ])
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(([points, bounds]) =>
+        this.prefetchSensorHistories(
+          this.getIntotoStormWaterPoints(points),
+          bounds,
+        ),
+      );
+
+    combineLatest([
       toObservable(this.selectedSensorPoint),
-      toObservable(this.observationTimelineWindow),
+      toObservable(this.selectedSensorViewBounds),
     ])
       .pipe(
-        switchMap(([point, window]) => {
+        switchMap(([point, bounds]) => {
+          this.sensorCursorRatio.set(1);
+
           if (!point) {
             this.selectedSensorHistoryLoading.set(false);
             return of([] as SensorHistoryPoint[]);
           }
 
           this.selectedSensorHistoryLoading.set(true);
-          return this.dataPointsApi.getStormWaterHistory(
-            point,
-            new Date(window.startMs),
-            new Date(window.endMs),
-          );
+          return this.loadSensorHistory(point, bounds);
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -693,10 +893,12 @@ export class DashboardMapComponent implements AfterViewInit {
   public onMarkerClick(latLong: LatLong): void {
     this.currentMapCenter = latLong;
     this._mapCenterSubject$.next(latLong);
+    this.resetSensorViewRange();
     this.setActiveMarker(latLong);
   }
 
   public onDataPointClose(): void {
+    this.resetSensorViewRange();
     this.setActiveMarker();
   }
 
@@ -797,6 +999,7 @@ export class DashboardMapComponent implements AfterViewInit {
   public onObservationClick(location: LatLong): void {
     this.currentMapCenter = location;
     this._mapCenterSubject$.next(location);
+    this.resetSensorViewRange();
     void this.setActiveMarker(location);
   }
 
@@ -807,8 +1010,51 @@ export class DashboardMapComponent implements AfterViewInit {
   public setObservationTimespan(key: ObservationTimespanKey): void {
     this.selectedObservationTimespan.set(key);
     this.timelineWindowStartRatio.set(1);
+    this.resetSensorViewRange();
     this.showObservationTimespanFilter.set(false);
     this.showFullPeriodDropdown.set(false);
+  }
+
+  public onSensorViewStartDateChange(value: string): void {
+    const normalized = this.normalizeDateInput(value);
+    if (!normalized) {
+      this.sensorViewStartDate.set(null);
+      return;
+    }
+
+    this.sensorViewFullPeriod.set(false);
+    const currentEnd = this.selectedSensorViewEndInput();
+    this.sensorViewStartDate.set(normalized);
+    if (normalized > currentEnd) {
+      this.sensorViewEndDate.set(normalized);
+    }
+  }
+
+  public onSensorViewEndDateChange(value: string): void {
+    const normalized = this.normalizeDateInput(value);
+    if (!normalized) {
+      this.sensorViewEndDate.set(null);
+      return;
+    }
+
+    this.sensorViewFullPeriod.set(false);
+    const currentStart = this.selectedSensorViewStartInput();
+    this.sensorViewEndDate.set(normalized);
+    if (normalized < currentStart) {
+      this.sensorViewStartDate.set(normalized);
+    }
+  }
+
+  public resetSensorViewRange(): void {
+    this.sensorViewStartDate.set(null);
+    this.sensorViewEndDate.set(null);
+    this.sensorViewFullPeriod.set(false);
+  }
+
+  public showFullSensorViewRange(): void {
+    this.sensorViewStartDate.set(null);
+    this.sensorViewEndDate.set(null);
+    this.sensorViewFullPeriod.set(true);
   }
 
   public onTimelineWindowPointerDown(
@@ -847,6 +1093,36 @@ export class DashboardMapComponent implements AfterViewInit {
     }
   }
 
+  public onSensorCursorPointerDown(
+    event: PointerEvent,
+    container: HTMLElement,
+  ): void {
+    const target = event.currentTarget as HTMLElement | null;
+    target?.setPointerCapture(event.pointerId);
+    this.setSensorCursorRatio(this.getPointerRatio(event, container));
+    event.preventDefault();
+  }
+
+  public onSensorCursorPointerMove(
+    event: PointerEvent,
+    container: HTMLElement,
+  ): void {
+    const target = event.currentTarget as HTMLElement | null;
+    if (!target?.hasPointerCapture(event.pointerId)) {
+      return;
+    }
+
+    this.setSensorCursorRatio(this.getPointerRatio(event, container));
+    event.preventDefault();
+  }
+
+  public onSensorCursorPointerUp(event: PointerEvent): void {
+    const target = event.currentTarget as HTMLElement | null;
+    if (target?.hasPointerCapture(event.pointerId)) {
+      target.releasePointerCapture(event.pointerId);
+    }
+  }
+
   public getObservationTypeLabel(type: DataPointType): string {
     switch (type) {
       case DataPointType.WEATHER_CONDITIONS:
@@ -864,6 +1140,17 @@ export class DashboardMapComponent implements AfterViewInit {
       default:
         return 'Observation';
     }
+  }
+
+  public getObservationFeedTypeLabel(point: DataPoint): string {
+    if (
+      point.type === DataPointType.STORM_WATER &&
+      point.historySeries?.provider === 'intoto'
+    ) {
+      return 'Sensor reading';
+    }
+
+    return this.getObservationTypeLabel(point.type);
   }
 
   public getObservationTypeColor(type: DataPointType): string {
@@ -917,6 +1204,43 @@ export class DashboardMapComponent implements AfterViewInit {
     return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
   }
 
+  private normalizeDateInput(value: string): string | null {
+    const parsed = this.parseDateInput(value);
+    if (!parsed) {
+      return null;
+    }
+
+    const bounds = this.observationTimespanBounds();
+    const clamped = Math.min(
+      Math.max(this.getDayStart(parsed).getTime(), bounds.startMs),
+      bounds.endMs,
+    );
+    return this.formatDateForInput(new Date(clamped));
+  }
+
+  private parseDateInput(value: string | null): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = new Date(`${value}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private formatDateForInput(value: Date): string {
+    const year = value.getFullYear();
+    const month = `${value.getMonth() + 1}`.padStart(2, '0');
+    const day = `${value.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private getDefaultSensorViewStartDate(fullEnd: Date): Date {
+    const defaultStart = this.getDayStart(new Date(fullEnd));
+    defaultStart.setMonth(defaultStart.getMonth() - 3);
+    defaultStart.setDate(defaultStart.getDate() + 1);
+    return defaultStart;
+  }
+
   private isTimestampWithinRange(
     timestamp: Date | undefined,
     startMs: number,
@@ -959,6 +1283,10 @@ export class DashboardMapComponent implements AfterViewInit {
     this.timelineWindowStartRatio.set(clamped);
   }
 
+  private setSensorCursorRatio(rawRatio: number): void {
+    this.sensorCursorRatio.set(Math.max(0, Math.min(rawRatio, 1)));
+  }
+
   private getDayStart(date: Date): Date {
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
@@ -993,9 +1321,7 @@ export class DashboardMapComponent implements AfterViewInit {
 
     this.locationPermissionState$ =
       this.locationService.locationPermissionState$;
-    this.locationLoading$ = userLocation$.pipe(
-      map(({ loading }) => loading),
-    );
+    this.locationLoading$ = userLocation$.pipe(map(({ loading }) => loading));
 
     this._focusLocation$
       .pipe(
@@ -1045,7 +1371,7 @@ export class DashboardMapComponent implements AfterViewInit {
         location: dataPoints[0].location,
         icon: hasMultipleDataPoints
           ? 'multiple-data-points.svg'
-          : DATA_POINT_TYPE_ICON[dataPoints[0].type],
+          : this.getMarkerIcon(dataPoints[0]),
         color: hasMultipleDataPoints
           ? DATA_POINT_QUALITY_COLOR_CHART[DataPointQuality.DEFAULT]
           : DATA_POINT_QUALITY_COLOR_CHART[dataPoints[0].quality],
@@ -1055,6 +1381,17 @@ export class DashboardMapComponent implements AfterViewInit {
           }),
       };
     });
+  }
+
+  private getMarkerIcon(point: DataPoint): string {
+    if (
+      point.type === DataPointType.STORM_WATER &&
+      point.historySeries?.provider === 'intoto'
+    ) {
+      return INTOTO_SENSOR_MARKER_ICON;
+    }
+
+    return DATA_POINT_TYPE_ICON[point.type];
   }
 
   private createHeatmapMarkers(points: DataPoint[]): Marker[] {
@@ -1083,25 +1420,37 @@ export class DashboardMapComponent implements AfterViewInit {
   private buildSensorValueTimeline(
     historyPoints: SensorHistoryPoint[],
     unitLabel: string,
+    bounds: ObservationTimespanBounds,
+    thresholdConfig: SensorThresholdConfig | null,
   ): SensorValueTimeline {
-    const sortedPoints = historyPoints
+    const sortedPoints = this.bucketSensorHistoryPoints(historyPoints, bounds)
       .slice()
-      .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+      .sort(
+        (left, right) => left.timestamp.getTime() - right.timestamp.getTime(),
+      );
     const leftX = this.timelinePaddingHorizontal;
     const rightX = 100 - this.timelinePaddingHorizontal;
     const topY = this.timelinePaddingTop;
     const bottomY = 100 - this.timelinePaddingBottom;
     const plotWidth = rightX - leftX;
     const plotHeight = bottomY - topY;
-    const minValue = Math.min(...sortedPoints.map((point) => point.value));
-    const maxValue = Math.max(...sortedPoints.map((point) => point.value));
+    const thresholdValues = this.getSensorThresholdValues(thresholdConfig);
+    const minValue = Math.min(
+      ...sortedPoints.map((point) => point.value),
+      ...thresholdValues,
+    );
+    const maxValue = Math.max(
+      ...sortedPoints.map((point) => point.value),
+      ...thresholdValues,
+    );
     const valueRange = Math.max(1e-6, maxValue - minValue);
-    const startMs = sortedPoints[0].timestamp.getTime();
-    const endMs = sortedPoints[sortedPoints.length - 1].timestamp.getTime();
-    const durationMs = Math.max(1, endMs - startMs);
+    const durationMs = Math.max(1, bounds.endMs - bounds.startMs);
 
     const points = sortedPoints.map((point) => {
-      const progress = (point.timestamp.getTime() - startMs) / durationMs;
+      const progress = Math.max(
+        0,
+        Math.min(1, (point.timestamp.getTime() - bounds.startMs) / durationMs),
+      );
       const normalizedValue = (point.value - minValue) / valueRange;
       const x = leftX + progress * plotWidth;
       const y = bottomY - normalizedValue * plotHeight;
@@ -1109,23 +1458,368 @@ export class DashboardMapComponent implements AfterViewInit {
       return {
         x,
         y,
+        timestamp: point.timestamp,
         value: point.value,
+        severity: this.getSensorThresholdSeverity(point.value, thresholdConfig),
+        color: this.getSensorThresholdColor(point.value, thresholdConfig),
         markerPath: `M ${x.toFixed(2)} ${y.toFixed(2)} L ${x.toFixed(2)} ${y.toFixed(2)}`,
       };
     });
 
+    const segments = this.buildSensorTimelineSegments(points);
+    const thresholdLines = this.buildSensorThresholdLines(
+      thresholdConfig,
+      minValue,
+      valueRange,
+      topY,
+      bottomY,
+    );
+
     return {
-      path: points
-        .map((point, index) =>
-          `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
-        )
-        .join(' '),
+      segments,
       points,
+      thresholdLines,
       minValue,
       maxValue,
-      startLabel: sortedPoints[0].timestamp.toLocaleDateString(),
-      endLabel: sortedPoints[sortedPoints.length - 1].timestamp.toLocaleDateString(),
+      startLabel: new Date(bounds.startMs).toLocaleDateString(),
+      endLabel: new Date(bounds.endMs).toLocaleDateString(),
       unitLabel,
+    };
+  }
+
+  private buildSensorTimelineSegments(
+    points: SensorValueTimelinePoint[],
+  ): Array<{ path: string; color: string }> {
+    if (points.length < 2) {
+      return [];
+    }
+
+    const severityRank: Record<SensorThresholdSeverity, number> = {
+      green: 0,
+      yellow: 1,
+      orange: 2,
+      red: 3,
+    };
+    const segments: Array<{ path: string; color: string }> = [];
+    let activeSeverity = this.getWorseSensorSeverity(
+      points[0].severity,
+      points[1].severity,
+      severityRank,
+    );
+    let activePath = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} L ${points[1].x.toFixed(2)} ${points[1].y.toFixed(2)}`;
+
+    for (let index = 1; index < points.length - 1; index += 1) {
+      const nextSeverity = this.getWorseSensorSeverity(
+        points[index].severity,
+        points[index + 1].severity,
+        severityRank,
+      );
+
+      if (nextSeverity === activeSeverity) {
+        activePath += ` L ${points[index + 1].x.toFixed(2)} ${points[index + 1].y.toFixed(2)}`;
+        continue;
+      }
+
+      segments.push({
+        path: activePath,
+        color: SENSOR_THRESHOLD_COLORS[activeSeverity],
+      });
+      activeSeverity = nextSeverity;
+      activePath = `M ${points[index].x.toFixed(2)} ${points[index].y.toFixed(2)} L ${points[index + 1].x.toFixed(2)} ${points[index + 1].y.toFixed(2)}`;
+    }
+
+    segments.push({
+      path: activePath,
+      color: SENSOR_THRESHOLD_COLORS[activeSeverity],
+    });
+
+    return segments;
+  }
+
+  private buildSensorThresholdLines(
+    thresholdConfig: SensorThresholdConfig | null,
+    minValue: number,
+    valueRange: number,
+    topY: number,
+    bottomY: number,
+  ): Array<{
+    id: string;
+    y: number;
+    value: number;
+    color: string;
+    label: string;
+  }> {
+    if (!thresholdConfig) {
+      return [];
+    }
+
+    const plotHeight = bottomY - topY;
+
+    return thresholdConfig.bands.map((band) => ({
+      id: band.id,
+      y: bottomY - ((band.value - minValue) / valueRange) * plotHeight,
+      value: band.value,
+      color: SENSOR_THRESHOLD_COLORS[band.severity],
+      label: `${this.capitalizeSensorSeverity(band.severity)} threshold`,
+    }));
+  }
+
+  private bucketSensorHistoryPoints(
+    historyPoints: SensorHistoryPoint[],
+    bounds: ObservationTimespanBounds,
+  ): SensorHistoryPoint[] {
+    if (bounds.durationMs <= 31 * DAY_MS) {
+      return historyPoints;
+    }
+
+    const maxPointByDay = new Map<string, SensorHistoryPoint>();
+
+    historyPoints.forEach((point) => {
+      const bucketKey = this.formatDateForInput(point.timestamp);
+      const current = maxPointByDay.get(bucketKey);
+
+      if (
+        !current ||
+        point.value > current.value ||
+        (point.value === current.value &&
+          point.timestamp.getTime() > current.timestamp.getTime())
+      ) {
+        maxPointByDay.set(bucketKey, point);
+      }
+    });
+
+    return Array.from(maxPointByDay.values());
+  }
+
+  private getSensorThresholdValues(
+    thresholdConfig: SensorThresholdConfig | null,
+  ): number[] {
+    if (!thresholdConfig) {
+      return [];
+    }
+
+    return thresholdConfig.bands.map((band) => band.value);
+  }
+
+  private getSensorThresholdSeverity(
+    value: number,
+    thresholdConfig: SensorThresholdConfig | null,
+  ): SensorThresholdSeverity {
+    if (!thresholdConfig) {
+      return 'green';
+    }
+
+    const severityRank: Record<SensorThresholdSeverity, number> = {
+      green: 0,
+      yellow: 1,
+      orange: 2,
+      red: 3,
+    };
+
+    const severity = thresholdConfig.bands.reduce<SensorThresholdSeverity>(
+      (severity, band) => {
+        if (value < band.value) {
+          return severity;
+        }
+
+        return this.getWorseSensorSeverity(
+          severity,
+          band.severity,
+          severityRank,
+        );
+      },
+      'green',
+    );
+
+    const highestBand = thresholdConfig.bands.reduce(
+      (highest, band) => (band.value > highest.value ? band : highest),
+      thresholdConfig.bands[0],
+    );
+
+    if (
+      highestBand &&
+      highestBand.severity !== 'red' &&
+      value >= highestBand.value
+    ) {
+      return 'red';
+    }
+
+    return severity;
+  }
+
+  private getSensorThresholdColor(
+    value: number,
+    thresholdConfig: SensorThresholdConfig | null,
+  ): string {
+    return SENSOR_THRESHOLD_COLORS[
+      this.getSensorThresholdSeverity(value, thresholdConfig)
+    ];
+  }
+
+  private getWorseSensorSeverity(
+    left: SensorThresholdSeverity,
+    right: SensorThresholdSeverity,
+    severityRank: Record<SensorThresholdSeverity, number>,
+  ): SensorThresholdSeverity {
+    return severityRank[left] >= severityRank[right] ? left : right;
+  }
+
+  private capitalizeSensorSeverity(severity: SensorThresholdSeverity): string {
+    return `${severity.charAt(0).toUpperCase()}${severity.slice(1)}`;
+  }
+
+  private prefetchSensorHistories(
+    points: WeatherStormWaterDataPoint[],
+    bounds: ObservationTimespanBounds,
+  ): void {
+    points.forEach((point) => {
+      this.loadSensorHistory(point, bounds)
+        .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+        .subscribe();
+    });
+  }
+
+  private loadSensorHistory(
+    point: WeatherStormWaterDataPoint,
+    bounds: ObservationTimespanBounds,
+  ): Observable<SensorHistoryPoint[]> {
+    const seriesId = point.historySeries?.seriesId;
+    if (seriesId === undefined) {
+      return of([]);
+    }
+
+    const cacheKey = this.getSensorHistoryCacheKey(seriesId, bounds);
+    const cached = this.sensorHistoryCache()[cacheKey];
+    if (cached) {
+      return of(cached.historyPoints);
+    }
+
+    const coveringCacheEntry = Object.values(this.sensorHistoryCache()).find(
+      (entry) =>
+        entry.seriesId === seriesId &&
+        entry.startMs <= bounds.startMs &&
+        entry.endMs >= bounds.endMs,
+    );
+    if (coveringCacheEntry) {
+      return of(
+        coveringCacheEntry.historyPoints.filter(
+          (historyPoint) =>
+            historyPoint.timestamp.getTime() >= bounds.startMs &&
+            historyPoint.timestamp.getTime() <= bounds.endMs,
+        ),
+      );
+    }
+
+    const inFlight = this.sensorHistoryRequests.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const request$ = this.dataPointsApi
+      .getStormWaterHistory(
+        point,
+        new Date(bounds.startMs),
+        new Date(bounds.endMs),
+      )
+      .pipe(
+        map((historyPoints) =>
+          historyPoints
+            .slice()
+            .sort(
+              (left, right) =>
+                left.timestamp.getTime() - right.timestamp.getTime(),
+            ),
+        ),
+        tap((historyPoints) =>
+          this.sensorHistoryCache.update((current) => ({
+            ...current,
+            [cacheKey]: {
+              cacheKey,
+              seriesId,
+              startMs: bounds.startMs,
+              endMs: bounds.endMs,
+              historyPoints,
+            },
+          })),
+        ),
+        finalize(() => {
+          this.sensorHistoryRequests.delete(cacheKey);
+        }),
+        shareReplay(1),
+      );
+
+    this.sensorHistoryRequests.set(cacheKey, request$);
+    return request$;
+  }
+
+  private getIntotoStormWaterPoints(
+    points: DataPoint[],
+  ): WeatherStormWaterDataPoint[] {
+    return points.filter(
+      (point): point is WeatherStormWaterDataPoint =>
+        point.type === DataPointType.STORM_WATER &&
+        point.historySeries?.provider === 'intoto',
+    );
+  }
+
+  private getSensorHistoryCacheKey(
+    seriesId: number,
+    bounds: ObservationTimespanBounds,
+  ): string {
+    return `${seriesId}:${bounds.startMs}:${bounds.endMs}`;
+  }
+
+  private buildSensorWarningMessage(
+    point: WeatherStormWaterDataPoint,
+    historyPoints: SensorHistoryPoint[],
+  ): DashboardMessage | null {
+    const seriesId = point.historySeries?.seriesId;
+    const thresholdConfig =
+      seriesId !== undefined
+        ? (SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null)
+        : null;
+
+    if (!thresholdConfig || historyPoints.length === 0) {
+      return null;
+    }
+
+    const redPoints = historyPoints.filter(
+      (historyPoint) =>
+        this.getSensorThresholdSeverity(historyPoint.value, thresholdConfig) ===
+        'red',
+    );
+
+    if (redPoints.length === 0) {
+      return null;
+    }
+
+    const peakPoint = redPoints.reduce((highest, pointCandidate) =>
+      pointCandidate.value > highest.value ||
+      (pointCandidate.value === highest.value &&
+        pointCandidate.timestamp.getTime() > highest.timestamp.getTime())
+        ? pointCandidate
+        : highest,
+    );
+    const highestThreshold = thresholdConfig.bands.reduce(
+      (max, band) => Math.max(max, band.value),
+      Number.NEGATIVE_INFINITY,
+    );
+    const measurementUnit =
+      point.historySeries?.unitLabel ??
+      point.dataUnitOverrides?.['waterLevel'] ??
+      '';
+    const thresholdUnit = thresholdConfig.unitLabel;
+    const warningTimestamp = peakPoint.timestamp.toLocaleString();
+    const warningValue = Math.round(peakPoint.value * 1000) / 1000;
+    const bounds = this.observationTimespanBounds();
+
+    return {
+      id: `sensor-warning-${seriesId}-${bounds.startMs}-${bounds.endMs}`,
+      title: `${point.name} crossed the red threshold`,
+      content: `<p>Peak reading ${warningValue} ${measurementUnit} at ${warningTimestamp}. This is above the configured red threshold starting at ${highestThreshold} ${thresholdUnit}.</p>`,
+      start: peakPoint.timestamp.toISOString(),
+      end: peakPoint.timestamp.toISOString(),
+      type: 'warning',
     };
   }
 
@@ -1231,9 +1925,7 @@ export class DashboardMapComponent implements AfterViewInit {
         : longitude >= bounds.west || longitude <= bounds.east;
 
     return (
-      latitude >= bounds.south &&
-      latitude <= bounds.north &&
-      longitudeInBounds
+      latitude >= bounds.south && latitude <= bounds.north && longitudeInBounds
     );
   }
 }

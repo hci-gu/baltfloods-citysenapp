@@ -53,6 +53,37 @@ describe('ScheduledMessagesService', () => {
 
     expect(await requestPromise).toEqual([]);
   });
+
+  it('should default unknown message types to info', async () => {
+    const { instance, inject } = shallow.createService();
+    const httpTestingController = inject(HttpTestingController);
+
+    const requestPromise = firstValueFrom(instance.getActiveMessages());
+
+    const req = httpTestingController.expectOne(
+      `${environment.scheduledMessagesApiUrl}/active`,
+    );
+    req.flush([
+      {
+        id: 'scheduled-message-2',
+        title: 'Maintenance',
+        content: '<p>Fallback type.</p>',
+        start: '2026-02-25 08:00:00.000Z',
+        end: '2026-02-25 12:00:00.000Z',
+      },
+    ]);
+
+    expect(await requestPromise).toEqual([
+      {
+        id: 'scheduled-message-2',
+        title: 'Maintenance',
+        content: '<p>Fallback type.</p>',
+        start: '2026-02-25 08:00:00.000Z',
+        end: '2026-02-25 12:00:00.000Z',
+        type: 'info',
+      },
+    ]);
+  });
 });
 
 const MOCK_ACTIVE_MESSAGES: ScheduledMessage[] = [
@@ -62,5 +93,6 @@ const MOCK_ACTIVE_MESSAGES: ScheduledMessage[] = [
     content: '<p>Map updates are in progress.</p>',
     start: '2026-02-25 08:00:00.000Z',
     end: '2026-02-25 12:00:00.000Z',
+    type: 'warning',
   },
 ];
