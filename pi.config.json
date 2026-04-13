@@ -1,0 +1,40 @@
+{
+  "transport": "adapter",
+  "adapterCommand": "pi-harness adapter",
+  "taskFile": "TODOS.md",
+  "developerInstructionsFile": "pi/DEVELOPER.md",
+  "testerInstructionsFile": "pi/TESTER.md",
+  "commitMode": "agent",
+  "promptMode": "compact",
+  "largeFileWarningLines": 500,
+  "largeSpecWarningLines": 300,
+  "piModel": "gemma-4-31B-it-Q6_K.gguf",
+  "models": {
+    "gemma-4-31B-it-Q6_K.gguf": {
+      "baseUrl": "http://spark-6689:8000/v1",
+      "apiKey": "some-key",
+      "vision": false
+    }
+  },
+  "roleModels": {
+    "developer": "gemma-4-31B-it-Q6_K.gguf",
+    "developerFix": "gemma-4-31B-it-Q6_K.gguf",
+    "developerRetry": "gemma-4-31B-it-Q6_K.gguf",
+    "tester": "gemma-4-31B-it-Q6_K.gguf"
+  },
+  "testCommand": "npm test -- --testPathPattern=app.component --bail --findRelatedTests=false",
+  "continueAfterSeconds": 300,
+  "toolContinueAfterSeconds": 900,
+  "noEventTimeoutSeconds": 900,
+  "toolNoEventTimeoutSeconds": 1800,
+  "visualReviewEnabled": false,
+  "visualCaptureCommand": "",
+  "visualReviewModel": "",
+  "visualReviewCommand": "pi-harness visual-review-worker",
+  "visualReviewEveryNSuccesses": 5,
+  "visualFeedbackFile": "pi-output/visual-review/FEEDBACK.md",
+  "testerFeedbackFile": "pi-output/tester-feedback/FEEDBACK.md",
+  "testerFeedbackHistoryDir": "pi-output/tester-feedback/history",
+  "visualReviewHistoryDir": "pi-output/visual-review/history",
+  "visualCaptureDir": "pi-output/visual-capture"
+}
