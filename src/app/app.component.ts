@@ -1,9 +1,10 @@
-import { Component, inject, ViewChild } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, inject, ViewChild, OnInit } from '@angular/core';
+import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { getCountryCodeFromLanguageCode } from '@shared/utils/i18n-utils';
 import { SharedModule } from '@shared/shared.module';
 import { GoogleAnalyticsService } from 'ngx-google-analytics';
+import { LocationService } from '@core/services/location.service';
 
 @Component({
   selector: 'app-root',
@@ -12,7 +13,7 @@ import { GoogleAnalyticsService } from 'ngx-google-analytics';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   @ViewChild(RouterOutlet) public outlet: RouterOutlet | undefined;
 
   public title = 'CitySen';
@@ -20,6 +21,8 @@ export class AppComponent {
   private readonly googleAnalyticsService: GoogleAnalyticsService = inject(
     GoogleAnalyticsService,
   );
+  private readonly locationService = inject(LocationService);
+  private readonly route = inject(ActivatedRoute);
 
   public constructor(private readonly translateService: TranslateService) {
     translateService.use(getCountryCodeFromLanguageCode(navigator.language));
@@ -30,7 +33,20 @@ export class AppComponent {
   }
 
   public ngOnInit(): void {
+    this.handleQueryLocation();
     this.gaTracked();
+  }
+
+  private handleQueryLocation(): void {
+    const lat = this.route.snapshot.queryParamMap.get('lat');
+    const lon = this.route.snapshot.queryParamMap.get('lon');
+
+    if (lat && lon) {
+      this.locationService.setOverriddenLocation([
+        parseFloat(lat),
+        parseFloat(lon),
+      ]);
+    }
   }
 
   private gaTracked(): void {

@@ -22,7 +22,7 @@ specifiers:
   '@ngx-translate/core': ~16.0.4
   '@ngx-translate/http-loader': ~16.0.1
   '@primeng/themes': ~19.0.6
-  '@sebastianandreasson/pi-autonomous-agents': ~0.9.1
+  '@sebastianandreasson/pi-autonomous-agents': ~0.10.0
   '@sentry/angular': ~8.50.0
   '@sentry/cli': ~2.40.0
   '@storybook/addon-essentials': ~8.5.0
@@ -124,7 +124,7 @@ devDependencies:
   '@angular-eslint/template-parser': 19.0.2_inylsuzpwuenpw7p6e7ggu4qmy
   '@angular/cli': 19.1.6_@types+node@20.11.30
   '@angular/compiler-cli': 19.1.6_kriekci5gtupkrfwcturaulhai
-  '@sebastianandreasson/pi-autonomous-agents': 0.9.1
+  '@sebastianandreasson/pi-autonomous-agents': 0.10.0
   '@sentry/cli': 2.40.0
   '@storybook/addon-essentials': 8.5.8_storybook@8.5.8
   '@storybook/addon-interactions': 8.5.8_storybook@8.5.8
@@ -399,7 +399,7 @@ packages:
         optional: true
     dependencies:
       ajv: 8.17.1
-      ajv-formats: 3.0.1_ajv@8.17.1
+      ajv-formats: 3.0.1
       jsonc-parser: 3.3.1
       picomatch: 4.0.2
       rxjs: 7.8.1
@@ -416,7 +416,7 @@ packages:
         optional: true
     dependencies:
       ajv: 8.17.1
-      ajv-formats: 3.0.1_ajv@8.17.1
+      ajv-formats: 3.0.1
       jsonc-parser: 3.3.1
       picomatch: 4.0.2
       rxjs: 7.8.1
@@ -4315,7 +4315,7 @@ packages:
       '@mistralai/mistralai': 1.14.1
       '@sinclair/typebox': 0.34.49
       ajv: 8.17.1
-      ajv-formats: 3.0.1_ajv@8.17.1
+      ajv-formats: 3.0.1
       chalk: 5.6.2
       openai: 6.26.0
       partial-json: 0.1.7
@@ -5147,8 +5147,8 @@ packages:
       - chokidar
     dev: true
 
-  /@sebastianandreasson/pi-autonomous-agents/0.9.1:
-    resolution: {integrity: sha512-njnI+LlMZg0ZWf5Goi/oVh0JbEwyllKNdIlJG5i3SjJhQwhaLsVjCJup2qBRS/RcVs5kDM2GMOskH5ZUQUKyHg==}
+  /@sebastianandreasson/pi-autonomous-agents/0.10.0:
+    resolution: {integrity: sha512-vaEUUOskqI+dBV+EnRmIHVwvU0NFW6JRp3sKah6pF6oDYZgKEctGM8m7cMbLuk/jlPkLXB3us4GGfGgEjF8DVg==}
     engines: {node: '>=20'}
     hasBin: true
     dependencies:
@@ -7245,10 +7245,8 @@ packages:
       ajv: 8.17.1
     dev: true
 
-  /ajv-formats/3.0.1_ajv@8.17.1:
+  /ajv-formats/3.0.1:
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
-    peerDependencies:
-      ajv: ^8.0.0
     peerDependenciesMeta:
       ajv:
         optional: true

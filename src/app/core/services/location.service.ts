@@ -8,6 +8,8 @@ export interface UserLocation {
   location?: LatLong;
 }
 
+export type PermissionState = 'prompt' | 'granted' | 'denied';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -16,6 +18,7 @@ export class LocationService {
     loading: true,
   });
   private _requestInProgress = false;
+  private _isLocationOverridden = false;
 
   private _locationPermissionStateSubject$ = new BehaviorSubject<PermissionState>('prompt');
   public locationPermissionState$ = this._locationPermissionStateSubject$.asObservable();
@@ -40,7 +43,19 @@ export class LocationService {
     return this._userLocation$;
   }
 
+  public setOverriddenLocation(latLong: LatLong): void {
+    this._isLocationOverridden = true;
+    this._userLocation$.next({
+      loading: false,
+      location: latLong,
+    });
+  }
+
   public refreshUserLocation(): void {
+    if (this._isLocationOverridden) {
+      return;
+    }
+
     if (this._requestInProgress) {
       return;
     }
