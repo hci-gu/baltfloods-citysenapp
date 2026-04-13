@@ -22,7 +22,7 @@ specifiers:
   '@ngx-translate/core': ~16.0.4
   '@ngx-translate/http-loader': ~16.0.1
   '@primeng/themes': ~19.0.6
-  '@sebastianandreasson/pi-autonomous-agents': ~0.7.1
+  '@sebastianandreasson/pi-autonomous-agents': ~0.9.1
   '@sentry/angular': ~8.50.0
   '@sentry/cli': ~2.40.0
   '@storybook/addon-essentials': ~8.5.0
@@ -124,7 +124,7 @@ devDependencies:
   '@angular-eslint/template-parser': 19.0.2_inylsuzpwuenpw7p6e7ggu4qmy
   '@angular/cli': 19.1.6_@types+node@20.11.30
   '@angular/compiler-cli': 19.1.6_kriekci5gtupkrfwcturaulhai
-  '@sebastianandreasson/pi-autonomous-agents': 0.7.1
+  '@sebastianandreasson/pi-autonomous-agents': 0.9.1
   '@sentry/cli': 2.40.0
   '@storybook/addon-essentials': 8.5.8_storybook@8.5.8
   '@storybook/addon-interactions': 8.5.8_storybook@8.5.8
@@ -5147,8 +5147,8 @@ packages:
       - chokidar
     dev: true
 
-  /@sebastianandreasson/pi-autonomous-agents/0.7.1:
-    resolution: {integrity: sha512-FZ63qymTT2DU/Vm0xNWkJwPO4VeqvLOuiXDXXuKOIPARFDv2qrRolSIzFKEdlVP6Fu3FF75l8ttdxCpRsmtvRA==}
+  /@sebastianandreasson/pi-autonomous-agents/0.9.1:
+    resolution: {integrity: sha512-njnI+LlMZg0ZWf5Goi/oVh0JbEwyllKNdIlJG5i3SjJhQwhaLsVjCJup2qBRS/RcVs5kDM2GMOskH5ZUQUKyHg==}
     engines: {node: '>=20'}
     hasBin: true
     dependencies:

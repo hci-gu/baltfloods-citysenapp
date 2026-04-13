@@ -34,12 +34,12 @@
     "inspect:intoto": "node scripts/intoto-inspect.mjs",
     "sonar-scanner": "sonar-scanner",
     "sentry-cli": "sentry-cli",
-    "pi:mock": "PI_CONFIG_FILE=pi.config.json PI_TRANSPORT=mock PI_TEST_CMD= pi-harness once",
     "pi:once": "PI_CONFIG_FILE=pi.config.json pi-harness once",
     "pi:run": "PI_CONFIG_FILE=pi.config.json pi-harness run",
     "pi:report": "PI_CONFIG_FILE=pi.config.json pi-harness report",
     "pi:visual:once": "PI_CONFIG_FILE=pi.config.json pi-harness visual-once",
-    "pi:visualize": "PI_CONFIG_FILE=pi.config.json pi-harness visualize"
+    "pi:visualize": "PI_CONFIG_FILE=pi.config.json pi-harness visualize",
+    "pi:clear": "PI_CONFIG_FILE=pi.config.json pi-harness clear-history"
   },
   "private": true,
   "dependencies": {
@@ -88,7 +88,7 @@
     "@angular-eslint/template-parser": "19.0.2",
     "@angular/cli": "19.1.6",
     "@angular/compiler-cli": "19.1.6",
-    "@sebastianandreasson/pi-autonomous-agents": "~0.7.1",
+    "@sebastianandreasson/pi-autonomous-agents": "~0.9.1",
     "@sentry/cli": "~2.40.0",
     "@storybook/addon-essentials": "~8.5.0",
     "@storybook/addon-interactions": "~8.5.8",
