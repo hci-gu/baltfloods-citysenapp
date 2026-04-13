@@ -80,7 +80,7 @@ interface ObservationFeedItem {
 type ObservationTimespanKey = '6m' | '1y' | '3y' | '5y';
 type MapDisplayMode = 'default' | 'heatmap';
 type TimelineSelectionRangeKey = '7d' | '14d' | '30d' | '60d' | '90d';
-type MobileBottomPanel = 'list' | 'timeline';
+type MobileBottomPanel = 'list' | 'timeline' | null;
 
 interface ObservationTimespanOption {
   key: ObservationTimespanKey;
@@ -245,7 +245,7 @@ export class DashboardMapComponent implements AfterViewInit {
   public showSelectionRangeDropdown = signal<boolean>(false);
   public showFullPeriodDropdown = signal<boolean>(false);
   public showMobileControlsCard = signal<boolean>(false);
-  public activeMobileBottomPanel = signal<MobileBottomPanel>('list');
+  public activeMobileBottomPanel = signal<MobileBottomPanel>(null);
   public selectedDisplayMode = signal<MapDisplayMode>('default');
   public showObservationTimespanFilter = signal<boolean>(false);
   public selectedObservationTimespan = signal<ObservationTimespanKey>('1y');

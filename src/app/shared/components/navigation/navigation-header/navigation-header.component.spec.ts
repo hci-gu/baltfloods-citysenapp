@@ -11,7 +11,7 @@ describe('NavigationHeaderComponent', () => {
   beforeEach(() => {
     shallow = new Shallow(NavigationHeaderComponent)
       .provideMock(SharedModule)
-      .provideMock(AuthService, { authState$: of({ token: null, record: null }) });
+      .mock(AuthService, { authState$: of({ token: null, record: null }) });
   });
 
   it('should render the navigation header', async () => {

@@ -18,7 +18,7 @@ describe('AppComponent', () => {
       .mock(GoogleAnalyticsService, { pageView: jest.fn() })
       .mockPipe(TranslatePipe, (input) => `translated ${input}`)
       .provideMock(SharedModule)
-      .provideMock(AuthService, { authState$: of({ token: null, record: null }) });
+      .mock(AuthService, { authState$: of({ token: null, record: null }) });
 
     jest.spyOn(sessionStorage, 'getItem').mockImplementation((key: string) => {
       const store: Record<string, string> = { myKey: 'mockValue' };

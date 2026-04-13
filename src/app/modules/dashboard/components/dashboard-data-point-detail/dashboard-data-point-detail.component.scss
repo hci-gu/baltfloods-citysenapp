@@ -128,10 +128,34 @@
   }
 
   @media (max-width: 960px) {
-    .sensor-detail__hero,
-    .sensor-detail__meta,
+    .location-information-container {
+      padding: 12px 16px;
+    }
+
     .metric-container {
+      margin: 0 16px;
+      padding: 12px 0;
       grid-template-columns: 1fr;
+    }
+
+    .sensor-detail {
+      margin: 0 16px;
+      padding: 16px 0;
+    }
+
+    .sensor-detail__hero {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .sensor-detail__meta {
+      grid-template-columns: 1fr;
+      margin-top: 16px;
+      padding-top: 12px;
+    }
+
+    .observation-image {
+      margin: 12px 16px;
     }
 
     .sensor-detail__value {

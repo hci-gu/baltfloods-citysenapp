@@ -70,22 +70,5 @@
         padding-right: 72px;
       }
     }
-
-    .background-container {
-      $background-width: 100%;
-      $background-height: 36px;
-
-      position: absolute;
-      background-image: url('/assets/icons/navigation-header-wave.svg');
-      background-repeat: no-repeat;
-      background-size: $background-width $background-height;
-      width: $background-width;
-      height: $background-height;
-      top: calc($navigation-header-height - 1px);
-      right: 0;
-      left: 0;
-      overflow: hidden !important;
-      z-index: $z-index - 2;
-    }
   }
 }

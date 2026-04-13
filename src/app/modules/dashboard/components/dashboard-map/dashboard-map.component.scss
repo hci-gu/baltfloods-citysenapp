@@ -1,5 +1,5 @@
 $z-index: 999;
-$navigation-wave-offset: 35px;
+$navigation-wave-offset: 0px;
 $floating-card-margin: 12px;
 
 :host {
@@ -213,6 +213,10 @@ $floating-card-margin: 12px;
       flex: 0 0 8px;
     }
   }
+}
+
+.open-bottom-panel-button {
+  display: none;
 }
 
 .mobile-panel-tabs {
@@ -627,7 +631,7 @@ $floating-card-margin: 12px;
 
 @media (max-width: 900px) {
   .map-layout {
-    --mobile-bottom-panel-height: 46%;
+    --mobile-bottom-panel-height: 33.33vh;
   }
 
   .map-controls-card {
@@ -693,19 +697,24 @@ $floating-card-margin: 12px;
 
     .actions {
       right: 10px;
-      bottom: calc(var(--mobile-bottom-panel-height) + 10px);
+      bottom: 20px;
+
+      &.panel-open {
+        bottom: calc(var(--mobile-bottom-panel-height) + 20px);
+      }
     }
   }
 
   .mobile-panel-tabs {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     background: #f2f4f7;
     border: 1px solid #d0d5dd;
     border-radius: 999px;
     padding: 2px;
-    width: fit-content;
+    width: 100%;
     margin-bottom: 8px;
+    box-sizing: border-box;
   }
 
   .mobile-panel-tab {
@@ -715,6 +724,8 @@ $floating-card-margin: 12px;
     border-radius: 999px;
     padding: 5px 10px;
     cursor: pointer;
+    flex: 1;
+    text-align: center;
 
     &.active {
       background: #ecfdf3;
@@ -765,15 +776,15 @@ $floating-card-margin: 12px;
     }
 
     .observation-item {
-      padding: 8px 10px;
-      gap: 8px;
+      padding: 6px 8px;
+      gap: 6px;
       border-radius: 7px;
     }
 
     .observation-thumbnail {
-      width: 52px;
-      height: 52px;
-      flex-basis: 52px;
+      width: 44px;
+      height: 44px;
+      flex-basis: 44px;
     }
   }
 
@@ -800,6 +811,41 @@ $floating-card-margin: 12px;
 
     .timeline-axis {
       margin-top: 6px;
+    }
+  }
+
+  .open-bottom-panel-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: white;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 600;
+
+    app-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .mobile-panel-close-tab {
+    border: 0;
+    background: transparent;
+    color: #475467;
+    border-radius: 999px;
+    padding: 5px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      background: #e2e8f0;
+      color: #1e293b;
     }
   }
 }

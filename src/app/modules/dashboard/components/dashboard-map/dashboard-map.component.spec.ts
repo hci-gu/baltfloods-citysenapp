@@ -38,7 +38,9 @@ describe('DashboardMapComponent', () => {
 
   beforeEach(() => {
     shallow = new Shallow(DashboardMapComponent)
+
       .dontMock(DashboardMessageBannerComponent)
+
       .mock(TranslateService, { instant: jest.fn })
       .mock(MessageService, { add: jest.fn(), clear: jest.fn() })
       .mock(DataPointsApi, {
@@ -349,6 +351,7 @@ describe('DashboardMapComponent', () => {
         { timestamp: new Date('2026-03-12T00:00:00Z'), value: 17.1 },
       ];
 
+
       const { find, findComponent, fixture, inject, instance } = await shallow
         .mock(DataPointsApi, {
           getWeatherConditions: jest
@@ -395,6 +398,7 @@ describe('DashboardMapComponent', () => {
       );
       expect(instance.selectedSensorViewEndInput()).toBe('2026-04-01');
       expect(instance.selectedSensorViewStartInput()).toBe('2026-01-02');
+
       expect(
         find('.timeline-header-main h3').nativeElement.textContent,
       ).toContain('Sensor values over time');
@@ -409,6 +413,8 @@ describe('DashboardMapComponent', () => {
         { timestamp: new Date('2026-02-10T00:00:00Z'), value: 14.2 },
         { timestamp: new Date('2026-03-30T12:00:00Z'), value: 17.1 },
       ];
+
+
 
       const { findComponent, fixture, instance } = await shallow
         .mock(DataPointsApi, {
@@ -663,6 +669,41 @@ describe('DashboardMapComponent', () => {
       fixture.detectChanges();
 
       expect(dataPointsApi.getStormWaterHistory).toHaveBeenCalledTimes(1);
+    });
+
+    it('should toggle mobile bottom panel when open button is clicked', async () => {
+      const { find, instance } = await shallow.render();
+
+      expect(instance.activeMobileBottomPanel()).toBeNull();
+
+      find('.open-bottom-panel-button').triggerEventHandler('click');
+
+      expect(instance.activeMobileBottomPanel()).toBe('list');
+    });
+
+    it('should close mobile bottom panel when close button is clicked', async () => {
+      const { find, instance } = await shallow.render();
+
+      instance.setMobileBottomPanel('list');
+      expect(instance.activeMobileBottomPanel()).toBe('list');
+
+      find('.mobile-panel-close-tab')[0].triggerEventHandler('click');
+
+      expect(instance.activeMobileBottomPanel()).toBeNull();
+    });
+
+    it('should switch between list and timeline panels', async () => {
+      const { find, instance } = await shallow.render();
+
+      instance.setMobileBottomPanel('list');
+      expect(instance.activeMobileBottomPanel()).toBe('list');
+
+      const tabs = find('.mobile-panel-tab');
+      const timelineTab = tabs.find(tab => tab.nativeElement.textContent?.includes('Timeline'));
+      if (!timelineTab) throw new Error('Timeline tab not found');
+      timelineTab.triggerEventHandler('click');
+
+      expect(instance.activeMobileBottomPanel()).toBe('timeline');
     });
   });
 

@@ -191,7 +191,17 @@
       ></app-dashboard-data-point-detail>
     }
 
-    <div class="actions flex-column">
+    <div class="actions flex-column" [class.panel-open]="activeMobileBottomPanel() !== null">
+      @if (!activeMobileBottomPanel()) {
+        <button
+          type="button"
+          class="open-bottom-panel-button shadow-md body-xs"
+          (click)="setMobileBottomPanel('list')"
+        >
+          <app-icon icon="layers"></app-icon>
+          Observations
+        </button>
+      }
       <app-icon
         class="focus-location-button shadow-md"
         [class.loading]="locationLoading$ | async"
@@ -228,6 +238,13 @@
             (click)="setMobileBottomPanel('timeline')"
           >
             Timeline
+          </button>
+          <button
+            type="button"
+            class="mobile-panel-close-tab body-xs"
+            (click)="setMobileBottomPanel(null)"
+          >
+            <app-icon icon="close"></app-icon>
           </button>
         </div>
 
@@ -501,6 +518,13 @@
           (click)="setMobileBottomPanel('timeline')"
         >
           Timeline
+        </button>
+        <button
+          type="button"
+          class="mobile-panel-close-tab body-xs"
+          (click)="setMobileBottomPanel(null)"
+        >
+          <app-icon icon="close"></app-icon>
         </button>
       </div>
 
