@@ -2,7 +2,7 @@ import { Shallow } from 'shallow-render';
 import { MapComponent, Marker } from './map.component';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { Subject, of } from 'rxjs';
+import { BehaviorSubject, Subject, of } from 'rxjs';
 import * as leaflet from 'leaflet';
 import { environment } from '@environments/environment';
 import { LatLong } from '@core/models/location';
@@ -45,6 +45,13 @@ describe('MapComponent', () => {
         lat: defaultLocation[0],
         lng: defaultLocation[1],
       });
+    });
+
+    it('should apply an initial center emitted before the map is initialized', async () => {
+      const center$ = new BehaviorSubject<LatLong>([0, 2]);
+      const { instance } = await shallow.render({ bind: { center$ } });
+
+      expect(instance.map?.getCenter()).toEqual({ lat: 0, lng: 2 });
     });
 
     it('should update the center when a new point is set in the map service', async () => {

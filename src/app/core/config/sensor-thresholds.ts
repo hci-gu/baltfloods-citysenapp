@@ -8,6 +8,7 @@ export interface SensorThresholdBand {
 
 export interface SensorThresholdConfig {
   unitLabel: string;
+  warningMaxAgeHours: number;
   bands: SensorThresholdBand[];
 }
 
@@ -21,6 +22,7 @@ export const SENSOR_THRESHOLD_COLORS: Record<SensorThresholdSeverity, string> =
 
 const BOEN_BRU_THRESHOLDS: SensorThresholdConfig = {
   unitLabel: 'MASL',
+  warningMaxAgeHours: 12,
   bands: [
     {
       id: 'yellow-18-0',

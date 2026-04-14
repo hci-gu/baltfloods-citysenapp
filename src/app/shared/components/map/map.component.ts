@@ -55,6 +55,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   private heatLayer: leaflet.HeatLayer | null = null;
   private heatLayerLoadPromise: Promise<boolean> | null = null;
   private markerRenderSequence = 0;
+  private latestCenter: LatLong | null = null;
 
   public constructor(private readonly http: HttpClient) {}
 
@@ -94,6 +95,10 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
         this.zoom,
       );
 
+    if (this.latestCenter) {
+      this.applyCenter(this.latestCenter);
+    }
+
     leaflet
       .tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         minZoom: 0,
@@ -117,12 +122,17 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     // centerSubscription gets unsubscribed in ngOnDestroy
     this.centerSubscription =
       center$.subscribe((center) => {
-        const currentZoom = this.map?.getZoom() ?? this.zoom;
-        const minimumZoom = 15;
-        const zoom = currentZoom < minimumZoom ? minimumZoom : currentZoom;
-
-        this.map?.setView(new leaflet.LatLng(...(center as LatLong)), zoom);
+        this.latestCenter = center;
+        this.applyCenter(center);
       }) ?? null;
+  }
+
+  private applyCenter(center: LatLong): void {
+    const currentZoom = this.map?.getZoom() ?? this.zoom;
+    const minimumZoom = 15;
+    const zoom = currentZoom < minimumZoom ? minimumZoom : currentZoom;
+
+    this.map?.setView(new leaflet.LatLng(...center), zoom);
   }
 
   private getMarkersToAdd(

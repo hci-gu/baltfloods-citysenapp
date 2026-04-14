@@ -27,11 +27,7 @@ export interface ObservationRealtimeEvent {
 export class ObservationRealtimeService implements OnDestroy {
   private readonly baseUrl = environment.pocketbaseUrl;
   private readonly reconnectDelayMs = 3000;
-  private readonly observationTopics = [
-    'observations/*',
-    'observations',
-    'observations-refresh',
-  ];
+  private readonly observationTopics = ['observations-refresh'];
   private eventSource: EventSource | null = null;
   private reconnectTimer: number | null = null;
   private isDestroyed = false;

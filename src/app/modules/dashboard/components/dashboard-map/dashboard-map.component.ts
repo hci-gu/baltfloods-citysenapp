@@ -8,7 +8,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import {
+  takeUntilDestroyed,
+  toObservable,
+  toSignal,
+} from '@angular/core/rxjs-interop';
 import {
   SENSOR_THRESHOLD_COLORS,
   SENSOR_THRESHOLDS_BY_SERIES_ID,
@@ -28,6 +32,7 @@ import {
   DataPointsApi,
   SensorHistoryPoint,
 } from '@core/services/datapoints-api/datapoints-api.service';
+import { DemoTimeService } from '@core/services/demo-time.service';
 import { LocationService, UserLocation } from '@core/services/location.service';
 import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
 import {
@@ -230,6 +235,9 @@ const INTOTO_SENSOR_MARKER_ICON = 'sensor-water-level-icon.svg';
 })
 export class DashboardMapComponent implements AfterViewInit {
   public readonly DATA_POINT_TYPE = DataPointType;
+  private readonly demoTimeOverride = toSignal(this.demoTimeService.override$, {
+    initialValue: null,
+  });
   private _allDataPoints = signal<DataPoint[]>([]);
   private readonly timelinePaddingTop = 7;
   private readonly timelinePaddingBottom = 8;
@@ -265,7 +273,10 @@ export class DashboardMapComponent implements AfterViewInit {
   });
   private observationTimespanBounds = computed<ObservationTimespanBounds>(
     () => {
-      const now = new Date();
+      const overrideTime = this.demoTimeOverride();
+      const now = overrideTime
+        ? new Date(overrideTime)
+        : this.demoTimeService.now();
       const endMs = this.getDayEnd(now).getTime();
       const selectedKey = this.selectedObservationTimespan();
       const selectedOption = this.observationTimespanOptions.find(
@@ -376,20 +387,34 @@ export class DashboardMapComponent implements AfterViewInit {
     return `${selected.length} selected`;
   });
   private visibleMapBounds = signal<MapBounds | null>(null);
+  private sensorHistoryCache = signal<Record<string, SensorHistoryCacheEntry>>(
+    {},
+  );
   private _filteredDataPoints$: Observable<DataPoint[]> = combineLatest([
     toObservable(this._allDataPoints),
     toObservable(this.dataPointTypeFilter),
     toObservable(this.observationTimelineWindow),
     toObservable(this.visibleMapBounds),
+    toObservable(this.sensorHistoryCache),
+    toObservable(this.observationTimespanBounds),
   ]).pipe(
-    map(([allDataPoints, dataPointFilter, selectedWindow, bounds]) => {
+    map(
+      ([
+        allDataPoints,
+        dataPointFilter,
+        selectedWindow,
+        bounds,
+        sensorHistoryCache,
+        observationBounds,
+      ]) => {
       const timeFilteredDataPoints = allDataPoints.filter(
         (point) =>
           this.isPointWithinBounds(point.location, bounds) &&
-          this.isTimestampWithinRange(
-            point.lastUpdatedOn,
-            selectedWindow.startMs,
-            selectedWindow.endMs,
+          this.isPointVisibleInCurrentTimeContext(
+            point,
+            selectedWindow,
+            observationBounds,
+            sensorHistoryCache,
           ),
       );
 
@@ -398,14 +423,12 @@ export class DashboardMapComponent implements AfterViewInit {
             dataPointFilter.includes(point.type),
           )
         : timeFilteredDataPoints;
-    }),
+      },
+    ),
   );
 
   private _activeLocation = signal<LatLong | undefined>(undefined);
   public activeScheduledMessages = signal<ScheduledMessage[]>([]);
-  private sensorHistoryCache = signal<Record<string, SensorHistoryCacheEntry>>(
-    {},
-  );
   private sensorHistoryRequests = new Map<
     string,
     Observable<SensorHistoryPoint[]>
@@ -486,10 +509,47 @@ export class DashboardMapComponent implements AfterViewInit {
       return point ?? null;
     },
   );
+  private selectedSensorAvailableBounds = computed<ObservationTimespanBounds>(
+    () => {
+      const fallbackBounds = this.observationTimespanBounds();
+      const seriesId = this.selectedSensorPoint()?.historySeries?.seriesId;
+      if (seriesId === undefined) {
+        return fallbackBounds;
+      }
+
+      const widestCacheEntry = Object.values(this.sensorHistoryCache())
+        .filter((entry) => entry.seriesId === seriesId)
+        .sort(
+          (left, right) =>
+            right.endMs -
+            right.startMs -
+            (left.endMs - left.startMs),
+        )[0];
+      if (!widestCacheEntry || widestCacheEntry.historyPoints.length === 0) {
+        return fallbackBounds;
+      }
+
+      const firstPoint = widestCacheEntry.historyPoints[0];
+      const lastPoint =
+        widestCacheEntry.historyPoints[widestCacheEntry.historyPoints.length - 1];
+      const currentTimeMs = this.demoTimeService.now().getTime();
+      const endMs = Math.min(lastPoint.timestamp.getTime(), currentTimeMs);
+      const startMs = this.getDayStart(firstPoint.timestamp).getTime();
+
+      return {
+        startMs,
+        endMs,
+        durationMs: Math.max(
+          DAY_MS,
+          endMs - startMs,
+        ),
+      };
+    },
+  );
   public selectedSensorViewBounds = computed<ObservationTimespanBounds>(() => {
-    const fullBounds = this.observationTimespanBounds();
-    const fullStart = new Date(fullBounds.startMs);
-    const fullEnd = new Date(fullBounds.endMs);
+    const availableBounds = this.selectedSensorAvailableBounds();
+    const fullStart = new Date(availableBounds.startMs);
+    const fullEnd = new Date(availableBounds.endMs);
     const defaultStart = this.getDefaultSensorViewStartDate(fullEnd);
     const parsedStart = this.parseDateInput(this.sensorViewStartDate());
     const parsedEnd = this.parseDateInput(this.sensorViewEndDate());
@@ -499,9 +559,12 @@ export class DashboardMapComponent implements AfterViewInit {
     const endDate = parsedEnd ?? fullEnd;
     let startMs = Math.max(
       this.getDayStart(startDate).getTime(),
-      fullBounds.startMs,
+      availableBounds.startMs,
     );
-    let endMs = Math.min(this.getDayEnd(endDate).getTime(), fullBounds.endMs);
+    let endMs = Math.min(
+      this.getDayEnd(endDate).getTime(),
+      availableBounds.endMs,
+    );
 
     if (startMs > endMs) {
       startMs = endMs;
@@ -783,6 +846,7 @@ export class DashboardMapComponent implements AfterViewInit {
   private readonly debugIntoto = !environment.production;
 
   public constructor(
+    private readonly demoTimeService: DemoTimeService,
     private readonly locationService: LocationService,
     private readonly dataPointsApi: DataPointsApi,
     private readonly observationRealtimeService: ObservationRealtimeService,
@@ -841,6 +905,13 @@ export class DashboardMapComponent implements AfterViewInit {
         this.refreshObservationDataPoints(this._mapCenterSubject$.value, true),
       );
 
+    this.demoTimeService.overrideChanged$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.resetSensorViewRange();
+        this.refreshObservationDataPoints(this._mapCenterSubject$.value, true);
+      });
+
     this.scheduledMessagesService
       .getActiveMessages()
       .pipe(take(1), takeUntilDestroyed())
@@ -881,9 +952,7 @@ export class DashboardMapComponent implements AfterViewInit {
         this.selectedSensorHistoryLoading.set(false);
       });
 
-    this._focusLocation$
-      .pipe(take(1), takeUntilDestroyed())
-      .subscribe(this.onInitialFocusLocation.bind(this));
+    this.onInitialFocusLocation();
   }
 
   public ngAfterViewInit(): void {
@@ -1335,9 +1404,17 @@ export class DashboardMapComponent implements AfterViewInit {
         this.onFocusLocation(userLocation, permissionState),
       );
 
-    this.locationLoading$
+    combineLatest([
+      userLocation$,
+      this.locationService.locationPermissionState$,
+    ])
       .pipe(
-        filter((loading) => !loading),
+        filter(
+          ([userLocation, permissionState]) =>
+            !userLocation.loading &&
+            permissionState === 'granted' &&
+            !!userLocation.location,
+        ),
         take(1),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -1769,6 +1846,75 @@ export class DashboardMapComponent implements AfterViewInit {
     return `${seriesId}:${bounds.startMs}:${bounds.endMs}`;
   }
 
+  private isPointVisibleInCurrentTimeContext(
+    point: DataPoint,
+    selectedWindow: ObservationTimelineWindow,
+    observationBounds: ObservationTimespanBounds,
+    sensorHistoryCache: Record<string, SensorHistoryCacheEntry>,
+  ): boolean {
+    if (
+      point.type === DataPointType.STORM_WATER &&
+      point.historySeries?.provider === 'intoto' &&
+      this.isCurrentTimeWithinSensorHistorySpan(
+        point.historySeries.seriesId,
+        observationBounds,
+        sensorHistoryCache,
+      )
+    ) {
+      return true;
+    }
+
+    return this.isTimestampWithinRange(
+      point.lastUpdatedOn,
+      selectedWindow.startMs,
+      selectedWindow.endMs,
+    );
+  }
+
+  private isCurrentTimeWithinSensorHistorySpan(
+    seriesId: number,
+    bounds: ObservationTimespanBounds,
+    sensorHistoryCache: Record<string, SensorHistoryCacheEntry>,
+  ): boolean {
+    const cacheEntry = this.getCachedSensorHistoryEntry(
+      seriesId,
+      bounds,
+      sensorHistoryCache,
+    );
+    if (!cacheEntry || cacheEntry.historyPoints.length === 0) {
+      return false;
+    }
+
+    const currentTimeMs = this.demoTimeService.now().getTime();
+    const firstTimestamp = cacheEntry.historyPoints[0].timestamp.getTime();
+    const lastTimestamp =
+      cacheEntry.historyPoints[cacheEntry.historyPoints.length - 1].timestamp.getTime();
+
+    return currentTimeMs >= firstTimestamp && currentTimeMs <= lastTimestamp;
+  }
+
+  private getCachedSensorHistoryEntry(
+    seriesId: number,
+    bounds: ObservationTimespanBounds,
+    sensorHistoryCache: Record<string, SensorHistoryCacheEntry>,
+  ): SensorHistoryCacheEntry | null {
+    const exactEntry = sensorHistoryCache[
+      this.getSensorHistoryCacheKey(seriesId, bounds)
+    ];
+    if (exactEntry) {
+      return exactEntry;
+    }
+
+    return (
+      Object.values(sensorHistoryCache).find(
+        (entry) =>
+          entry.seriesId === seriesId &&
+          entry.startMs <= bounds.startMs &&
+          entry.endMs >= bounds.endMs,
+      ) ?? null
+    );
+  }
+
   private buildSensorWarningMessage(
     point: WeatherStormWaterDataPoint,
     historyPoints: SensorHistoryPoint[],
@@ -1783,8 +1929,13 @@ export class DashboardMapComponent implements AfterViewInit {
       return null;
     }
 
+    const currentTimeMs = this.demoTimeService.now().getTime();
+    const recentThresholdMs =
+      currentTimeMs - thresholdConfig.warningMaxAgeHours * 60 * 60 * 1000;
     const redPoints = historyPoints.filter(
       (historyPoint) =>
+        historyPoint.timestamp.getTime() >= recentThresholdMs &&
+        historyPoint.timestamp.getTime() <= currentTimeMs &&
         this.getSensorThresholdSeverity(historyPoint.value, thresholdConfig) ===
         'red',
     );

@@ -92,6 +92,55 @@
   }
 }
 
+.demo-time-panel {
+  border-top: 1px solid var(--surface-border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.demo-time-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.demo-time-status,
+.demo-time-effective {
+  margin: 0;
+}
+
+.demo-time-effective {
+  color: var(--text-color-secondary);
+  text-align: right;
+}
+
+.demo-time-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.demo-time-field {
+  color: var(--text-color-secondary);
+}
+
+.demo-time-input {
+  width: 100%;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.demo-time-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .breakdown-title {
   margin: 0 0 6px;
   color: var(--text-color-secondary);

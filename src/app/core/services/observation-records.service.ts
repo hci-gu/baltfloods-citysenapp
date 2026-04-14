@@ -1,6 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { AuthService } from '@core/services/auth.service';
+import { DemoTimeService } from '@core/services/demo-time.service';
 import { environment } from '@environments/environment';
 import { map, Observable } from 'rxjs';
 
@@ -42,6 +43,7 @@ export class ObservationRecordsService {
   public constructor(
     private readonly http: HttpClient,
     private readonly authService: AuthService,
+    private readonly demoTimeService: DemoTimeService,
   ) {}
 
   public listObservations(
@@ -74,7 +76,7 @@ export class ObservationRecordsService {
   }
 
   public listRecentObservations(days: number): Observable<ObservationRecord[]> {
-    const cutoffDate = new Date();
+    const cutoffDate = this.demoTimeService.now();
     cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
     const headers = this.createOptionalAuthHeaders();

@@ -6,6 +6,7 @@ import { CoreModule } from '../../core.module';
 import { MockHttpClient } from '../mock-http-client';
 import { DataPointsApi } from './datapoints-api.service';
 import { AuthService } from '../auth.service';
+import { DemoTimeService } from '../demo-time.service';
 import { IntotoApiService } from '../intoto-api/intoto-api.service';
 
 describe('DataPointsApi', () => {
@@ -15,6 +16,9 @@ describe('DataPointsApi', () => {
     shallow = new Shallow(DataPointsApi, CoreModule)
       .mock(HttpClient, { get: new MockHttpClient().get })
       .mock(AuthService, { token: null })
+      .mock(DemoTimeService, {
+        now: jest.fn(() => new Date('2026-03-20T12:00:00Z')),
+      })
       .mock(IntotoApiService, {
         getMyAreas: jest.fn().mockReturnValue(of([])),
         getSeriesCategories: jest.fn().mockReturnValue(of([])),
@@ -95,7 +99,7 @@ describe('DataPointsApi', () => {
   });
 
   it('should include nearby intoto storm water points for the current map center', async () => {
-    const { instance } = shallow
+    const { instance, inject } = shallow
       .mock(IntotoApiService, {
         getMyAreas: jest.fn().mockReturnValue(
           of([
@@ -169,6 +173,15 @@ describe('DataPointsApi', () => {
           },
         }),
       ]),
+    );
+
+    const intotoApi = inject(IntotoApiService);
+    expect(intotoApi.getSeriesData).toHaveBeenCalledWith(
+      121,
+      expect.objectContaining({
+        toDateTime: new Date('2026-03-20T12:00:00Z'),
+        fromDateTime: new Date('2026-03-18T12:00:00Z'),
+      }),
     );
   });
 

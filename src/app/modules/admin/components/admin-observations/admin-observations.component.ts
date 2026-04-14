@@ -5,10 +5,12 @@ import {
   Component,
   DestroyRef,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { DemoTimeService } from '@core/services/demo-time.service';
 import {
   ObservationRecord,
   ObservationRecordsPage,
@@ -18,7 +20,14 @@ import { ObservationRealtimeService } from '@core/services/observation-realtime.
 import { AuthService } from '@core/services/auth.service';
 import { environment } from '@environments/environment';
 import { Router } from '@angular/router';
-import { debounceTime, forkJoin, interval, startWith, switchMap } from 'rxjs';
+import {
+  debounceTime,
+  forkJoin,
+  interval,
+  startWith,
+  switchMap,
+  take,
+} from 'rxjs';
 import { SharedModule } from '@shared/shared.module';
 import { PaginatorModule } from 'primeng/paginator';
 
@@ -88,12 +97,18 @@ export class AdminObservationsComponent {
   private readonly chartPaddingBottom = 6;
   private readonly chartPaddingHorizontal = 2;
   public readonly pageSize = 50;
+  private readonly demoTimeOverride = toSignal(this.demoTimeService.override$, {
+    initialValue: null,
+  });
   private authState = toSignal(this.authService.authState$, {
     initialValue: { token: null, record: null },
   });
 
   public isLoading = signal<boolean>(true);
   public errorMessage = signal<string>('');
+  public demoTimeError = signal<string>('');
+  public demoTimeInput = signal<string>('');
+  public isSavingDemoTime = signal<boolean>(false);
   public currentPage = signal<number>(1);
   public totalItems = signal<number>(0);
   public deletingRecordIds = signal<Set<string>>(new Set());
@@ -106,6 +121,10 @@ export class AdminObservationsComponent {
     () => this.isAuthenticated() && this.isAdminUser(),
   );
   public canDelete = this.canManageObservations;
+  public effectiveDemoTime = computed(
+    () => this.demoTimeOverride() ?? this.demoTimeService.now(),
+  );
+  public hasDemoTimeOverride = computed(() => !!this.demoTimeOverride());
 
   public observationFeed = computed<ObservationFeedItem[]>(() =>
     this._observations()
@@ -124,8 +143,9 @@ export class AdminObservationsComponent {
       })),
   );
   public stats = computed<AdminStats>(() => {
+    this.demoTimeOverride();
     const recentObservations = this._recentObservations();
-    const todayStart = this.getDayStart(new Date());
+    const todayStart = this.getDayStart(this.demoTimeService.now());
 
     const todayItems = recentObservations.filter(
       (observation) => this.getTimestamp(observation).getTime() >= todayStart.getTime(),
@@ -146,8 +166,9 @@ export class AdminObservationsComponent {
     };
   });
   public uploadChart = computed<UploadChart>(() => {
+    this.demoTimeOverride();
     const observations = this._recentObservations();
-    const today = this.getDayStart(new Date());
+    const today = this.getDayStart(this.demoTimeService.now());
     const dayEntries = Array.from({ length: this.chartDays }, (_, index) => {
       const day = new Date(today);
       day.setDate(today.getDate() - (this.chartDays - 1 - index));
@@ -220,11 +241,19 @@ export class AdminObservationsComponent {
   });
 
   public constructor(
+    private readonly demoTimeService: DemoTimeService,
     private readonly observationRecordsService: ObservationRecordsService,
     private readonly observationRealtimeService: ObservationRealtimeService,
     private readonly authService: AuthService,
     private readonly router: Router,
   ) {
+    effect(() => {
+      const override = this.demoTimeOverride();
+      this.demoTimeInput.set(
+        this.formatDateTimeInput(override ?? this.demoTimeService.now()),
+      );
+    });
+
     interval(15000)
       .pipe(
         startWith(0),
@@ -267,11 +296,75 @@ export class AdminObservationsComponent {
         this.loadObservationPage(this.currentPage());
         this.loadInsights();
       });
+
+    this.demoTimeService.overrideChanged$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.loadInsights();
+      });
   }
 
   public refresh(): void {
     this.loadObservationPage(this.currentPage(), true);
     this.loadInsights();
+  }
+
+  public onDemoTimeInputChange(value: string): void {
+    this.demoTimeInput.set(value);
+  }
+
+  public useDeviceTimeAsFakeTime(): void {
+    this.demoTimeInput.set(this.formatDateTimeInput(new Date()));
+  }
+
+  public saveDemoTimeOverride(): void {
+    if (!this.canManageObservations()) {
+      this.demoTimeError.set('Sign in as an admin to update demo time.');
+      return;
+    }
+
+    const parsed = this.parseDateTimeInput(this.demoTimeInput());
+    if (!parsed) {
+      this.demoTimeError.set('Enter a valid date and time.');
+      return;
+    }
+
+    this.demoTimeError.set('');
+    this.isSavingDemoTime.set(true);
+    this.demoTimeService
+      .setOverride(parsed)
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          this.isSavingDemoTime.set(false);
+        },
+        error: () => {
+          this.isSavingDemoTime.set(false);
+          this.demoTimeError.set('Failed to update demo time. Please try again.');
+        },
+      });
+  }
+
+  public clearDemoTimeOverride(): void {
+    if (!this.canManageObservations()) {
+      this.demoTimeError.set('Sign in as an admin to update demo time.');
+      return;
+    }
+
+    this.demoTimeError.set('');
+    this.isSavingDemoTime.set(true);
+    this.demoTimeService
+      .setOverride(null)
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          this.isSavingDemoTime.set(false);
+        },
+        error: () => {
+          this.isSavingDemoTime.set(false);
+          this.demoTimeError.set('Failed to clear demo time. Please try again.');
+        },
+      });
   }
 
   public onPageChange(event: { page?: number }): void {
@@ -582,5 +675,23 @@ export class AdminObservationsComponent {
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
     return dayStart;
+  }
+
+  private formatDateTimeInput(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    const hours = `${date.getHours()}`.padStart(2, '0');
+    const minutes = `${date.getMinutes()}`.padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  private parseDateTimeInput(value: string): Date | null {
+    if (!value.trim()) {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 }

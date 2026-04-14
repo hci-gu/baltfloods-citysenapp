@@ -10,6 +10,8 @@ export interface UserLocation {
 
 export type PermissionState = 'prompt' | 'granted' | 'denied';
 
+const OVERRIDDEN_LOCATION_STORAGE_KEY = 'location.override.latLong';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -24,6 +26,12 @@ export class LocationService {
   public locationPermissionState$ = this._locationPermissionStateSubject$.asObservable();
 
   public constructor() {
+    const persistedOverride = this.getPersistedOverriddenLocation();
+    if (persistedOverride) {
+      this.setOverriddenLocation(persistedOverride);
+      return;
+    }
+
     if (navigator.permissions?.query) {
       from(navigator.permissions.query({ name: 'geolocation' }))
         .pipe(
@@ -31,8 +39,13 @@ export class LocationService {
           catchError(() => EMPTY),
         )
         .subscribe((permissionStatus) => {
+          if (this._isLocationOverridden) {
+            return;
+          }
+
           this._locationPermissionStateSubject$.next(permissionStatus.state);
           permissionStatus.onchange = () =>
+            !this._isLocationOverridden &&
             this._locationPermissionStateSubject$.next(permissionStatus.state);
         });
     }
@@ -45,10 +58,13 @@ export class LocationService {
 
   public setOverriddenLocation(latLong: LatLong): void {
     this._isLocationOverridden = true;
+    this._requestInProgress = false;
+    this._locationPermissionStateSubject$.next('granted');
     this._userLocation$.next({
       loading: false,
       location: latLong,
     });
+    this.persistOverriddenLocation(latLong);
   }
 
   public refreshUserLocation(): void {
@@ -116,5 +132,38 @@ export class LocationService {
     this._userLocation$.next({
       loading: false,
     });
+  }
+
+  private getPersistedOverriddenLocation(): LatLong | null {
+    try {
+      const storedValue = sessionStorage.getItem(OVERRIDDEN_LOCATION_STORAGE_KEY);
+      if (!storedValue) {
+        return null;
+      }
+
+      const parsed = JSON.parse(storedValue);
+      if (
+        !Array.isArray(parsed) ||
+        parsed.length !== 2 ||
+        !parsed.every((value) => typeof value === 'number' && Number.isFinite(value))
+      ) {
+        return null;
+      }
+
+      return [parsed[0], parsed[1]];
+    } catch {
+      return null;
+    }
+  }
+
+  private persistOverriddenLocation(latLong: LatLong): void {
+    try {
+      sessionStorage.setItem(
+        OVERRIDDEN_LOCATION_STORAGE_KEY,
+        JSON.stringify(latLong),
+      );
+    } catch {
+      // Ignore storage failures and keep the in-memory override active.
+    }
   }
 }

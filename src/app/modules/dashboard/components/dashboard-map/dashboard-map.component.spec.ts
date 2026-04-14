@@ -16,6 +16,7 @@ import {
 } from '@core/models/data-point';
 import { LatLong } from '@core/models/location';
 import { DataPointsApi } from '@core/services/datapoints-api/datapoints-api.service';
+import { DemoTimeService } from '@core/services/demo-time.service';
 import { LocationService, UserLocation } from '@core/services/location.service';
 import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
 import {
@@ -25,7 +26,7 @@ import {
 import { TranslateService } from '@ngx-translate/core';
 import { MapComponent } from '@shared/components/map/map.component';
 import { MessageService, SharedModule } from 'primeng/api';
-import { EMPTY, firstValueFrom, of } from 'rxjs';
+import { EMPTY, firstValueFrom, of, Subject } from 'rxjs';
 import { Shallow } from 'shallow-render';
 import { DashboardDataPointDetailComponent } from '../dashboard-data-point-detail/dashboard-data-point-detail.component';
 import { DashboardMessageBannerComponent } from '../dashboard-message-banner/dashboard-message-banner.component';
@@ -43,6 +44,11 @@ describe('DashboardMapComponent', () => {
 
       .mock(TranslateService, { instant: jest.fn })
       .mock(MessageService, { add: jest.fn(), clear: jest.fn() })
+      .mock(DemoTimeService, {
+        now: jest.fn(() => new Date('2026-04-14T12:00:00Z')),
+        override$: of(null),
+        overrideChanged$: EMPTY,
+      })
       .mock(DataPointsApi, {
         getWeatherConditions: jest
           .fn()
@@ -95,6 +101,26 @@ describe('DashboardMapComponent', () => {
       );
 
       expect(messageService.clear).toHaveBeenNthCalledWith(1, 'loading');
+    });
+
+    it('should refetch observation data when fake time is first applied', async () => {
+      const overrideChanged$ = new Subject<Date | null>();
+      const { inject, fixture } = await shallow
+        .mock(DemoTimeService, {
+          now: jest.fn(() => new Date('2026-04-14T12:00:00Z')),
+          override$: of(null),
+          overrideChanged$: overrideChanged$.asObservable(),
+        })
+        .render();
+
+      const dataPointsApi = inject(DataPointsApi);
+      expect(dataPointsApi.getWeatherStormWater).toHaveBeenCalledTimes(1);
+
+      overrideChanged$.next(new Date('2026-04-01T12:00:00Z'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(dataPointsApi.getWeatherStormWater).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -212,6 +238,25 @@ describe('DashboardMapComponent', () => {
   });
 
   describe('focus location', () => {
+    it('should set center on map on initial render when user location is already available', async () => {
+      const currentLocation = [4, 4] as LatLong;
+
+      const { instance } = await shallow
+        .mock(LocationService, {
+          refreshUserLocation: jest.fn(),
+          locationPermissionState$: of('granted' as PermissionState),
+          userLocation$: of({
+            loading: false,
+            location: currentLocation,
+          } as UserLocation),
+        })
+        .render();
+
+      expect(await firstValueFrom(instance.mapCenter$)).toEqual(
+        currentLocation,
+      );
+    });
+
     it('should set center on map when user location is available', async () => {
       const currentLocation = [4, 4] as LatLong;
 
@@ -344,6 +389,54 @@ describe('DashboardMapComponent', () => {
       );
     });
 
+    it('should keep an Intoto sensor visible when current time falls within its full history span', async () => {
+      const sensorHistory: SensorHistoryPoint[] = [
+        { timestamp: new Date('2026-04-10T00:00:00Z'), value: 16.7 },
+        { timestamp: new Date('2026-04-18T00:00:00Z'), value: 16.9 },
+      ];
+      const staleLatestPoint: WeatherStormWaterDataPoint[] = [
+        {
+          ...WEATHER_STORM_WATER_DATA_POINTS[0],
+        },
+        {
+          ...WEATHER_STORM_WATER_DATA_POINTS[1],
+          lastUpdatedOn: new Date('2026-01-01T00:00:00Z'),
+        },
+        {
+          ...WEATHER_STORM_WATER_DATA_POINTS[2],
+        },
+      ];
+
+      const { findComponent, fixture } = await shallow
+        .mock(DataPointsApi, {
+          getWeatherConditions: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_CONDITION_DATA_POINTS)),
+          getWeatherStormWater: jest
+            .fn()
+            .mockReturnValue(of(staleLatestPoint)),
+          getWeatherAirQuality: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_AIR_QUALITY_DATA_POINTS)),
+          getParking: jest.fn().mockReturnValue(of(PARKING_DATA_POINTS)),
+          getStormWaterHistory: jest.fn().mockReturnValue(of(sensorHistory)),
+          getWaterbagTestKits: jest
+            .fn()
+            .mockReturnValue(of(WATERBAG_TESTKIT_DATA_POINTS)),
+          getRoadWorks: jest.fn().mockReturnValue(of(ROAD_WORKS_DATA_POINTS)),
+        })
+        .render();
+
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(findComponent(MapComponent).markers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ location: [4, 4] }),
+        ]),
+      );
+    });
+
     it('should show sensor values over time for an Intoto storm-water point', async () => {
       const sensorHistory: SensorHistoryPoint[] = [
         { timestamp: new Date('2026-03-10T00:00:00Z'), value: 16.7 },
@@ -396,8 +489,8 @@ describe('DashboardMapComponent', () => {
       expect(toDateTime.getTime() - fromDateTime.getTime()).toBeGreaterThan(
         300 * 24 * 60 * 60 * 1000,
       );
-      expect(instance.selectedSensorViewEndInput()).toBe('2026-04-01');
-      expect(instance.selectedSensorViewStartInput()).toBe('2026-01-02');
+      expect(instance.selectedSensorViewEndInput()).toBe('2026-03-12');
+      expect(instance.selectedSensorViewStartInput()).toBe('2026-03-10');
 
       expect(
         find('.timeline-header-main h3').nativeElement.textContent,
@@ -405,6 +498,50 @@ describe('DashboardMapComponent', () => {
       expect(
         find('.timeline-chart[aria-label="Sensor values over time chart"]'),
       ).toHaveFound(1);
+    });
+
+    it('should clamp the sensor detail range to fake current time and not later cached samples', async () => {
+      const sensorHistory: SensorHistoryPoint[] = [
+        { timestamp: new Date('2026-01-15T08:00:00Z'), value: 16.7 },
+        { timestamp: new Date('2026-04-14T21:01:00Z'), value: 16.9 },
+      ];
+
+      const { findComponent, fixture, instance } = await shallow
+        .mock(DemoTimeService, {
+          now: jest.fn(() => new Date('2026-04-14T12:00:00Z')),
+          override$: of(new Date('2026-04-14T12:00:00Z')),
+          overrideChanged$: EMPTY,
+        })
+        .mock(DataPointsApi, {
+          getWeatherConditions: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_CONDITION_DATA_POINTS)),
+          getWeatherStormWater: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_STORM_WATER_DATA_POINTS)),
+          getWeatherAirQuality: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_AIR_QUALITY_DATA_POINTS)),
+          getParking: jest.fn().mockReturnValue(of(PARKING_DATA_POINTS)),
+          getStormWaterHistory: jest.fn().mockReturnValue(of(sensorHistory)),
+          getWaterbagTestKits: jest
+            .fn()
+            .mockReturnValue(of(WATERBAG_TESTKIT_DATA_POINTS)),
+          getRoadWorks: jest.fn().mockReturnValue(of(ROAD_WORKS_DATA_POINTS)),
+        })
+        .render();
+
+      findComponent(MapComponent).markerClick.emit([4, 4]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(instance.selectedSensorViewEndInput()).toBe('2026-04-14');
+      expect(instance.selectedSensorViewBounds().endMs).toBe(
+        new Date('2026-04-14T12:00:00Z').getTime(),
+      );
+      expect(instance.selectedSensorCursor()?.timestamp.getTime()).toBeLessThanOrEqual(
+        new Date('2026-04-14T12:00:00Z').getTime(),
+      );
     });
 
     it('should update the opened sensor detail when the sensor cursor is dragged', async () => {
@@ -532,8 +669,8 @@ describe('DashboardMapComponent', () => {
       const sensorHistory: SensorHistoryPoint[] = [
         { timestamp: new Date('2026-02-10T01:00:00Z'), value: 16.7 },
         { timestamp: new Date('2026-02-10T22:00:00Z'), value: 16.4 },
-        { timestamp: new Date('2026-02-11T08:00:00Z'), value: 17.5 },
-        { timestamp: new Date('2026-02-11T18:00:00Z'), value: 17.2 },
+        { timestamp: new Date('2026-03-25T08:00:00Z'), value: 17.5 },
+        { timestamp: new Date('2026-03-25T18:00:00Z'), value: 17.2 },
       ];
 
       const { findComponent, fixture, instance } = await shallow
@@ -820,11 +957,11 @@ describe('DashboardMapComponent', () => {
     it('should render a warning banner when fetched sensor history crosses the red threshold', async () => {
       const sensorHistory: SensorHistoryPoint[] = [
         {
-          timestamp: new Date('2026-02-25T08:00:00Z'),
+          timestamp: new Date('2026-04-14T03:00:00Z'),
           value: 15.9,
         },
         {
-          timestamp: new Date('2026-02-26T10:23:20Z'),
+          timestamp: new Date('2026-04-14T10:23:20Z'),
           value: 26.953995125253883,
         },
       ];
@@ -859,6 +996,40 @@ describe('DashboardMapComponent', () => {
       expect(find('.dashboard-message .body-sm').nativeElement.innerHTML).toContain(
         '26.954',
       );
+    });
+
+    it('should not render a warning banner for historical threshold crossings outside the alert window', async () => {
+      const sensorHistory: SensorHistoryPoint[] = [
+        {
+          timestamp: new Date('2026-04-13T18:00:00Z'),
+          value: 26.953995125253883,
+        },
+      ];
+
+      const { find, fixture } = await shallow
+        .mock(DataPointsApi, {
+          getWeatherConditions: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_CONDITION_DATA_POINTS)),
+          getWeatherStormWater: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_STORM_WATER_DATA_POINTS)),
+          getWeatherAirQuality: jest
+            .fn()
+            .mockReturnValue(of(WEATHER_AIR_QUALITY_DATA_POINTS)),
+          getParking: jest.fn().mockReturnValue(of(PARKING_DATA_POINTS)),
+          getStormWaterHistory: jest.fn().mockReturnValue(of(sensorHistory)),
+          getWaterbagTestKits: jest
+            .fn()
+            .mockReturnValue(of(WATERBAG_TESTKIT_DATA_POINTS)),
+          getRoadWorks: jest.fn().mockReturnValue(of(ROAD_WORKS_DATA_POINTS)),
+        })
+        .render();
+
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(find('.dashboard-message-warning')).toHaveFound(0);
     });
   });
 });

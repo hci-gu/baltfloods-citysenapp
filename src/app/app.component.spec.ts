@@ -39,6 +39,7 @@ describe('AppComponent', () => {
     Object.defineProperty(window, 'location', {
       value: {
         pathname: '/mocked-path',
+        search: '',
       },
       writable: true,
     });
@@ -130,6 +131,47 @@ describe('AppComponent', () => {
       instance.ngOnInit();
 
       expect(locationService.setOverriddenLocation).not.toHaveBeenCalled();
+    });
+
+    it('should not set overridden location when lat or lon are invalid', async () => {
+      const { inject, instance } = await shallow.render();
+      const route = inject(ActivatedRoute);
+      const locationService = inject(LocationService);
+
+      (route.snapshot.queryParamMap.get as jest.Mock).mockImplementation(
+        (key: string) => {
+          if (key === 'lat') return 'invalid';
+          if (key === 'lon') return '12.456';
+          return null;
+        },
+      );
+
+      instance.ngOnInit();
+
+      expect(locationService.setOverriddenLocation).not.toHaveBeenCalled();
+    });
+
+    it('should set overridden location from window search params when route snapshot params are missing', async () => {
+      Object.defineProperty(window, 'location', {
+        value: {
+          pathname: '/mocked-path',
+          search: '?lat=57.7089&lon=11.9746',
+        },
+        writable: true,
+      });
+
+      const { inject, instance } = await shallow.render();
+      const route = inject(ActivatedRoute);
+      const locationService = inject(LocationService);
+
+      (route.snapshot.queryParamMap.get as jest.Mock).mockReturnValue(null);
+
+      instance.ngOnInit();
+
+      expect(locationService.setOverriddenLocation).toHaveBeenCalledWith([
+        57.7089,
+        11.9746,
+      ]);
     });
   });
 });

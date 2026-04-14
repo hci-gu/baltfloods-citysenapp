@@ -28,6 +28,68 @@
           <p class="body-sm">No uploads yet.</p>
         }
 
+        <section class="demo-time-panel">
+          <div class="demo-time-header">
+            <div>
+              <p class="body-xs breakdown-title">Demo time</p>
+              <p class="body-sm demo-time-status">
+                @if (hasDemoTimeOverride()) {
+                  Fake time active
+                } @else {
+                  Real device time
+                }
+              </p>
+            </div>
+            <p class="body-xs demo-time-effective">
+              {{ effectiveDemoTime() | date: 'dd/MM/yyyy HH:mm' }}
+            </p>
+          </div>
+
+          <div class="demo-time-controls">
+            <label class="demo-time-field body-xs" for="demo-time-input">
+              Current time override
+            </label>
+            <input
+              id="demo-time-input"
+              class="demo-time-input body-sm"
+              type="datetime-local"
+              [value]="demoTimeInput()"
+              [disabled]="isSavingDemoTime() || !canManageObservations()"
+              (input)="onDemoTimeInputChange($any($event.target).value)"
+            />
+          </div>
+
+          <div class="demo-time-actions">
+            <p-button
+              label="Use device time"
+              severity="secondary"
+              [outlined]="true"
+              [disabled]="isSavingDemoTime() || !canManageObservations()"
+              (click)="useDeviceTimeAsFakeTime()"
+            ></p-button>
+            <p-button
+              label="Apply fake time"
+              [loading]="isSavingDemoTime()"
+              [disabled]="isSavingDemoTime() || !canManageObservations()"
+              (click)="saveDemoTimeOverride()"
+            ></p-button>
+            <p-button
+              label="Clear override"
+              severity="secondary"
+              [disabled]="
+                isSavingDemoTime() ||
+                !canManageObservations() ||
+                !hasDemoTimeOverride()
+              "
+              (click)="clearDemoTimeOverride()"
+            ></p-button>
+          </div>
+
+          @if (demoTimeError()) {
+            <p class="p-error body-sm">{{ demoTimeError() }}</p>
+          }
+        </section>
+
         <div>
           <p class="body-xs breakdown-title">Types today</p>
           @if (stats().typeBreakdownToday.length > 0) {

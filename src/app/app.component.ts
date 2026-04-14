@@ -38,14 +38,19 @@ export class AppComponent implements OnInit {
   }
 
   private handleQueryLocation(): void {
-    const lat = this.route.snapshot.queryParamMap.get('lat');
-    const lon = this.route.snapshot.queryParamMap.get('lon');
+    const routeLat = this.route.snapshot.queryParamMap.get('lat');
+    const routeLon = this.route.snapshot.queryParamMap.get('lon');
+    const searchParams = new URLSearchParams(window.location.search);
+    const lat = routeLat ?? searchParams.get('lat');
+    const lon = routeLon ?? searchParams.get('lon');
 
     if (lat && lon) {
-      this.locationService.setOverriddenLocation([
-        parseFloat(lat),
-        parseFloat(lon),
-      ]);
+      const parsedLat = Number.parseFloat(lat);
+      const parsedLon = Number.parseFloat(lon);
+
+      if (Number.isFinite(parsedLat) && Number.isFinite(parsedLon)) {
+        this.locationService.setOverriddenLocation([parsedLat, parsedLon]);
+      }
     }
   }
 
