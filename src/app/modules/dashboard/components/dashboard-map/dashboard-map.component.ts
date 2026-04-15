@@ -804,17 +804,7 @@ export class DashboardMapComponent implements AfterViewInit {
     };
   });
 
-  public dataPointMarkers$: Observable<Marker[]> = combineLatest([
-    this._filteredDataPoints$,
-    toObservable(this._activeLocation),
-    toObservable(this.selectedDisplayMode),
-  ]).pipe(
-    map(([points, activeLocation, displayMode]) =>
-      displayMode === 'heatmap'
-        ? this.createHeatmapMarkers(points)
-        : this.createMarkersFromDataPoints(points, activeLocation),
-    ),
-  );
+  public mapMarkers$!: Observable<Marker[]>;
 
   private _weatherConditionDataPointMarkersLoadingSubject$ =
     new BehaviorSubject(true);
@@ -844,6 +834,7 @@ export class DashboardMapComponent implements AfterViewInit {
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly debugIntoto = !environment.production;
+  private readonly userLocation$!: Observable<UserLocation>;
 
   public constructor(
     private readonly demoTimeService: DemoTimeService,
@@ -854,6 +845,27 @@ export class DashboardMapComponent implements AfterViewInit {
     private readonly messageService: MessageService,
     private readonly translateService: TranslateService,
   ) {
+    this.userLocation$ = this.locationService.userLocation$.pipe(shareReplay(1));
+    this.mapMarkers$ = combineLatest([
+      this._filteredDataPoints$,
+      toObservable(this._activeLocation),
+      toObservable(this.selectedDisplayMode),
+      this.userLocation$,
+    ]).pipe(
+      map(([points, activeLocation, displayMode, userLocation]) => {
+        const dataPointMarkers =
+          displayMode === 'heatmap'
+            ? this.createHeatmapMarkers(points)
+            : this.createMarkersFromDataPoints(points, activeLocation);
+        const userLocationMarker = this.createUserLocationMarker(userLocation);
+
+        return userLocationMarker
+          ? [...dataPointMarkers, userLocationMarker]
+          : dataPointMarkers;
+      }),
+      shareReplay(1),
+    );
+
     combineLatest([
       this._weatherConditionDataPointMarkersLoadingSubject$,
       this._weatherStormWaterDataPointMarkersLoadingSubject$,
@@ -1386,16 +1398,14 @@ export class DashboardMapComponent implements AfterViewInit {
   }
 
   private onInitialFocusLocation(): void {
-    const userLocation$ = this.locationService.userLocation$;
-
     this.locationPermissionState$ =
       this.locationService.locationPermissionState$;
-    this.locationLoading$ = userLocation$.pipe(map(({ loading }) => loading));
+    this.locationLoading$ = this.userLocation$.pipe(map(({ loading }) => loading));
 
     this._focusLocation$
       .pipe(
         withLatestFrom(
-          userLocation$,
+          this.userLocation$,
           this.locationService.locationPermissionState$,
         ),
         takeUntilDestroyed(this.destroyRef),
@@ -1405,7 +1415,7 @@ export class DashboardMapComponent implements AfterViewInit {
       );
 
     combineLatest([
-      userLocation$,
+      this.userLocation$,
       this.locationService.locationPermissionState$,
     ])
       .pipe(
@@ -1458,6 +1468,18 @@ export class DashboardMapComponent implements AfterViewInit {
           }),
       };
     });
+  }
+
+  private createUserLocationMarker(userLocation: UserLocation): Marker | null {
+    if (!userLocation.location) {
+      return null;
+    }
+
+    return {
+      location: userLocation.location,
+      icon: 'user-marker.svg',
+      color: '#2563eb',
+    };
   }
 
   private getMarkerIcon(point: DataPoint): string {

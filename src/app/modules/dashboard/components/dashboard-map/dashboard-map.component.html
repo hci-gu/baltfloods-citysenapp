@@ -3,7 +3,7 @@
     <app-map
       class="map"
       [center$]="mapCenter$"
-      [markers]="(dataPointMarkers$ | async) ?? []"
+      [markers]="(mapMarkers$ | async) ?? []"
       (markerClick)="onMarkerClick($event)"
       (mapCenterChange)="onMapCenterChange($event)"
       (mapBoundsChange)="onMapBoundsChange($event)"

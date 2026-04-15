@@ -14,8 +14,12 @@ import { SimpleChange } from '@angular/core';
 
 describe('MapComponent', () => {
   let shallow: Shallow<MapComponent>;
+  const leafletWithHeat = leaflet as unknown as {
+    heatLayer?: unknown;
+  };
 
   beforeEach(() => {
+    delete leafletWithHeat.heatLayer;
     shallow = new Shallow(MapComponent)
       .mock(HttpClient, {
         get: () => of('<svg fill="currentColor" stroke="strokeColor"></svg>'),
@@ -133,12 +137,49 @@ describe('MapComponent', () => {
       const markerHTML = markerElement.innerHTML;
       const markerClassList = markerElement.classList;
 
-
       expect(getFillHexCode(markerHTML)).toBe(
         DATA_POINT_QUALITY_COLOR_CHART[DataPointQuality.POOR],
       );
 
       expect(markerClassList.contains('active')).toBe(true);
+    });
+
+    it('should keep rendering regular markers when heatmap markers are present', async () => {
+      const markers: Marker[] = [
+        {
+          location: [0, 0],
+          displayMode: 'heatmap',
+          heatIntensity: 0.5,
+        },
+        {
+          location: [1, 1],
+          icon: 'user-marker.svg',
+          color: '#2563eb',
+        },
+      ];
+
+      const { find, fixture, instance } = await shallow.render();
+      const renderHeatLayerSpy = jest
+        .spyOn(
+          instance as unknown as { renderHeatLayer: () => Promise<void> },
+          'renderHeatLayer',
+        )
+        .mockResolvedValue(undefined);
+
+      instance.markers = markers;
+      instance.ngOnChanges({
+        markers: new SimpleChange([], markers, false),
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+
+      expect(renderHeatLayerSpy).toHaveBeenCalledWith(
+        [markers[0]],
+        expect.any(Number),
+      );
+      expect(find('.leaflet-marker-icon')).toHaveFound(1);
     });
   });
 

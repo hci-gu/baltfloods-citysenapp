@@ -136,20 +136,12 @@ describe('DashboardMapComponent', () => {
       fixture.detectChanges();
 
       expect(
-        findComponent(MapComponent).markers.map(({ active }) => active),
+        findComponent(MapComponent).markers.filter(({ active }) => !!active),
       ).toEqual([
-        undefined,
-        undefined,
-        true,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
+        expect.objectContaining({
+          location: [100, 100],
+          active: true,
+        }),
       ]);
 
       // expect(
@@ -164,20 +156,33 @@ describe('DashboardMapComponent', () => {
       fixture.detectChanges();
 
       expect(
-        findComponent(MapComponent).markers.map(({ active }) => active),
-      ).toEqual([
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-      ]);
+        findComponent(MapComponent).markers.some(({ active }) => !!active),
+      ).toBe(false);
       expect(findComponent(DashboardDataPointDetailComponent)).toHaveFound(0);
+    });
+
+    it('should include the current user location marker on the map', async () => {
+      const currentLocation = [55.123, 12.456] as LatLong;
+      const { findComponent } = await shallow
+        .mock(LocationService, {
+          refreshUserLocation: jest.fn(),
+          locationPermissionState$: of('granted' as PermissionState),
+          userLocation$: of({
+            loading: false,
+            location: currentLocation,
+          } as UserLocation),
+        })
+        .render();
+
+      expect(findComponent(MapComponent).markers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            location: currentLocation,
+            icon: 'user-marker.svg',
+            color: '#2563eb',
+          }),
+        ]),
+      );
     });
   });
 
@@ -296,6 +301,34 @@ describe('DashboardMapComponent', () => {
       await fixture.whenStable();
 
       expect(window.alert).toHaveBeenCalled();
+    });
+  });
+
+  describe('display mode', () => {
+    it('should keep the user location marker when switching to heatmap', async () => {
+      const currentLocation = [55.123, 12.456] as LatLong;
+      const { findComponent, instance } = await shallow
+        .mock(LocationService, {
+          refreshUserLocation: jest.fn(),
+          locationPermissionState$: of('granted' as PermissionState),
+          userLocation$: of({
+            loading: false,
+            location: currentLocation,
+          } as UserLocation),
+        })
+        .render();
+
+      instance.setDisplayMode('heatmap');
+
+      expect(findComponent(MapComponent).markers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            location: currentLocation,
+            icon: 'user-marker.svg',
+            color: '#2563eb',
+          }),
+        ]),
+      );
     });
   });
 

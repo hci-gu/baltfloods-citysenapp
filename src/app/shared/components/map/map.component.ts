@@ -178,12 +178,18 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    if (newMarkers[0].displayMode === 'heatmap') {
-      void this.renderHeatLayer(newMarkers, renderSequence);
-      return;
+    const heatmapMarkers = newMarkers.filter(
+      (marker) => marker.displayMode === 'heatmap',
+    );
+    const defaultMarkers = newMarkers.filter(
+      (marker) => marker.displayMode !== 'heatmap',
+    );
+
+    if (heatmapMarkers.length > 0) {
+      void this.renderHeatLayer(heatmapMarkers, renderSequence);
     }
 
-    newMarkers.forEach(this.renderMarker.bind(this));
+    defaultMarkers.forEach(this.renderMarker.bind(this));
   }
 
   private clearMarkers(): void {
