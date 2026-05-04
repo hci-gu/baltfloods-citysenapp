@@ -56,19 +56,21 @@
     }
 
     .title {
-      position: relative;
-      width: 100%;
+      position: absolute;
+      left: 50%;
+      max-width: calc(100% - 184px);
       z-index: $z-index - 1;
+      margin: 0;
+      overflow: hidden;
+      transform: translateX(-50%);
       text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: var(--text-color);
       font-size: 18px;
       font-weight: 500;
       font-family: var(--font-family);
       line-height: 28px;
-
-      &.padding-right {
-        padding-right: 72px;
-      }
     }
   }
 }

@@ -21,7 +21,7 @@
             </p>
             <p class="body-xs">
               {{ latestUpload.type }} •
-              {{ latestUpload.timestamp | date: 'dd/MM/yyyy HH:mm' }}
+              {{ latestUpload.timestamp | date: "dd/MM/yyyy HH:mm" }}
             </p>
           </div>
         } @else {
@@ -41,7 +41,7 @@
               </p>
             </div>
             <p class="body-xs demo-time-effective">
-              {{ effectiveDemoTime() | date: 'dd/MM/yyyy HH:mm' }}
+              {{ effectiveDemoTime() | date: "dd/MM/yyyy HH:mm" }}
             </p>
           </div>
 
@@ -57,6 +57,21 @@
               [disabled]="isSavingDemoTime() || !canManageObservations()"
               (input)="onDemoTimeInputChange($any($event.target).value)"
             />
+          </div>
+
+          <div class="demo-time-presets">
+            <p-button
+              label="Demo start"
+              severity="secondary"
+              [outlined]="true"
+              [disabled]="isSavingDemoTime() || !canManageObservations()"
+              (click)="setDemoStartTime()"
+            ></p-button>
+            <p-button
+              label="Trigger alarm"
+              [disabled]="isSavingDemoTime() || !canManageObservations()"
+              (click)="triggerDemoAlarm()"
+            ></p-button>
           </div>
 
           <div class="demo-time-actions">
@@ -87,6 +102,95 @@
 
           @if (demoTimeError()) {
             <p class="p-error body-sm">{{ demoTimeError() }}</p>
+          }
+        </section>
+
+        <section class="alert-panel">
+          <div class="alert-header">
+            <div>
+              <p class="body-xs breakdown-title">Immediate message</p>
+              <p class="body-sm alert-copy">Send a message to all users.</p>
+            </div>
+          </div>
+
+          <div class="alert-controls">
+            <label class="alert-field body-xs" for="alert-title-input">
+              Alert title
+            </label>
+            <input
+              id="alert-title-input"
+              class="alert-input body-sm"
+              type="text"
+              [value]="alertTitleInput()"
+              [disabled]="isSendingAlert() || !canManageObservations()"
+              (input)="onAlertTitleChange($any($event.target).value)"
+            />
+          </div>
+
+          <div class="alert-controls">
+            <label class="alert-field body-xs" for="alert-message-input">
+              Message
+            </label>
+            <textarea
+              id="alert-message-input"
+              class="alert-textarea body-sm"
+              rows="3"
+              [value]="alertMessageInput()"
+              [disabled]="isSendingAlert() || !canManageObservations()"
+              (input)="onAlertMessageChange($any($event.target).value)"
+            ></textarea>
+          </div>
+
+          <div class="alert-controls">
+            <label class="alert-field body-xs" for="alert-type-input">
+              Message type
+            </label>
+            <select
+              id="alert-type-input"
+              class="alert-select body-sm"
+              [value]="alertTypeInput()"
+              [disabled]="isSendingAlert() || !canManageObservations()"
+              (change)="onAlertTypeChange($any($event.target).value)"
+            >
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+            </select>
+          </div>
+
+          <div class="alert-controls">
+            <label class="alert-field body-xs" for="alert-duration-input">
+              Duration
+            </label>
+            <div class="alert-duration-control">
+              <input
+                id="alert-duration-input"
+                class="alert-duration-input body-sm"
+                type="number"
+                min="0.25"
+                step="0.25"
+                [value]="alertDurationHoursInput()"
+                [disabled]="isSendingAlert() || !canManageObservations()"
+                (input)="onAlertDurationHoursChange($any($event.target).value)"
+              />
+              <span class="body-xs alert-duration-unit">hours</span>
+            </div>
+          </div>
+
+          <div class="alert-actions">
+            <p-button
+              label="Send message"
+              [severity]="alertTypeInput() === 'warning' ? 'danger' : 'primary'"
+              [loading]="isSendingAlert()"
+              [disabled]="isSendingAlert() || !canManageObservations()"
+              (click)="sendImmediateAlert()"
+            ></p-button>
+          </div>
+
+          @if (alertError()) {
+            <p class="p-error body-sm">{{ alertError() }}</p>
+          }
+          @if (alertSuccess()) {
+            <p class="alert-success body-sm">{{ alertSuccess() }}</p>
           }
         </section>
 
@@ -186,7 +290,9 @@
                         loading="lazy"
                       />
                     }
-                    <p class="observation-name body-sm">{{ observation.name }}</p>
+                    <p class="observation-name body-sm">
+                      {{ observation.name }}
+                    </p>
                     <p class="observation-type body-xs">
                       {{ observation.type }}
                     </p>
@@ -194,11 +300,11 @@
                       class="observation-visibility body-xs"
                       [class.hidden]="!observation.visible"
                     >
-                      {{ observation.visible ? 'Visible' : 'Hidden' }}
+                      {{ observation.visible ? "Visible" : "Hidden" }}
                     </p>
-                    @if (observation.lastUpdatedOn) {
+                    @if (observation.createdOn) {
                       <p class="observation-time body-xs">
-                        {{ observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm' }}
+                        {{ observation.createdOn | date: "dd/MM/yyyy HH:mm" }}
                       </p>
                     }
                   </div>

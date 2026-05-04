@@ -103,6 +103,7 @@ export type ObservationWaterResponse = {
   latitude: number;
   longitude: number;
   dataRetrievedTimestamp: number;
+  created?: string;
   imageUrl?: string | null;
   observationType: string;
   airTemp?: number | null;

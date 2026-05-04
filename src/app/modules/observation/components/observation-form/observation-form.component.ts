@@ -9,12 +9,15 @@ import {
 import { Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { finalize } from 'rxjs';
+import imageCompression, { Options } from 'browser-image-compression';
 import { LatLong } from '@core/models/location';
 import {
   AlgaeLevel,
   ObservationApiService,
   ObservationType,
 } from '@core/services/observation-api/observation-api.service';
+import { ObservationDraftService } from '@core/services/observation-draft.service';
+import { LocationService } from '@core/services/location.service';
 import { StepsComponent } from '@shared/components/steps/steps.component';
 import { IconComponent } from '@shared/components/icon/icon.component';
 import { Button } from 'primeng/button';
@@ -41,6 +44,12 @@ interface ObservationForm {
   cc0Accepted: FormControl<boolean>;
 }
 
+const OBSERVATION_PHOTO_COMPRESSION_OPTIONS: Options = {
+  maxSizeMB: 1.5,
+  maxWidthOrHeight: 1600,
+  useWebWorker: true,
+};
+
 @Component({
   selector: 'app-observation-form',
   templateUrl: './observation-form.component.html',
@@ -58,6 +67,8 @@ interface ObservationForm {
   ],
 })
 export class ObservationFormComponent {
+  private readonly overrideLocationJitterMaxMeters = 5;
+  private readonly metersPerDegreeLatitude = 111_320;
   public STEP = ObservationFormStep;
   private readonly fullStepFlow: ObservationFormStep[] = [
     ObservationFormStep.LOCATION,
@@ -112,7 +123,10 @@ export class ObservationFormComponent {
     private readonly formBuilder: FormBuilder,
     private readonly observationApi: ObservationApiService,
     private readonly router: Router,
+    private readonly observationDraftService: ObservationDraftService,
+    private readonly locationService: LocationService,
   ) {
+    this.applyQuickObservationDraft();
     this.observationForm.controls.observationType.valueChanges.subscribe(() => {
       this.updateFlowAndValidation();
     });
@@ -193,23 +207,50 @@ export class ObservationFormComponent {
     this.observationForm.controls.photo.setValue(null);
   }
 
+  private applyQuickObservationDraft(): void {
+    const draft = this.observationDraftService.consumeQuickObservationDraft();
+    if (!draft) {
+      return;
+    }
+
+    this.observationForm.patchValue({
+      location: draft.location,
+      observationType: draft.observationType,
+      photo: draft.photo,
+    });
+    this.photoName = draft.photo.name;
+    this.currentStepIndex = this.fullStepFlow.indexOf(
+      ObservationFormStep.TYPE_AND_PHOTO,
+    );
+  }
+
   private submitObservation(): void {
     if (this.observationForm.invalid) {
       this.observationForm.markAllAsTouched();
       return;
     }
 
-    const location = this.observationForm.controls.location.value as LatLong;
+    void this.submitCompressedObservation();
+  }
+
+  private async submitCompressedObservation(): Promise<void> {
+    const location = this.getSubmissionLocation(
+      this.observationForm.controls.location.value as LatLong,
+    );
 
     this.isSubmitting = true;
     this.submissionErrorKey = null;
+
+    const photo = await this.getCompressedPhoto(
+      this.observationForm.controls.photo.value,
+    );
 
     this.observationApi
       .submitWaterObservation({
         location,
         observationType: this.observationForm.controls.observationType
           .value as ObservationType,
-        photo: this.observationForm.controls.photo.value,
+        photo,
         airTemp: this.isWaterOverflowSelected
           ? undefined
           : this.observationForm.controls.airTemp.value,
@@ -250,12 +291,62 @@ export class ObservationFormComponent {
       .pipe(finalize(() => (this.isSubmitting = false)))
       .subscribe({
         next: () => {
-          void this.router.navigate(['/observation/confirmed']);
+          void this.router.navigate(['/observation/confirmed'], {
+            queryParamsHandling: 'preserve',
+          });
         },
         error: () => {
           this.submissionErrorKey = 'OBSERVATION.MESSAGES.SUBMIT_ERROR';
         },
       });
+  }
+
+  private async getCompressedPhoto(photo: File | null): Promise<File | null> {
+    if (!photo) {
+      return null;
+    }
+
+    try {
+      const compressedPhoto = await imageCompression(
+        photo,
+        OBSERVATION_PHOTO_COMPRESSION_OPTIONS,
+      );
+
+      return new File([compressedPhoto], photo.name, {
+        type: compressedPhoto.type || photo.type,
+        lastModified: photo.lastModified,
+      });
+    } catch {
+      return photo;
+    }
+  }
+
+  private getSubmissionLocation(location: LatLong): LatLong {
+    if (!this.locationService.isLocationOverridden) {
+      return location;
+    }
+
+    return this.jitterLocation(location);
+  }
+
+  private jitterLocation(location: LatLong): LatLong {
+    const radiusMeters =
+      Math.sqrt(Math.random()) * this.overrideLocationJitterMaxMeters;
+    const angle = Math.random() * Math.PI * 2;
+    const latitudeOffset =
+      (Math.cos(angle) * radiusMeters) / this.metersPerDegreeLatitude;
+    const latitudeRadians = (location[0] * Math.PI) / 180;
+    const metersPerDegreeLongitude = Math.max(
+      1,
+      Math.abs(this.metersPerDegreeLatitude * Math.cos(latitudeRadians)),
+    );
+    const longitudeOffset =
+      (Math.sin(angle) * radiusMeters) / metersPerDegreeLongitude;
+
+    return [
+      location[0] + latitudeOffset,
+      location[1] + longitudeOffset,
+    ] as LatLong;
   }
 
   private updateFlowAndValidation(): void {

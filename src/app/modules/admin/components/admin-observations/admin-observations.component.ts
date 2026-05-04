@@ -17,6 +17,10 @@ import {
   ObservationRecordsService,
 } from '@core/services/observation-records.service';
 import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
+import {
+  DashboardMessageType,
+  ScheduledMessagesService,
+} from '@core/services/scheduled-messages.service';
 import { AuthService } from '@core/services/auth.service';
 import { environment } from '@environments/environment';
 import { Router } from '@angular/router';
@@ -36,7 +40,7 @@ interface ObservationFeedItem {
   name: string;
   type: string;
   visible: boolean;
-  lastUpdatedOn?: Date;
+  createdOn?: Date;
   imageUrl?: string;
 }
 
@@ -79,6 +83,9 @@ interface UploadChart {
   totalPeriodUploads: number;
 }
 
+const DEMO_START_TIME_INPUT = '2026-02-14T12:00';
+const DEMO_TRIGGER_ALARM_TIME_INPUT = '2026-02-15T20:00';
+
 @Component({
   selector: 'app-admin-observations',
   standalone: true,
@@ -109,6 +116,13 @@ export class AdminObservationsComponent {
   public demoTimeError = signal<string>('');
   public demoTimeInput = signal<string>('');
   public isSavingDemoTime = signal<boolean>(false);
+  public alertTitleInput = signal<string>('');
+  public alertMessageInput = signal<string>('');
+  public alertTypeInput = signal<DashboardMessageType>('info');
+  public alertDurationHoursInput = signal<string>('2');
+  public alertError = signal<string>('');
+  public alertSuccess = signal<string>('');
+  public isSendingAlert = signal<boolean>(false);
   public currentPage = signal<number>(1);
   public totalItems = signal<number>(0);
   public deletingRecordIds = signal<Set<string>>(new Set());
@@ -131,24 +145,25 @@ export class AdminObservationsComponent {
       .slice()
       .sort(
         (a, b) =>
-          this.getTimestamp(b).getTime() - this.getTimestamp(a).getTime(),
+          this.getCreatedTimestamp(b).getTime() -
+          this.getCreatedTimestamp(a).getTime(),
       )
       .map((observation) => ({
         id: observation.id,
         name: observation.name?.trim() || observation.id,
         type: this.getObservationTypeLabel(observation),
         visible: observation.visible ?? false,
-        lastUpdatedOn: this.getTimestamp(observation),
+        createdOn: this.getCreatedTimestamp(observation),
         imageUrl: this.getObservationImageUrl(observation),
       })),
   );
   public stats = computed<AdminStats>(() => {
-    this.demoTimeOverride();
     const recentObservations = this._recentObservations();
-    const todayStart = this.getDayStart(this.demoTimeService.now());
+    const todayStart = this.getDayStart(new Date());
 
     const todayItems = recentObservations.filter(
-      (observation) => this.getTimestamp(observation).getTime() >= todayStart.getTime(),
+      (observation) =>
+        this.getCreatedTimestamp(observation).getTime() >= todayStart.getTime(),
     );
     const latestUpload = this._latestObservation();
 
@@ -159,16 +174,15 @@ export class AdminObservationsComponent {
         ? {
             id: latestUpload.id,
             type: this.getObservationTypeLabel(latestUpload),
-            timestamp: this.getTimestamp(latestUpload),
+            timestamp: this.getCreatedTimestamp(latestUpload),
           }
         : null,
       typeBreakdownToday: this.toTypeBreakdown(todayItems),
     };
   });
   public uploadChart = computed<UploadChart>(() => {
-    this.demoTimeOverride();
     const observations = this._recentObservations();
-    const today = this.getDayStart(this.demoTimeService.now());
+    const today = this.getDayStart(new Date());
     const dayEntries = Array.from({ length: this.chartDays }, (_, index) => {
       const day = new Date(today);
       day.setDate(today.getDate() - (this.chartDays - 1 - index));
@@ -187,7 +201,7 @@ export class AdminObservationsComponent {
     const plotHeight = bottomY - topY;
 
     observations.forEach((observation) => {
-      const key = this.dayKey(this.getTimestamp(observation));
+      const key = this.dayKey(this.getCreatedTimestamp(observation));
       const entry = dayMap.get(key);
       if (entry) {
         entry.count += 1;
@@ -213,15 +227,18 @@ export class AdminObservationsComponent {
     });
 
     const linePath = points
-      .map((point, index) =>
-        `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
+      .map(
+        (point, index) =>
+          `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
       )
       .join(' ');
 
     const areaPath = points.length
       ? `M ${points[0].x.toFixed(2)} ${bottomY.toFixed(2)} ${points
           .map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-          .join(' ')} L ${points[points.length - 1].x.toFixed(2)} ${bottomY.toFixed(2)} Z`
+          .join(
+            ' ',
+          )} L ${points[points.length - 1].x.toFixed(2)} ${bottomY.toFixed(2)} Z`
       : '';
 
     const ticks: UploadChartTick[] = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
@@ -244,6 +261,7 @@ export class AdminObservationsComponent {
     private readonly demoTimeService: DemoTimeService,
     private readonly observationRecordsService: ObservationRecordsService,
     private readonly observationRealtimeService: ObservationRealtimeService,
+    private readonly scheduledMessagesService: ScheduledMessagesService,
     private readonly authService: AuthService,
     private readonly router: Router,
   ) {
@@ -317,6 +335,74 @@ export class AdminObservationsComponent {
     this.demoTimeInput.set(this.formatDateTimeInput(new Date()));
   }
 
+  public onAlertTitleChange(value: string): void {
+    this.alertTitleInput.set(value);
+  }
+
+  public onAlertMessageChange(value: string): void {
+    this.alertMessageInput.set(value);
+  }
+
+  public onAlertTypeChange(value: string): void {
+    this.alertTypeInput.set(value === 'warning' ? 'warning' : 'info');
+  }
+
+  public onAlertDurationHoursChange(value: string): void {
+    this.alertDurationHoursInput.set(value);
+  }
+
+  public sendImmediateAlert(): void {
+    if (!this.canManageObservations()) {
+      this.alertError.set('Sign in as an admin to send messages.');
+      return;
+    }
+
+    const title = this.alertTitleInput().trim();
+    const message = this.alertMessageInput().trim();
+    const durationHours = Number(this.alertDurationHoursInput());
+    if (!title || !message) {
+      this.alertError.set('Enter an alert title and message.');
+      return;
+    }
+
+    if (!Number.isFinite(durationHours) || durationHours <= 0) {
+      this.alertError.set('Enter a duration greater than 0 hours.');
+      return;
+    }
+
+    this.alertError.set('');
+    this.alertSuccess.set('');
+    this.isSendingAlert.set(true);
+    this.scheduledMessagesService
+      .createImmediateAlert({
+        title,
+        content: this.formatAlertContent(message),
+        type: this.alertTypeInput(),
+        durationHours,
+      })
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          this.isSendingAlert.set(false);
+          this.alertSuccess.set('Message sent.');
+          this.alertTitleInput.set('');
+          this.alertMessageInput.set('');
+        },
+        error: () => {
+          this.isSendingAlert.set(false);
+          this.alertError.set('Failed to send message. Please try again.');
+        },
+      });
+  }
+
+  public setDemoStartTime(): void {
+    this.applyDemoTimePreset(DEMO_START_TIME_INPUT);
+  }
+
+  public triggerDemoAlarm(): void {
+    this.applyDemoTimePreset(DEMO_TRIGGER_ALARM_TIME_INPUT);
+  }
+
   public saveDemoTimeOverride(): void {
     if (!this.canManageObservations()) {
       this.demoTimeError.set('Sign in as an admin to update demo time.');
@@ -340,7 +426,9 @@ export class AdminObservationsComponent {
         },
         error: () => {
           this.isSavingDemoTime.set(false);
-          this.demoTimeError.set('Failed to update demo time. Please try again.');
+          this.demoTimeError.set(
+            'Failed to update demo time. Please try again.',
+          );
         },
       });
   }
@@ -362,9 +450,16 @@ export class AdminObservationsComponent {
         },
         error: () => {
           this.isSavingDemoTime.set(false);
-          this.demoTimeError.set('Failed to clear demo time. Please try again.');
+          this.demoTimeError.set(
+            'Failed to clear demo time. Please try again.',
+          );
         },
       });
+  }
+
+  private applyDemoTimePreset(value: string): void {
+    this.demoTimeInput.set(value);
+    this.saveDemoTimeOverride();
   }
 
   public onPageChange(event: { page?: number }): void {
@@ -419,37 +514,41 @@ export class AdminObservationsComponent {
       return next;
     });
 
-    this.observationRecordsService.deleteObservation(recordId, token).subscribe({
-      next: () => {
-        this.removeDeletingRecordId(recordId);
-        const remaining = this._observations().filter(
-          (observation) => observation.id !== recordId,
-        );
-        this._observations.set(remaining);
-        this.totalItems.update((total) => Math.max(0, total - 1));
-
-        if (remaining.length === 0 && this.currentPage() > 1) {
-          const previousPage = this.currentPage() - 1;
-          this.currentPage.set(previousPage);
-          this.loadObservationPage(previousPage);
-          this.loadInsights();
-          return;
-        }
-
-        this.loadObservationPage(this.currentPage());
-        this.loadInsights();
-      },
-      error: (error: HttpErrorResponse) => {
-        this.removeDeletingRecordId(recordId);
-        if (error.status === 401 || error.status === 403) {
-          this.errorMessage.set(
-            'Only authenticated admin users can delete observations.',
+    this.observationRecordsService
+      .deleteObservation(recordId, token)
+      .subscribe({
+        next: () => {
+          this.removeDeletingRecordId(recordId);
+          const remaining = this._observations().filter(
+            (observation) => observation.id !== recordId,
           );
-          return;
-        }
-        this.errorMessage.set('Failed to delete observation. Please try again.');
-      },
-    });
+          this._observations.set(remaining);
+          this.totalItems.update((total) => Math.max(0, total - 1));
+
+          if (remaining.length === 0 && this.currentPage() > 1) {
+            const previousPage = this.currentPage() - 1;
+            this.currentPage.set(previousPage);
+            this.loadObservationPage(previousPage);
+            this.loadInsights();
+            return;
+          }
+
+          this.loadObservationPage(this.currentPage());
+          this.loadInsights();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.removeDeletingRecordId(recordId);
+          if (error.status === 401 || error.status === 403) {
+            this.errorMessage.set(
+              'Only authenticated admin users can delete observations.',
+            );
+            return;
+          }
+          this.errorMessage.set(
+            'Failed to delete observation. Please try again.',
+          );
+        },
+      });
   }
 
   public toggleVisibility(item: ObservationFeedItem): void {
@@ -478,7 +577,9 @@ export class AdminObservationsComponent {
           this.removeVisibilityUpdatingRecordId(item.id);
           this._observations.update((records) =>
             records.map((record) =>
-              record.id === item.id ? { ...record, visible: nextVisible } : record,
+              record.id === item.id
+                ? { ...record, visible: nextVisible }
+                : record,
             ),
           );
           this.loadObservationPage(this.currentPage());
@@ -609,6 +710,29 @@ export class AdminObservationsComponent {
     }
 
     return new Date(0);
+  }
+
+  private getCreatedTimestamp(observation: ObservationRecord): Date {
+    if (observation.created) {
+      const parsed = new Date(observation.created);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+
+    return this.getTimestamp(observation);
+  }
+
+  private formatAlertContent(message: string): string {
+    const escapedMessage = message
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/\n/g, '<br>');
+
+    return `<p>${escapedMessage}</p>`;
   }
 
   private handleLoadError(error: HttpErrorResponse): void {

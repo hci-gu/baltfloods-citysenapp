@@ -15,6 +15,7 @@ interface BaseDataPoint<T extends DataPointType> {
   location: LatLong;
   quality: DataPointQuality;
   lastUpdatedOn?: Date;
+  createdOn?: Date;
 }
 
 export type WeatherConditionDataPoint = BaseDataPoint<DataPointType.WEATHER_CONDITIONS> & {

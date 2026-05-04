@@ -5,9 +5,19 @@
     <small>{{ "OBSERVATION.CONFIRMATION.DESCRIPTION" | translate }}</small>
   </section>
   <app-icon class="wave" icon="navigation-header-wave"></app-icon>
-  <p-button
-    routerLink="/observation"
-    class="button"
-    [label]="'OBSERVATION.CONFIRMATION.RESTART' | translate"
-  ></p-button>
+  <div class="actions">
+    <p-button
+      routerLink="/"
+      queryParamsHandling="preserve"
+      class="button"
+      [outlined]="true"
+      [label]="'OBSERVATION.CONFIRMATION.BACK_TO_MAP' | translate"
+    ></p-button>
+    <p-button
+      routerLink="/observation"
+      queryParamsHandling="preserve"
+      class="button"
+      [label]="'OBSERVATION.CONFIRMATION.RESTART' | translate"
+    ></p-button>
+  </div>
 </main>

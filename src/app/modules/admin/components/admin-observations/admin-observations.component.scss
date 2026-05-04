@@ -7,7 +7,8 @@
 .admin-page {
   height: 100%;
   padding: 24px 16px 80px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .admin-layout {
@@ -19,10 +20,16 @@
 }
 
 .left-column {
-  display: grid;
-  grid-template-rows: auto 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.left-column > .admin-card {
+  flex: 0 0 auto;
 }
 
 .admin-card {
@@ -34,6 +41,7 @@
   background-color: var(--surface-card);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   min-height: 0;
+  min-width: 0;
 }
 
 .admin-header {
@@ -100,11 +108,24 @@
   gap: 10px;
 }
 
+.alert-panel {
+  border-top: 1px solid var(--surface-border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .demo-time-header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
+}
+
+.alert-copy {
+  margin: 0;
+  color: var(--text-color-secondary);
 }
 
 .demo-time-status,
@@ -123,22 +144,62 @@
   gap: 6px;
 }
 
-.demo-time-field {
+.alert-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.demo-time-field,
+.alert-field,
+.alert-duration-unit {
   color: var(--text-color-secondary);
 }
 
-.demo-time-input {
+.demo-time-input,
+.alert-input,
+.alert-textarea,
+.alert-select {
   width: 100%;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  min-width: 0;
+}
+
+.alert-textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.alert-duration-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.alert-duration-input {
+  width: 96px;
+  max-width: 100%;
   border: 1px solid var(--surface-border);
   border-radius: 10px;
   padding: 10px 12px;
   background: #fff;
 }
 
-.demo-time-actions {
+.demo-time-presets,
+.demo-time-actions,
+.alert-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.alert-success {
+  margin: 0;
+  color: #166534;
 }
 
 .breakdown-title {

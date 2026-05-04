@@ -41,8 +41,16 @@
     color: var(--primary-color);
   }
 
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin: 48px 0 16px 0;
+    padding: 0 24px;
+  }
+
   .button {
     display: block;
-    margin: 48px 0 16px 0;
   }
 }

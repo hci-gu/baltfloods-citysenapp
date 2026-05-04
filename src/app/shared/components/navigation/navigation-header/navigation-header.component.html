@@ -1,11 +1,20 @@
-<app-navigation-sidebar [sidebarOpen]="sidebarOpen" (onSidebarClose)="sidebarOpen = false"></app-navigation-sidebar>
+<app-navigation-sidebar
+  [sidebarOpen]="sidebarOpen"
+  (onSidebarClose)="sidebarOpen = false"
+></app-navigation-sidebar>
 <header class="flex-row header">
-  <app-icon class="menu-item" icon="menu" (click)="sidebarOpen = true"></app-icon>
+  <app-icon
+    class="menu-item"
+    icon="menu"
+    (click)="sidebarOpen = true"
+  ></app-icon>
 
-  <h1 class="title" [class.padding-right]="showSkip || showProfile">{{ title }}</h1>
+  <h1 class="title">{{ title }}</h1>
   <div class="actions flex-row">
     @if (showSkip) {
-      <u class="action-item" (click)="navigationHeaderService.onSkipClick()">{{ 'MISC.SKIP' | translate }}</u>
+      <u class="action-item" (click)="navigationHeaderService.onSkipClick()">{{
+        "MISC.SKIP" | translate
+      }}</u>
     }
     @if (showProfile) {
       <a

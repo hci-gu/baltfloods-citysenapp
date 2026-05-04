@@ -213,6 +213,7 @@
     "CONFIRMATION": {
       "TITLE": "Kiitos havainnostasi!",
       "DESCRIPTION": "Havaintosi on lähetetty.",
+      "BACK_TO_MAP": "Takaisin kartalle",
       "RESTART": "Lähetä uusi havainto"
     },
     "FIELD": {

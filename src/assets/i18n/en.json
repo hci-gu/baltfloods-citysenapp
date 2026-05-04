@@ -213,6 +213,7 @@
     "CONFIRMATION": {
       "TITLE": "Thanks for your observation!",
       "DESCRIPTION": "Your observation has been submitted.",
+      "BACK_TO_MAP": "Back to map",
       "RESTART": "Send another observation"
     },
     "FIELD": {

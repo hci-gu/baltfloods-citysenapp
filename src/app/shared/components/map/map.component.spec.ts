@@ -77,6 +77,35 @@ describe('MapComponent', () => {
       expect(instance.markers.length).toBe(markers.length);
     });
 
+    it('should keep existing marker layers when unchanged markers re-emit', async () => {
+      const markers: Marker[] = [{ location: [0, 0] }, { location: [1, 1] }];
+      const { fixture, instance } = await shallow.render({ bind: { markers } });
+      await fixture.whenStable();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const initialLayersByLocation = getRenderedMarkerLayers(instance);
+      expect(initialLayersByLocation.size).toBe(markers.length);
+
+      const nextMarkers: Marker[] = markers.map((marker) => ({
+        ...marker,
+        location: [...marker.location] as LatLong,
+      }));
+      instance.markers = nextMarkers;
+      instance.ngOnChanges({
+        markers: new SimpleChange(markers, nextMarkers, false),
+      });
+
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const renderedLayersByLocation = getRenderedMarkerLayers(instance);
+      expect(renderedLayersByLocation.size).toBe(markers.length);
+      renderedLayersByLocation.forEach((layer, location) => {
+        expect(layer).toBe(initialLayersByLocation.get(location));
+      });
+    });
+
     it('when the marker input is updated it should shown the correct updated markers', async () => {
       const markers: Marker[] = [
         {
@@ -181,6 +210,43 @@ describe('MapComponent', () => {
       );
       expect(find('.leaflet-marker-icon')).toHaveFound(1);
     });
+
+    it('should render a count badge when a marker has multiple points', async () => {
+      const markers: Marker[] = [{ location: [0, 0], count: 3 }];
+
+      const { find, fixture } = await shallow.render({ bind: { markers } });
+      await fixture.whenStable();
+
+      expect(find('.marker-count-badge').nativeElement.textContent).toBe('3');
+    });
+
+    it('should render circle markers below pin markers', async () => {
+      const markers: Marker[] = [
+        { location: [0, 0], displayMode: 'circle', color: '#2563eb' },
+        { location: [1, 1] },
+      ];
+
+      const { find, fixture, instance } = await shallow.render({
+        bind: { markers },
+      });
+      await fixture.whenStable();
+
+      const circleMarkers: leaflet.Marker[] = [];
+      instance.map?.eachLayer((layer) => {
+        if (
+          layer instanceof leaflet.Marker &&
+          layer.options.zIndexOffset === -1000
+        ) {
+          circleMarkers.push(layer);
+        }
+      });
+
+      expect(circleMarkers).toHaveLength(1);
+      expect(circleMarkers[0].options.interactive).toBe(false);
+      expect(circleMarkers[0].options.zIndexOffset).toBe(-1000);
+      expect(find('.location-dot-marker')).toHaveFound(1);
+      expect(find('.leaflet-marker-icon')).toHaveFound(2);
+    });
   });
 
   it('should emit markerClick event when a marker is clicked', async () => {
@@ -205,4 +271,17 @@ describe('MapComponent', () => {
 function getFillHexCode(svgString: string): string | null {
   const fillMatch = RegExp(/fill="#([A-Fa-f0-9]{6})"/).exec(svgString);
   return fillMatch ? `#${fillMatch[1]}` : null;
+}
+
+function getRenderedMarkerLayers(
+  instance: MapComponent,
+): Map<string, leaflet.Marker> {
+  const layers = new Map<string, leaflet.Marker>();
+  instance.map?.eachLayer((layer) => {
+    if (layer instanceof leaflet.Marker) {
+      layers.set(layer.getLatLng().toString(), layer);
+    }
+  });
+
+  return layers;
 }

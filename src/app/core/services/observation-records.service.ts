@@ -1,7 +1,6 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { AuthService } from '@core/services/auth.service';
-import { DemoTimeService } from '@core/services/demo-time.service';
 import { environment } from '@environments/environment';
 import { map, Observable } from 'rxjs';
 
@@ -43,7 +42,6 @@ export class ObservationRecordsService {
   public constructor(
     private readonly http: HttpClient,
     private readonly authService: AuthService,
-    private readonly demoTimeService: DemoTimeService,
   ) {}
 
   public listObservations(
@@ -60,7 +58,7 @@ export class ObservationRecordsService {
           params: {
             page: `${page}`,
             perPage: `${perPage}`,
-            sort: '-dataRetrievedTimestamp',
+            sort: '-created',
           },
         },
       )
@@ -76,9 +74,8 @@ export class ObservationRecordsService {
   }
 
   public listRecentObservations(days: number): Observable<ObservationRecord[]> {
-    const cutoffDate = this.demoTimeService.now();
+    const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
-    const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
     const headers = this.createOptionalAuthHeaders();
 
     return this.http
@@ -89,8 +86,8 @@ export class ObservationRecordsService {
           params: {
             page: '1',
             perPage: '500',
-            sort: '-dataRetrievedTimestamp',
-            filter: `dataRetrievedTimestamp >= ${cutoffTimestamp}`,
+            sort: '-created',
+            filter: `created >= "${this.formatPocketbaseDate(cutoffDate)}"`,
           },
         },
       )
@@ -122,6 +119,10 @@ export class ObservationRecordsService {
         }),
       },
     );
+  }
+
+  private formatPocketbaseDate(date: Date): string {
+    return date.toISOString().replace('T', ' ');
   }
 
   private createOptionalAuthHeaders(): HttpHeaders | null {

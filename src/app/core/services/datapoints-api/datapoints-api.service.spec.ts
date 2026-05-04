@@ -185,6 +185,69 @@ describe('DataPointsApi', () => {
     );
   });
 
+  it('should reuse cached Intoto series data for repeated storm-water lookups', async () => {
+    const getSeriesData = jest.fn().mockReturnValue(
+      of([
+        {
+          error: false,
+          timestamp: '2026-03-18T12:02:43.000000Z',
+          value: 16.8,
+        },
+      ]),
+    );
+    const { instance } = shallow
+      .mock(IntotoApiService, {
+        getMyAreas: jest.fn().mockReturnValue(
+          of([
+            {
+              id: 1,
+              name: 'Kristiansand',
+              description: null,
+              childAreas: null,
+              locations: [
+                {
+                  id: 10,
+                  name: 'Boen bru',
+                  locationType: 72,
+                  wgs84latitude: 58.2464,
+                  wgs84longitude: 8.1401,
+                  wgs84elevation: null,
+                  series: [
+                    {
+                      id: 121,
+                      description: 'Water NN2000 in m',
+                      providerInfo: 'Intoto',
+                      seriesCategory: 2,
+                      seriesSubCategory: 55602,
+                      seriesAggregationPeriod: 1,
+                      seriesAggregationMethod: 1,
+                      seriesUnit: 210,
+                    },
+                  ],
+                },
+              ],
+            },
+          ]),
+        ),
+        getSeriesCategories: jest.fn().mockReturnValue(
+          of([{ value: 2, name: 'Water', description: null }]),
+        ),
+        getSeriesSubCategories: jest.fn().mockReturnValue(
+          of([{ value: 55602, name: 'NN2000', description: null }]),
+        ),
+        getSeriesUnits: jest.fn().mockReturnValue(
+          of([{ value: 210, name: 'Meter', description: null }]),
+        ),
+        getSeriesData,
+      })
+      .createService();
+
+    await firstValueFrom(instance.getWeatherStormWater([58.25, 8.16]));
+    await firstValueFrom(instance.getWeatherStormWater([58.25, 8.16]));
+
+    expect(getSeriesData).toHaveBeenCalledTimes(1);
+  });
+
   it('should return an observable of the air quality', async () => {
     const { instance } = shallow.createService();
 
@@ -254,6 +317,40 @@ describe('DataPointsApi', () => {
           },
         },
       },
+    ]);
+  });
+
+  it('should preserve created timestamps for uploaded water observations', async () => {
+    const created = '2026-04-12 10:00:02.000Z';
+    const { instance } = shallow
+      .mock(HttpClient, {
+        get: jest.fn((url: string) =>
+          url.includes('/observation/water')
+            ? of([
+                {
+                  id: 'uploaded-1',
+                  name: 'Uploaded observation',
+                  latitude: 57.7089,
+                  longitude: 11.9746,
+                  dataRetrievedTimestamp: 1770000000,
+                  created,
+                  imageUrl: '/api/files/observations/uploaded-1/photo.jpg',
+                  observationType: 'water_overflow',
+                },
+              ])
+            : of([]),
+        ),
+      })
+      .createService();
+
+    const response = await firstValueFrom(instance.getWaterbagTestKits());
+
+    expect(response).toEqual([
+      expect.objectContaining({
+        name: 'Uploaded observation',
+        lastUpdatedOn: new Date(1770000000 * 1000),
+        createdOn: new Date(created),
+      }),
     ]);
   });
 });

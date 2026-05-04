@@ -163,6 +163,7 @@ describe('LocationService', () => {
 
         instance.setOverriddenLocation([55.123, 12.456]);
 
+        expect(instance.isLocationOverridden).toBe(true);
         expect(await firstValueFrom(instance.userLocation$)).toEqual({
           loading: false,
           location: [55.123, 12.456],
@@ -187,6 +188,7 @@ describe('LocationService', () => {
 
         const { instance } = shallow.createService();
 
+        expect(instance.isLocationOverridden).toBe(true);
         expect(await firstValueFrom(instance.userLocation$)).toEqual({
           loading: false,
           location: [57.7, 11.97],

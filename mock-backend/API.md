@@ -5,6 +5,7 @@ This document summarizes the external HTTP endpoints used by the app, with reque
 ## StreetAI API (data points)
 
 **Base URL**: `${streetAiApiUrl}/${streetAiApiJurisdictionId}`
+
 - Defaults from `src/environments/environment.ts`:
   - `streetAiApiUrl`: `https://external.streetai.net/api/v1`
   - `streetAiApiJurisdictionId`: `lappeenranta`
@@ -12,9 +13,11 @@ This document summarizes the external HTTP endpoints used by the app, with reque
 **Auth**: `X-Api-Key: <streetAiApiKey>` header on every request.
 
 ### GET `/weather/conditions`
+
 Returns an array of weather condition data points.
 
 Response item shape:
+
 - `name` (string)
 - `latitude` (number)
 - `longitude` (number)
@@ -23,9 +26,11 @@ Response item shape:
 - `streetState` ("dry" | "moist" | "wet" | "slushy" | "snowy" | "icy" | null)
 
 ### GET `/weather/air-quality`
+
 Returns an array of air quality data points.
 
 Response item shape:
+
 - `name` (string)
 - `latitude` (number)
 - `longitude` (number)
@@ -33,9 +38,11 @@ Response item shape:
 - `measurementIndex` (number)
 
 ### GET `/weather/storm-water`
+
 Returns an array of storm water data points.
 
 Response item shape:
+
 - `name` (string)
 - `latitude` (number)
 - `longitude` (number)
@@ -50,9 +57,11 @@ Response item shape:
 - `waterQuality` (number)
 
 ### GET `/parking`
+
 Returns an array of parking data points.
 
 Response item shape:
+
 - `name` (string)
 - `latitude` (number)
 - `longitude` (number)
@@ -62,18 +71,22 @@ Response item shape:
 - `capacity` (number | null)
 
 ### GET `/road-works`
+
 Returns an array of road works data points.
 
 Response item shape:
+
 - `name` (string)
 - `latitude` (number)
 - `longitude` (number)
 - `validityPeriod` (string, formatted as `"<from> - <to>"`)
 
 ### GET `/waterbag-testkit`
+
 Returns an array of waterbag test kit data points.
 
 Response item shape:
+
 - `id` (string)
 - `coords` (object):
   - `latitudeValue` (number)
@@ -92,9 +105,11 @@ Response item shape:
 **Base URL**: `serviceApiUrl` (default `https://kartta.lappeenranta.fi/efeedback/api/georeport/6aika`)
 
 ### GET `/services.json?jurisdiction_id={serviceApiJurisdictionId}`
+
 Returns an array of service definitions.
 
 Response item shape:
+
 - `service_code` (string)
 - `service_name` (string)
 - `description` (string)
@@ -104,11 +119,13 @@ Response item shape:
 - `group` (string)
 
 ### POST `/requests.json?jurisdiction_id={serviceApiJurisdictionId}`
+
 Creates a service request (feedback submission).
 
 Content-Type: `multipart/form-data`
 
 Form fields:
+
 - Required:
   - `api_key` (string)
   - `service_code` (string)
@@ -123,6 +140,7 @@ Form fields:
   - `media[]` (file, repeatable)
 
 Response handling:
+
 - The code does not use the response payload; it resolves to the submitted `email` value.
 
 ## Observation API (water observations)
@@ -130,6 +148,7 @@ Response handling:
 **Base URL**: `observationApiUrl` (see `src/environments/environment.*.ts`)
 
 ### POST `/water`
+
 Creates a water observation.
 
 Content-Type: `multipart/form-data`
@@ -139,10 +158,12 @@ attach the created observation to that user. Anonymous submissions are still
 allowed and will store `user` as empty.
 
 Visibility defaults:
+
 - authenticated `users` submitter: `visible = true`
 - anonymous submitter: `visible = false`
 
 Form fields:
+
 - Required:
   - `latitude` (number)
   - `longitude` (number)
@@ -166,13 +187,17 @@ Form fields:
   - `phosphate` (number)
 
 Response:
+
 - `{ id: string }`
 
 ### GET `/water`
+
 Returns a list of submitted water observations.
 
 Response item shape:
+
 - `id` (string)
+- `created` (string, datetime when the observation arrived)
 - `latitude` (number)
 - `longitude` (number)
 - `dataRetrievedTimestamp` (number, unix seconds)
@@ -185,29 +210,51 @@ Response item shape:
 **Base URL**: `/messages`
 
 ### GET `/active`
+
 Returns currently active scheduled messages for public display.
 
 Response item shape:
+
 - `id` (string)
 - `title` (string)
 - `content` (string, rich text HTML)
 - `start` (string, datetime)
 - `end` (string, datetime)
+- `type` (`info` or `warning`)
 
 Active window logic:
+
 - A message is returned when current server time is between `start` and `end` (inclusive).
 - Messages with missing or invalid time range are ignored.
+
+### POST `/alert`
+
+Creates an immediate dashboard message. Requires a logged-in PocketBase user with `type = "admin"`.
+
+Content-Type: `application/json`
+
+Request body:
+
+- `title` (string, required)
+- `content` (string, required rich text HTML)
+- `type` (`info` or `warning`, optional, defaults to `info`)
+- `durationHours` (number, optional, defaults to 2, capped at 168)
+
+After the message is saved, PocketBase realtime broadcasts on `scheduled-messages-refresh`
+so active dashboards can refetch `/messages/active` immediately.
 
 ## Push API (web push subscriptions)
 
 **Base URL**: `pushApiUrl` (see `src/environments/environment.*.ts`)
 
 ### POST `/subscribe`
+
 Stores or updates a push subscription.
 
 Content-Type: `application/json`
 
 Body:
+
 - `endpoint` (string, required)
 - `expirationTime` (number | null)
 - `keys` (object):
@@ -215,20 +262,25 @@ Body:
   - `auth` (string)
 
 Response:
+
 - `{ id: string }`
 
 ### POST `/unsubscribe`
+
 Removes a push subscription by endpoint.
 
 Content-Type: `application/json`
 
 Body:
+
 - `endpoint` (string, required)
 
 Response:
+
 - `{ ok: true }`
 
 ### POST `/test`
+
 Sends a test push notification to one subscription or all stored subscriptions.
 
 **Auth**: PocketBase superuser token (same as Admin UI).
@@ -236,6 +288,7 @@ Sends a test push notification to one subscription or all stored subscriptions.
 Content-Type: `application/json`
 
 Body:
+
 - `title` (string, required)
 - `body` (string, optional)
 - `icon` (string, optional)
@@ -243,6 +296,7 @@ Body:
 - `endpoint` (string, optional; if omitted, sends to all)
 
 Response:
+
 - `sent` (number)
 - `results` (array):
   - `endpoint` (string)
@@ -251,6 +305,7 @@ Response:
   - `error` (string | empty)
 
 ### Admin test page
+
 Static page served from `./pb_public/admin/push-test.html`.
 
 Open: `/admin/push-test.html`

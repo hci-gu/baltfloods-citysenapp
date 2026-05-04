@@ -12,17 +12,17 @@ import {
 } from '@angular/core';
 import { LatLong } from '@core/models/location';
 import { environment } from '@environments/environment';
-import { isSameLocation } from '../../utils/location-utils';
 import * as leaflet from 'leaflet';
 import { isEqual } from 'lodash-es';
-import { Observable, Subscription, firstValueFrom } from 'rxjs';
+import { Observable, Subscription, firstValueFrom, shareReplay } from 'rxjs';
 
 export interface Marker {
   location: LatLong;
   color?: string;
   icon?: string;
   active?: boolean;
-  displayMode?: 'default' | 'heatmap';
+  count?: number;
+  displayMode?: 'default' | 'heatmap' | 'circle';
   heatIntensity?: number;
 }
 
@@ -31,6 +31,7 @@ export interface MapBounds {
   west: number;
   north: number;
   east: number;
+  zoom?: number;
 }
 
 @Component({
@@ -55,6 +56,11 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   private heatLayer: leaflet.HeatLayer | null = null;
   private heatLayerLoadPromise: Promise<boolean> | null = null;
   private markerRenderSequence = 0;
+  private readonly renderedMarkerLayers = new Map<string, leaflet.Marker>();
+  private readonly renderedMarkerSnapshots = new Map<string, Marker>();
+  private renderedHeatmapMarkers: Marker[] = [];
+  private markerSvg$?: Observable<string>;
+  private readonly iconSvgCache = new Map<string, Observable<string>>();
   private latestCenter: LatLong | null = null;
 
   public constructor(private readonly http: HttpClient) {}
@@ -68,8 +74,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   public ngOnChanges(changes: SimpleChanges): void {
     if (changes['markers']) {
-      const { previousValue, currentValue } = changes['markers'];
-      this.renderMarkers(previousValue ?? [], currentValue);
+      this.renderMarkers(changes['markers'].currentValue);
     }
 
     if (changes['center$']) {
@@ -113,6 +118,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private destroyMap(): void {
+    this.clearMarkers();
     this.map?.off();
     this.map?.remove();
   }
@@ -135,49 +141,8 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.map?.setView(new leaflet.LatLng(...center), zoom);
   }
 
-  private getMarkersToAdd(
-    previousMarkers: Marker[],
-    newMarkers: Marker[],
-  ): Marker[] {
-    return newMarkers.filter(
-      (marker) =>
-        !previousMarkers.some((prevMarker) =>
-          isSameLocation(marker.location, prevMarker.location),
-        ),
-    );
-  }
-
-  private getMarkersToRemove(
-    previousMarkers: Marker[],
-    newMarkers: Marker[],
-  ): Marker[] {
-    return previousMarkers.filter(
-      (prevMarker) =>
-        !newMarkers.some((marker) =>
-          isSameLocation(marker.location, prevMarker.location),
-        ),
-    );
-  }
-
-  private getMarkersToChange(
-    previousMarkers: Marker[],
-    newMarkers: Marker[],
-  ): Marker[] {
-    return newMarkers.filter((newMarker) => {
-      const previousMarker = previousMarkers.find((marker) =>
-        isSameLocation(marker.location, newMarker.location),
-      );
-      return previousMarker && !isEqual(newMarker, previousMarker);
-    });
-  }
-
-  private renderMarkers(previousMarkers: Marker[], newMarkers: Marker[]): void {
+  private renderMarkers(newMarkers: Marker[]): void {
     const renderSequence = ++this.markerRenderSequence;
-    this.clearMarkers();
-    if (newMarkers.length === 0) {
-      return;
-    }
-
     const heatmapMarkers = newMarkers.filter(
       (marker) => marker.displayMode === 'heatmap',
     );
@@ -185,51 +150,141 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       (marker) => marker.displayMode !== 'heatmap',
     );
 
-    if (heatmapMarkers.length > 0) {
-      void this.renderHeatLayer(heatmapMarkers, renderSequence);
+    if (!isEqual(heatmapMarkers, this.renderedHeatmapMarkers)) {
+      this.removeHeatLayer();
+      this.renderedHeatmapMarkers = [];
+
+      if (heatmapMarkers.length > 0) {
+        this.renderedHeatmapMarkers = this.copyMarkers(heatmapMarkers);
+        void this.renderHeatLayer(heatmapMarkers, renderSequence);
+      }
     }
 
-    defaultMarkers.forEach(this.renderMarker.bind(this));
+    this.renderDefaultMarkers(defaultMarkers, renderSequence);
   }
 
-  private clearMarkers(): void {
+  private renderDefaultMarkers(
+    markers: Marker[],
+    renderSequence: number,
+  ): void {
+    const nextMarkerKeys = new Set(
+      markers.map((marker) => this.getMarkerKey(marker)),
+    );
+
+    Array.from(this.renderedMarkerLayers.keys()).forEach((key) => {
+      if (this.renderedMarkerSnapshots.get(key)?.displayMode === 'heatmap') {
+        return;
+      }
+
+      if (!nextMarkerKeys.has(key)) {
+        this.removeMarkerLayer(key);
+      }
+    });
+
+    markers.forEach((marker) => {
+      const markerKey = this.getMarkerKey(marker);
+      const existingSnapshot = this.renderedMarkerSnapshots.get(markerKey);
+
+      if (existingSnapshot && isEqual(existingSnapshot, marker)) {
+        return;
+      }
+
+      void this.upsertMarker(marker, markerKey, renderSequence);
+    });
+  }
+
+  private removeHeatLayer(): void {
     if (this.heatLayer && this.map?.hasLayer(this.heatLayer)) {
       this.map.removeLayer(this.heatLayer);
     }
     this.heatLayer = null;
 
-    this.map?.eachLayer((layer) => {
-      if (layer instanceof leaflet.Marker || layer instanceof leaflet.CircleMarker) {
-        layer.remove();
+    Array.from(this.renderedMarkerLayers.keys()).forEach((key) => {
+      if (this.renderedMarkerSnapshots.get(key)?.displayMode === 'heatmap') {
+        this.removeMarkerLayer(key);
       }
     });
   }
 
-  private updateMarker(marker: Marker): void {
-    this.map?.eachLayer(async (layer) => {
-      if (layer instanceof leaflet.Marker) {
-        const { lat, lng } = layer.getLatLng();
+  private removeMarkerLayer(markerKey: string): void {
+    const layer = this.renderedMarkerLayers.get(markerKey);
+    if (layer && this.map?.hasLayer(layer)) {
+      layer.remove();
+    }
 
-        if (isSameLocation(marker.location, [lat, lng])) {
-          const divIcon = await this.getMarkerDivIcon(marker);
-          layer.setIcon(divIcon);
-        }
-      }
+    this.renderedMarkerLayers.delete(markerKey);
+    this.renderedMarkerSnapshots.delete(markerKey);
+  }
+
+  private clearMarkers(): void {
+    this.removeHeatLayer();
+    this.renderedHeatmapMarkers = [];
+
+    Array.from(this.renderedMarkerLayers.keys()).forEach((key) =>
+      this.removeMarkerLayer(key),
+    );
+  }
+
+  private async upsertMarker(
+    marker: Marker,
+    markerKey: string,
+    renderSequence: number,
+  ): Promise<void> {
+    const divIcon =
+      marker.displayMode === 'circle'
+        ? this.getCircleMarkerDivIcon(marker)
+        : await this.getMarkerDivIcon(marker);
+
+    if (!this.map || renderSequence !== this.markerRenderSequence) {
+      return;
+    }
+
+    const existingLayer = this.renderedMarkerLayers.get(markerKey);
+    if (existingLayer) {
+      existingLayer.setLatLng(new leaflet.LatLng(...marker.location));
+      existingLayer.setIcon(divIcon);
+      this.renderedMarkerSnapshots.set(markerKey, this.copyMarker(marker));
+      return;
+    }
+
+    const layer = leaflet.marker(new leaflet.LatLng(...marker.location), {
+      icon: divIcon,
+      ...(marker.displayMode === 'circle'
+        ? {
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: -1000,
+          }
+        : {}),
     });
+
+    if (marker.displayMode !== 'circle') {
+      layer.on('click', this.onClickMarker.bind(this));
+    }
+
+    layer.addTo(this.map);
+    this.renderedMarkerLayers.set(markerKey, layer);
+    this.renderedMarkerSnapshots.set(markerKey, this.copyMarker(marker));
+  }
+
+  private getMarkerKey(marker: Marker): string {
+    return `${marker.displayMode ?? 'default'}:${marker.location[0]}:${marker.location[1]}`;
+  }
+
+  private copyMarkers(markers: Marker[]): Marker[] {
+    return markers.map((marker) => this.copyMarker(marker));
+  }
+
+  private copyMarker(marker: Marker): Marker {
+    return {
+      ...marker,
+      location: [...marker.location] as LatLong,
+    };
   }
 
   private async renderMarker(marker: Marker): Promise<void> {
-    const { location } = marker;
-
-    if (this.map) {
-      const divIcon = await this.getMarkerDivIcon(marker);
-      leaflet
-        .marker(new leaflet.LatLng(...location), {
-          icon: divIcon,
-        })
-        .on('click', this.onClickMarker.bind(this))
-        .addTo(this.map);
-    }
+    const markerKey = this.getMarkerKey(marker);
+    await this.upsertMarker(marker, markerKey, this.markerRenderSequence);
   }
 
   private async renderHeatLayer(
@@ -250,11 +305,13 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    const heatPoints: Array<[number, number, number]> = markers.map((marker) => [
-      marker.location[0],
-      marker.location[1],
-      Math.max(0.05, Math.min(marker.heatIntensity ?? 0.2, 1)),
-    ]);
+    const heatPoints: Array<[number, number, number]> = markers.map(
+      (marker) => [
+        marker.location[0],
+        marker.location[1],
+        Math.max(0.05, Math.min(marker.heatIntensity ?? 0.2, 1)),
+      ],
+    );
 
     const heatLayerFactory = (
       leaflet as unknown as {
@@ -266,18 +323,18 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     ).heatLayer;
 
     this.heatLayer = heatLayerFactory(heatPoints, {
-        radius: 30,
-        blur: 22,
-        minOpacity: 0.35,
-        maxZoom: 18,
-        gradient: {
-          0.2: '#0ea5e9',
-          0.4: '#22c55e',
-          0.6: '#facc15',
-          0.8: '#f97316',
-          1.0: '#dc2626',
-        },
-      }).addTo(this.map);
+      radius: 30,
+      blur: 22,
+      minOpacity: 0.35,
+      maxZoom: 18,
+      gradient: {
+        0.2: '#0ea5e9',
+        0.4: '#22c55e',
+        0.6: '#facc15',
+        0.8: '#f97316',
+        1.0: '#dc2626',
+      },
+    }).addTo(this.map);
   }
 
   private async ensureHeatLayerFactory(): Promise<boolean> {
@@ -306,10 +363,8 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private async getMarkerDivIcon(marker: Marker): Promise<leaflet.DivIcon> {
-    const { color, active, icon } = marker;
-    const markerSvg = await firstValueFrom(
-      this.http.get('/assets/icons/marker.svg', { responseType: 'text' }),
-    );
+    const { color, active, icon, count } = marker;
+    const markerSvg = await firstValueFrom(this.getMarkerSvg());
 
     const fillColor = color ?? '#275D38';
     const strokeColor = active ? '#275D38' : fillColor;
@@ -319,21 +374,58 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     let iconSvg = '';
     if (icon) {
-      iconSvg = await firstValueFrom(
-        this.http.get(`/assets/icons/${icon}`, { responseType: 'text' }),
-      );
+      iconSvg = await firstValueFrom(this.getIconSvg(icon));
     }
 
     const svg = `
         <div style="position: relative;">
           ${styledMarkerSvg}
           ${iconSvg}
+          ${
+            count && count > 1
+              ? `<span class="marker-count-badge">${count}</span>`
+              : ''
+          }
         </div>
       `;
 
     return leaflet.divIcon({
       html: svg,
       ...this.getMarkerIconProperties(active),
+    });
+  }
+
+  private getMarkerSvg(): Observable<string> {
+    if (!this.markerSvg$) {
+      this.markerSvg$ = this.http
+        .get('/assets/icons/marker.svg', { responseType: 'text' })
+        .pipe(shareReplay(1));
+    }
+
+    return this.markerSvg$;
+  }
+
+  private getIconSvg(icon: string): Observable<string> {
+    const cachedIconSvg = this.iconSvgCache.get(icon);
+    if (cachedIconSvg) {
+      return cachedIconSvg;
+    }
+
+    const iconSvg$ = this.http
+      .get(`/assets/icons/${icon}`, { responseType: 'text' })
+      .pipe(shareReplay(1));
+    this.iconSvgCache.set(icon, iconSvg$);
+    return iconSvg$;
+  }
+
+  private getCircleMarkerDivIcon(marker: Marker): leaflet.DivIcon {
+    const fillColor = marker.color ?? '#2563eb';
+
+    return leaflet.divIcon({
+      html: `<span class="location-dot" style="background-color: ${fillColor};"></span>`,
+      iconAnchor: [6, 6],
+      iconSize: [12, 12],
+      className: 'location-dot-marker',
     });
   }
 
@@ -377,6 +469,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
         west: bounds.getWest(),
         north: bounds.getNorth(),
         east: bounds.getEast(),
+        zoom: this.map?.getZoom(),
       });
     }
   }

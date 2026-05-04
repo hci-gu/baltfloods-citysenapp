@@ -16,6 +16,21 @@
   background: unset !important;
   border: unset !important;
 
+  &.location-dot-marker {
+    display: grid;
+    place-items: center;
+
+    .location-dot {
+      display: block;
+      box-sizing: border-box;
+      width: 12px;
+      height: 12px;
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgb(16 24 40 / 24%);
+    }
+  }
+
   div svg + svg {
     position: absolute;
     height: 18px;
@@ -29,6 +44,25 @@
     }
   }
 
+  .marker-count-badge {
+    position: absolute;
+    top: -5px;
+    right: -7px;
+    display: grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border: 2px solid white;
+    border-radius: 999px;
+    background: #101828;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgb(16 24 40 / 20%);
+  }
+
   &.active div {
     svg:first-child path {
       stroke: #275d38 !important;
@@ -37,6 +71,13 @@
     svg + svg {
       height: 28px;
       top: 7px;
+    }
+
+    .marker-count-badge {
+      top: -6px;
+      right: -8px;
+      min-width: 20px;
+      height: 20px;
     }
   }
 }

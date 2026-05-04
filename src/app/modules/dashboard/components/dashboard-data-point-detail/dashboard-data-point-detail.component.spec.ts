@@ -65,7 +65,10 @@ describe('DashboardDataPointDetailComponent', () => {
 
       expect(radarService.reverseGeocode).toHaveBeenCalledWith([123, 456]);
       expect(find('p')[0].nativeElement.innerHTML).toBe(address);
-      expect(find('h1').nativeElement.innerHTML).toBe('Point 1, Point 2');
+      expect(find('h1').nativeElement.innerHTML).toBe('Point 1');
+      expect(
+        find('.detail-navigation-count').nativeElement.textContent,
+      ).toContain('1 / 2');
     });
 
     describe('it should show the correct information by type', () => {
@@ -129,15 +132,15 @@ describe('DashboardDataPointDetailComponent', () => {
         fixture.detectChanges();
 
         expect(find('.sensor-detail')).toHaveFound(1);
-        expect(find('.sensor-detail__value').nativeElement.textContent.trim()).toBe(
-          '19.7',
-        );
+        expect(
+          find('.sensor-detail__value').nativeElement.textContent.trim(),
+        ).toBe('19.7');
         expect(
           find('.sensor-detail__status-copy').nativeElement.textContent,
         ).toContain('Above the highest configured threshold.');
-        expect(find('.sensor-detail__meta').nativeElement.textContent).toContain(
-          'Yellow 18 MASL',
-        );
+        expect(
+          find('.sensor-detail__meta').nativeElement.textContent,
+        ).toContain('Yellow 18 MASL');
       });
 
       it('when type is weather condition', async () => {
@@ -245,9 +248,9 @@ describe('DashboardDataPointDetailComponent', () => {
         expect(find('p.body-xs').nativeElement.innerHTML).toEqual(address);
         expect(findComponent(Chip).length).toEqual(8);
         expect(find('.observation-image')).toHaveFound(1);
-        expect(find('.observation-image').nativeElement.getAttribute('src')).toBe(
-          imageUrl,
-        );
+        expect(
+          find('.observation-image').nativeElement.getAttribute('src'),
+        ).toBe(imageUrl);
       });
 
       it('when type is parking', async () => {
@@ -309,7 +312,7 @@ describe('DashboardDataPointDetailComponent', () => {
         expect(find('p.button-sm').length).toEqual(2);
       });
 
-      it('should show multiple data points', async () => {
+      it('should navigate between multiple data points', async () => {
         const quality = DataPointQuality.DEFAULT;
 
         const dataPoints: DataPoint[] = [
@@ -339,13 +342,57 @@ describe('DashboardDataPointDetailComponent', () => {
         await fixture.whenStable();
         fixture.detectChanges();
 
-        expect(find('.metric-container')).toHaveFound(2);
-        expect(find('h1').nativeElement.innerHTML).toEqual(
-          'Weather hub, City Parking',
-        );
+        expect(find('.metric-container')).toHaveFound(1);
+        expect(find('h1').nativeElement.innerHTML).toEqual('Weather hub');
         expect(find('p.body-xs').nativeElement.innerHTML).toEqual(address);
-        expect(find('p.button-sm').length).toEqual(3);
-        expect(find('small.body-sm')[0].nativeElement.innerHTML).toEqual('1');
+        expect(
+          find('.detail-navigation-count').nativeElement.textContent,
+        ).toContain('1 / 2');
+
+        find('.detail-navigation-button.next').triggerEventHandler('click', {});
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(find('h1').nativeElement.innerHTML).toEqual('City Parking');
+        expect(
+          find('.detail-navigation-count').nativeElement.textContent,
+        ).toContain('2 / 2');
+        expect(find('small.body-sm').nativeElement.innerHTML).toEqual('1');
+      });
+
+      it('should swipe between multiple data points', async () => {
+        const dataPoints: DataPoint[] = [
+          {
+            name: 'Weather hub',
+            quality: DataPointQuality.DEFAULT,
+            type: DataPointType.WEATHER_CONDITIONS,
+            location: [61.05871, 28.18871],
+            data: {},
+          },
+          {
+            name: 'City Parking',
+            quality: DataPointQuality.DEFAULT,
+            type: DataPointType.PARKING,
+            location: [61.05871, 28.18871],
+            availableSpots: 1,
+          },
+        ];
+
+        const { fixture, instance } = await shallow.render(
+          '<app-dashboard-data-point-detail [dataPoints]="dataPoints"></app-dashboard-data-point-detail>',
+          { bind: { dataPoints } },
+        );
+
+        await fixture.whenStable();
+        instance.onTouchStart({
+          changedTouches: [{ clientX: 120 }],
+        } as unknown as TouchEvent);
+        instance.onTouchEnd({
+          changedTouches: [{ clientX: 40 }],
+        } as unknown as TouchEvent);
+
+        expect(instance.activeDataPointIndex()).toBe(1);
+        expect(instance.activeDataPoint()?.name).toBe('City Parking');
       });
     });
   });
@@ -368,7 +415,9 @@ describe('DashboardDataPointDetailComponent', () => {
       );
 
       expect(
-        instance.getDataPointImageUrl('api/files/observations/abc123/photo.png'),
+        instance.getDataPointImageUrl(
+          'api/files/observations/abc123/photo.png',
+        ),
       ).toBe('/api/files/observations/abc123/photo.png');
       expect(
         instance.getDataPointImageUrl(
@@ -383,9 +432,9 @@ describe('DashboardDataPointDetailComponent', () => {
         { bind: { dataPoints: minimalDataPoints } },
       );
 
-      expect(instance.getDataPointImageUrl('uploads/waterbag/example.jpg')).toBe(
-        `${environment.streetAiUploadUrl}/uploads/waterbag/example.jpg`,
-      );
+      expect(
+        instance.getDataPointImageUrl('uploads/waterbag/example.jpg'),
+      ).toBe(`${environment.streetAiUploadUrl}/uploads/waterbag/example.jpg`);
     });
   });
 });

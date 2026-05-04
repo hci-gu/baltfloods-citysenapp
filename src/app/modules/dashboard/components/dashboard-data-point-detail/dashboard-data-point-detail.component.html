@@ -1,4 +1,8 @@
-<div class="container flex-column">
+<div
+  class="container flex-column"
+  (touchstart)="onTouchStart($event)"
+  (touchend)="onTouchEnd($event)"
+>
   <div class="location-information-container shadow-sm flex-row">
     <div class="full-width flex-column">
       <h1 class="display-xs">{{ name() }}</h1>
@@ -8,11 +12,33 @@
       } @else {
         <p-skeleton class="address-loader"></p-skeleton>
       }
+
+      @if (hasMultipleDataPoints) {
+        <div class="detail-navigation" aria-label="Grouped observations">
+          <button
+            type="button"
+            class="detail-navigation-button previous"
+            aria-label="Previous observation"
+            [disabled]="activeDataPointIndex() === 0"
+            (click)="showPreviousDataPoint()"
+          ></button>
+          <span class="detail-navigation-count body-xs">
+            {{ activeDataPointIndex() + 1 }} / {{ dataPoints.length }}
+          </span>
+          <button
+            type="button"
+            class="detail-navigation-button next"
+            aria-label="Next observation"
+            [disabled]="activeDataPointIndex() === dataPoints.length - 1"
+            (click)="showNextDataPoint()"
+          ></button>
+        </div>
+      }
     </div>
     <app-icon icon="close" (click)="close.emit()"></app-icon>
   </div>
 
-  @for (dataPoint of dataPoints; track dataPoint.type) {
+  @if (activeDataPoint(); as dataPoint) {
     @switch (dataPoint.type) {
       @case (DATA_POINT_TYPE.WEATHER_CONDITIONS) {
         <ul class="metric-container">
@@ -69,7 +95,8 @@
                 <p-chip
                   class="chip sensor-detail__status-chip"
                   [style]="{
-                    'background-color': getSensorStatusBackgroundColor(dataPoint),
+                    'background-color':
+                      getSensorStatusBackgroundColor(dataPoint),
                     color: getSensorStatusTextColor(dataPoint),
                   }"
                   [label]="getSensorStatusLabel(dataPoint)"
@@ -131,7 +158,9 @@
             @if (hasStormWaterFillLevel(dataPoint)) {
               <li>
                 <p class="button-sm">
-                  {{ "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate }}
+                  {{
+                    "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate
+                  }}
                 </p>
                 <small class="body-sm">
                   {{
@@ -153,7 +182,9 @@
                 </p>
                 <small class="body-sm">
                   {{ getStormWeatherMetricValue(metric.value, metric.key)
-                  }}{{ getMetricUnitForDataPoint(dataPoint, metric.key) }}</small
+                  }}{{
+                    getMetricUnitForDataPoint(dataPoint, metric.key)
+                  }}</small
                 >
               </li>
             }
@@ -258,12 +289,14 @@
           }
         </ul>
         @if (dataPoint.imageUrl) {
-          <img
-            class="observation-image"
-            [src]="getDataPointImageUrl(dataPoint.imageUrl)"
-            [alt]="'Image for ' + dataPoint.name"
-            loading="lazy"
-          />
+          <div class="observation-image-preview">
+            <img
+              class="observation-image"
+              [src]="getDataPointImageUrl(dataPoint.imageUrl)"
+              [alt]="'Image for ' + dataPoint.name"
+              loading="lazy"
+            />
+          </div>
         }
       }
       @case (DATA_POINT_TYPE.ROAD_WORKS) {

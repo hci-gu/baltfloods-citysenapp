@@ -10,6 +10,7 @@ import {
   IntotoMyLocationDto,
   IntotoMySeriesDto,
   IntotoSeriesDataDto,
+  IntotoSeriesDataQuery,
 } from '@core/services/intoto-api/models';
 import {
   DataPointQuality,
@@ -78,6 +79,10 @@ export class DataPointsApi {
   );
   private readonly intotoMaxLocations = 10;
   private intotoCatalog$?: Observable<IntotoCatalogContext>;
+  private readonly intotoSeriesDataCache = new Map<
+    string,
+    Observable<IntotoSeriesDataDto[]>
+  >();
   private readonly debugIntoto = !environment.production;
 
   public constructor(
@@ -292,11 +297,10 @@ export class DataPointsApi {
       return of([]);
     }
 
-    return this.intotoApi
-      .getSeriesData(historySeries.seriesId, {
-        fromDateTime,
-        toDateTime,
-      })
+    return this.getCachedIntotoSeriesData(historySeries.seriesId, {
+      fromDateTime,
+      toDateTime,
+    })
       .pipe(
         map((seriesData) =>
           seriesData
@@ -372,11 +376,10 @@ export class DataPointsApi {
 
         return forkJoin(
           candidates.map((candidate) =>
-            this.intotoApi
-              .getSeriesData(candidate.series.id, {
-                fromDateTime,
-                toDateTime: now,
-              })
+            this.getCachedIntotoSeriesData(candidate.series.id, {
+              fromDateTime,
+              toDateTime: now,
+            })
               .pipe(
                 map((seriesData) =>
                   this.mapIntotoSeriesToStormWater(candidate, seriesData),
@@ -441,6 +444,46 @@ export class DataPointsApi {
     }
 
     return this.intotoCatalog$;
+  }
+
+  private getCachedIntotoSeriesData(
+    seriesId: number,
+    query: IntotoSeriesDataQuery,
+  ): Observable<IntotoSeriesDataDto[]> {
+    const cacheKey = this.getIntotoSeriesDataCacheKey(seriesId, query);
+    const cached = this.intotoSeriesDataCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const request$ = this.intotoApi.getSeriesData(seriesId, query).pipe(
+      catchError((error) => {
+        this.intotoSeriesDataCache.delete(cacheKey);
+        return throwError(() => error);
+      }),
+      shareReplay(1),
+    );
+    this.intotoSeriesDataCache.set(cacheKey, request$);
+    return request$;
+  }
+
+  private getIntotoSeriesDataCacheKey(
+    seriesId: number,
+    query: IntotoSeriesDataQuery,
+  ): string {
+    return [
+      seriesId,
+      this.getDateCacheKey(query.fromDateTime),
+      this.getDateCacheKey(query.toDateTime),
+    ].join(':');
+  }
+
+  private getDateCacheKey(value: Date | string | undefined): string {
+    if (!value) {
+      return '';
+    }
+
+    return value instanceof Date ? value.toISOString() : value;
   }
 
   private findNearbyIntotoSeries(
@@ -645,9 +688,19 @@ export class DataPointsApi {
         type: DataPointType.WATERBAG_TESTKIT,
         quality: DataPointQuality.DEFAULT,
         lastUpdatedOn: new Date(dataTimestamp * 1000),
+        createdOn: this.parseOptionalDate(item.created),
         data: filteredData,
       };
     });
+  }
+
+  private parseOptionalDate(value: string | null | undefined): Date | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
 
   private toMetric(value: number | null | undefined, timestamp: number) {

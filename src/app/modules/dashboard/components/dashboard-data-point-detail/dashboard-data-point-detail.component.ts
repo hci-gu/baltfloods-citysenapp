@@ -4,7 +4,6 @@ import {
   EventEmitter,
   Input,
   OnChanges,
-  OnInit,
   Output,
   signal,
   SimpleChanges,
@@ -48,15 +47,19 @@ import { IconComponent } from '@shared/components/icon/icon.component';
   ],
   standalone: true,
 })
-export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
+export class DashboardDataPointDetailComponent implements OnChanges {
   @Input({ required: true }) public dataPoints: DataPoint[] = [];
 
   @Output() public close: EventEmitter<void> = new EventEmitter<void>();
 
   public address = signal<string | null>(null);
   public name = signal<string | null>(null);
+  public activeDataPoint = signal<DataPoint | null>(null);
+  public activeDataPointIndex = signal<number>(0);
 
   public DATA_POINT_TYPE = DataPointType;
+  private touchStartX: number | null = null;
+  private headerRequestId = 0;
 
   public constructor(
     private readonly translateService: TranslateService,
@@ -64,19 +67,50 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
     private readonly datePipe: DatePipe,
   ) {}
 
-  public ngOnInit(): void {
-    this.setHeaderValues();
-  }
-
   public ngOnChanges(changes: SimpleChanges): void {
     if (changes['dataPoints']) {
-      this.address.set(null);
-      this.name.set(null);
-
       if (changes['dataPoints'].currentValue) {
-        this.setHeaderValues();
+        this.setActiveDataPoint(0);
       }
     }
+  }
+
+  public get hasMultipleDataPoints(): boolean {
+    return this.dataPoints.length > 1;
+  }
+
+  public showPreviousDataPoint(): void {
+    this.setActiveDataPoint(this.activeDataPointIndex() - 1);
+  }
+
+  public showNextDataPoint(): void {
+    this.setActiveDataPoint(this.activeDataPointIndex() + 1);
+  }
+
+  public onTouchStart(event: TouchEvent): void {
+    this.touchStartX = event.changedTouches[0]?.clientX ?? null;
+  }
+
+  public onTouchEnd(event: TouchEvent): void {
+    if (this.touchStartX === null || !this.hasMultipleDataPoints) {
+      this.touchStartX = null;
+      return;
+    }
+
+    const endX = event.changedTouches[0]?.clientX ?? this.touchStartX;
+    const deltaX = endX - this.touchStartX;
+    this.touchStartX = null;
+
+    if (Math.abs(deltaX) < 40) {
+      return;
+    }
+
+    if (deltaX < 0) {
+      this.showNextDataPoint();
+      return;
+    }
+
+    this.showPreviousDataPoint();
   }
 
   public getWeatherConditionMetricValue(
@@ -179,9 +213,7 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
       .map(([key, value]) => ({ key, value }));
   }
 
-  public getSensorValue(
-    dataPoint: WeatherStormWaterDataPoint,
-  ): number | null {
+  public getSensorValue(dataPoint: WeatherStormWaterDataPoint): number | null {
     const value = dataPoint.data['waterLevel'];
     return typeof value === 'number' ? value : null;
   }
@@ -199,9 +231,7 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
     }).format(value);
   }
 
-  public getSensorStatusLabel(
-    dataPoint: WeatherStormWaterDataPoint,
-  ): string {
+  public getSensorStatusLabel(dataPoint: WeatherStormWaterDataPoint): string {
     const severity = this.getSensorSeverity(dataPoint);
 
     switch (severity) {
@@ -390,19 +420,38 @@ export class DashboardDataPointDetailComponent implements OnInit, OnChanges {
     return SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null;
   }
 
-  private async setHeaderValues(): Promise<void> {
-    const dataPointNames = this.dataPoints.map(({ name, type }) =>
-      type === DataPointType.WATERBAG_TESTKIT
+  private setActiveDataPoint(index: number): void {
+    const maxIndex = Math.max(0, this.dataPoints.length - 1);
+    const nextIndex = Math.min(Math.max(index, 0), maxIndex);
+    const nextDataPoint = this.dataPoints[nextIndex] ?? null;
+
+    this.activeDataPointIndex.set(nextIndex);
+    this.activeDataPoint.set(nextDataPoint);
+    this.address.set(null);
+    this.name.set(null);
+
+    void this.setHeaderValues(nextDataPoint);
+  }
+
+  private async setHeaderValues(dataPoint: DataPoint | null): Promise<void> {
+    const requestId = ++this.headerRequestId;
+
+    if (!dataPoint) {
+      return;
+    }
+
+    const dataPointName =
+      dataPoint.type === DataPointType.WATERBAG_TESTKIT
         ? this.translateService.instant(
             'DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.TITLE',
           )
-        : name,
-    );
-    this.name.set([...new Set(dataPointNames)].join(', '));
+        : dataPoint.name;
+    this.name.set(dataPointName);
 
-    const address = await this.radarService.reverseGeocode(
-      this.dataPoints[0].location,
-    );
+    const address = await this.radarService.reverseGeocode(dataPoint.location);
+    if (requestId !== this.headerRequestId) {
+      return;
+    }
     this.address.set(address);
   }
 }

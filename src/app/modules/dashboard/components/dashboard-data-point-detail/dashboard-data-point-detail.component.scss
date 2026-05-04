@@ -22,6 +22,53 @@
     }
   }
 
+  .detail-navigation {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .detail-navigation-button {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #d0d5dd;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+
+    &::before {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-top: 2px solid #344054;
+      border-right: 2px solid #344054;
+      content: "";
+    }
+
+    &.previous::before {
+      transform: translate(-35%, -50%) rotate(-135deg);
+    }
+
+    &.next::before {
+      transform: translate(-65%, -50%) rotate(45deg);
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.35;
+    }
+  }
+
+  .detail-navigation-count {
+    min-width: 40px;
+    color: #667085;
+    text-align: center;
+  }
+
   .metric-container {
     display: grid;
     gap: 16px;
@@ -99,17 +146,25 @@
     list-style-type: none;
   }
 
-  .observation-image {
-    display: block;
+  .observation-image-preview {
     width: calc(100% - 64px);
-    margin: 16px 32px;
+    max-width: 360px;
+    aspect-ratio: 1 / 1;
+    margin: 16px auto;
+    background-color: #f9fafb;
     border-radius: 12px;
     border: 1px solid #eaecf0;
-    object-fit: cover;
-    max-height: 280px;
+    overflow: hidden;
   }
 
-  .metric-container + .observation-image {
+  .observation-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .metric-container + .observation-image-preview {
     display: block;
     margin-top: 16px;
   }
@@ -154,8 +209,10 @@
       padding-top: 8px;
     }
 
-    .observation-image {
-      margin: 8px 12px;
+    .observation-image-preview {
+      width: calc(100% - 24px);
+      max-width: none;
+      margin: 8px auto;
     }
 
     .sensor-detail__value {

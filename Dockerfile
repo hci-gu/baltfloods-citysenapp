@@ -1,4 +1,4 @@
-FROM node:22-bullseye-slim AS build
+FROM node:22.12.0-bullseye-slim AS build
 
 WORKDIR /usr/src/app
 
@@ -9,7 +9,7 @@ COPY . .
 RUN cp src/environments/environment.development.ts src/environments/environment.ts
 RUN npm run build:production
 
-FROM node:22-bullseye-slim
+FROM node:22.12.0-bullseye-slim
 
 ENV NODE_ENV=production
 ENV PORT=8080

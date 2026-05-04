@@ -56,6 +56,10 @@ export class LocationService {
     return this._userLocation$;
   }
 
+  public get isLocationOverridden(): boolean {
+    return this._isLocationOverridden;
+  }
+
   public setOverriddenLocation(latLong: LatLong): void {
     this._isLocationOverridden = true;
     this._requestInProgress = false;

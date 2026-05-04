@@ -18,7 +18,7 @@ spec:
           claimName: baltfloods-api-pv-claim
       containers:
         - name: baltfloods-api
-          image: 'registry.k8s.gu.se/appademin/baltfloods-api:0.1.0'
+          image: 'registry.k8s.gu.se/appademin/baltfloods-api:0.4.0'
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

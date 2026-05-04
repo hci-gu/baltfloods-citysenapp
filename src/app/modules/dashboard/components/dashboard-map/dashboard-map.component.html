@@ -191,11 +191,31 @@
       ></app-dashboard-data-point-detail>
     }
 
-    <div class="actions flex-column" [class.panel-open]="activeMobileBottomPanel() !== null">
+    <div
+      class="actions flex-column"
+      [class.panel-open]="activeMobileBottomPanel() !== null"
+    >
+      <label
+        class="quick-observation-button shadow-md body-xs"
+        aria-label="Send observation"
+      >
+        <input
+          class="quick-observation-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          (click)="onQuickObservationCameraClick()"
+          (change)="onQuickObservationPhotoSelected($event)"
+        />
+        <app-icon icon="add-image"></app-icon>
+        <span>Send observation</span>
+      </label>
       @if (!activeMobileBottomPanel()) {
         <button
           type="button"
           class="open-bottom-panel-button shadow-md body-xs"
+          aria-controls="observations-bottom-panel"
+          [attr.aria-expanded]="activeMobileBottomPanel() === 'list'"
           (click)="setMobileBottomPanel('list')"
         >
           <app-icon icon="layers"></app-icon>
@@ -214,8 +234,10 @@
     </div>
 
     <section
+      id="timeline-bottom-panel"
       class="observations-timeline shadow-md"
       [class.mobile-panel-hidden]="activeMobileBottomPanel() !== 'timeline'"
+      aria-label="Timeline"
     >
       <header class="timeline-header">
         <div
@@ -226,7 +248,9 @@
           <button
             type="button"
             class="mobile-panel-tab body-xs"
+            role="tab"
             [class.active]="activeMobileBottomPanel() === 'list'"
+            [attr.aria-selected]="activeMobileBottomPanel() === 'list'"
             (click)="setMobileBottomPanel('list')"
           >
             Observations
@@ -234,7 +258,9 @@
           <button
             type="button"
             class="mobile-panel-tab body-xs"
+            role="tab"
             [class.active]="activeMobileBottomPanel() === 'timeline'"
+            [attr.aria-selected]="activeMobileBottomPanel() === 'timeline'"
             (click)="setMobileBottomPanel('timeline')"
           >
             Timeline
@@ -242,6 +268,7 @@
           <button
             type="button"
             class="mobile-panel-close-tab body-xs"
+            aria-label="Close bottom panel"
             (click)="setMobileBottomPanel(null)"
           >
             <app-icon icon="close"></app-icon>
@@ -494,8 +521,10 @@
   </section>
 
   <aside
+    id="observations-bottom-panel"
     class="observations-feed shadow-md"
     [class.mobile-panel-hidden]="activeMobileBottomPanel() !== 'list'"
+    aria-label="Observations"
   >
     <div class="observations-header">
       <div
@@ -506,7 +535,9 @@
         <button
           type="button"
           class="mobile-panel-tab body-xs"
+          role="tab"
           [class.active]="activeMobileBottomPanel() === 'list'"
+          [attr.aria-selected]="activeMobileBottomPanel() === 'list'"
           (click)="setMobileBottomPanel('list')"
         >
           Observations
@@ -514,7 +545,9 @@
         <button
           type="button"
           class="mobile-panel-tab body-xs"
+          role="tab"
           [class.active]="activeMobileBottomPanel() === 'timeline'"
+          [attr.aria-selected]="activeMobileBottomPanel() === 'timeline'"
           (click)="setMobileBottomPanel('timeline')"
         >
           Timeline
@@ -522,6 +555,7 @@
         <button
           type="button"
           class="mobile-panel-close-tab body-xs"
+          aria-label="Close bottom panel"
           (click)="setMobileBottomPanel(null)"
         >
           <app-icon icon="close"></app-icon>
@@ -534,6 +568,7 @@
           <button
             type="button"
             class="timespan-filter-button body-xs"
+            aria-label="Select observation period"
             (click)="toggleObservationTimespanFilter()"
           >
             {{ selectedObservationTimespanLabel() }}
@@ -568,6 +603,16 @@
             <button
               type="button"
               class="observation-item"
+              [attr.aria-label]="
+                'Open ' +
+                observation.name +
+                ', ' +
+                observation.typeLabel +
+                (observation.lastUpdatedOn
+                  ? ', ' +
+                    (observation.lastUpdatedOn | date: 'dd/MM/yyyy HH:mm')
+                  : '')
+              "
               (click)="onObservationClick(observation.location)"
             >
               @if (observation.imageUrl) {
