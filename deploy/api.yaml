@@ -18,8 +18,15 @@ spec:
           claimName: baltfloods-api-pv-claim
       containers:
         - name: baltfloods-api
-          image: 'registry.k8s.gu.se/appademin/baltfloods-api:0.4.0'
+          image: 'registry.k8s.gu.se/appademin/baltfloods-api:0.4.1'
           imagePullPolicy: Always
+          env:
+            - name: CITYSEN_SEED_CITY
+              value: 'Kristiansand'
+            - name: CITYSEN_SEED_LATITUDE
+              value: '58.154950'
+            - name: CITYSEN_SEED_LONGITUDE
+              value: '8.023647'
           ports:
             - containerPort: 8080
               name: web

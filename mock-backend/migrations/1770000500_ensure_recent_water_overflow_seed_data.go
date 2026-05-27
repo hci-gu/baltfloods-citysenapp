@@ -58,14 +58,7 @@ func init() {
 
 		missingCount := recentOverflowTargetCount - recentCount
 		rng := rand.New(rand.NewSource(1770000500))
-		spots := []overflowSeedSpot{
-			{name: "Lilla Bommen", latitude: 57.70690, longitude: 11.97980, weight: 4},
-			{name: "Opera", latitude: 57.70630, longitude: 11.96690, weight: 4},
-			{name: "Stigbergskajen", latitude: 57.70195, longitude: 11.94090, weight: 3},
-			{name: "Klippan", latitude: 57.70685, longitude: 11.95525, weight: 3},
-			{name: "Masthuggskajen", latitude: 57.69860, longitude: 11.94670, weight: 2},
-			{name: "Eriksberg", latitude: 57.70855, longitude: 11.91580, weight: 2},
-		}
+		spots := cityOverflowSeedSpots(currentSeedCity())
 
 		for i := 0; i < missingCount; i++ {
 			spot := pickOverflowSpot(rng, spots)

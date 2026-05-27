@@ -28,6 +28,8 @@ import {
   debounceTime,
   forkJoin,
   interval,
+  Observable,
+  of,
   startWith,
   switchMap,
   take,
@@ -85,6 +87,7 @@ interface UploadChart {
 
 const DEMO_START_TIME_INPUT = '2026-02-14T12:00';
 const DEMO_TRIGGER_ALARM_TIME_INPUT = '2026-02-15T20:00';
+const DEMO_BACK_TO_NORMAL_TIME_INPUT = '2026-02-16T12:00';
 
 @Component({
   selector: 'app-admin-observations',
@@ -403,6 +406,11 @@ export class AdminObservationsComponent {
     this.applyDemoTimePreset(DEMO_TRIGGER_ALARM_TIME_INPUT);
   }
 
+  public setDemoBackToNormalTime(): void {
+    this.demoTimeInput.set(DEMO_BACK_TO_NORMAL_TIME_INPUT);
+    this.saveDemoTimeOverrideAndHideDemoObservations();
+  }
+
   public saveDemoTimeOverride(): void {
     if (!this.canManageObservations()) {
       this.demoTimeError.set('Sign in as an admin to update demo time.');
@@ -460,6 +468,80 @@ export class AdminObservationsComponent {
   private applyDemoTimePreset(value: string): void {
     this.demoTimeInput.set(value);
     this.saveDemoTimeOverride();
+  }
+
+  private saveDemoTimeOverrideAndHideDemoObservations(): void {
+    if (!this.canManageObservations()) {
+      this.demoTimeError.set('Sign in as an admin to update demo time.');
+      return;
+    }
+
+    const parsed = this.parseDateTimeInput(this.demoTimeInput());
+    const token = this.authService.token;
+    if (!parsed) {
+      this.demoTimeError.set('Enter a valid date and time.');
+      return;
+    }
+
+    if (!token) {
+      this.demoTimeError.set('Sign in as an admin to update observations.');
+      return;
+    }
+
+    this.demoTimeError.set('');
+    this.isSavingDemoTime.set(true);
+    forkJoin({
+      override: this.demoTimeService.setOverride(parsed),
+      hiddenObservations: this.hideDemoWindowObservations(token),
+    })
+      .pipe(take(1))
+      .subscribe({
+        next: () => {
+          this.isSavingDemoTime.set(false);
+          this.loadObservationPage(this.currentPage());
+          this.loadInsights();
+        },
+        error: () => {
+          this.isSavingDemoTime.set(false);
+          this.demoTimeError.set(
+            'Failed to reset demo state. Please try again.',
+          );
+        },
+      });
+  }
+
+  private hideDemoWindowObservations(
+    authToken: string,
+  ): Observable<ObservationRecord[]> {
+    const start = this.parseDateTimeInput(DEMO_START_TIME_INPUT);
+    const end = this.parseDateTimeInput(DEMO_BACK_TO_NORMAL_TIME_INPUT);
+    if (!start || !end) {
+      return of([]);
+    }
+
+    return this.observationRecordsService
+      .listObservationsByDisplayTimeRange(start, end)
+      .pipe(
+        switchMap((records) => {
+          const recordsToHide = records.filter(
+            (record) => record.visible !== false,
+          );
+
+          if (recordsToHide.length === 0) {
+            return of([]);
+          }
+
+          return forkJoin(
+            recordsToHide.map((record) =>
+              this.observationRecordsService.updateObservation(
+                record.id,
+                { visible: false },
+                authToken,
+              ),
+            ),
+          );
+        }),
+      );
   }
 
   public onPageChange(event: { page?: number }): void {

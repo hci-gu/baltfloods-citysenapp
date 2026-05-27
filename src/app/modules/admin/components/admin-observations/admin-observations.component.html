@@ -72,6 +72,13 @@
               [disabled]="isSavingDemoTime() || !canManageObservations()"
               (click)="triggerDemoAlarm()"
             ></p-button>
+            <p-button
+              label="Back to normal"
+              severity="secondary"
+              [outlined]="true"
+              [disabled]="isSavingDemoTime() || !canManageObservations()"
+              (click)="setDemoBackToNormalTime()"
+            ></p-button>
           </div>
 
           <div class="demo-time-actions">

@@ -33,9 +33,11 @@ const (
 	observationTypeWaterOverflow   = "water_overflow"
 	observationRefreshTopic        = "observations-refresh"
 	scheduledMessagesRefreshTopic  = "scheduled-messages-refresh"
-	observationBackendAPIURL       = "https://baltfloods-api.prod.appadem.in"
+	observationBackendAPIURL       = "https://baltfloods-tallinn-api.prod.appadem.in"
 	demoTimeOverrideCollectionName = "demo_time_overrides"
 	demoTimeOverrideKey            = "global"
+	settingsCollectionName         = "settings"
+	settingsKey                    = "global"
 )
 
 func main() {
@@ -67,6 +69,9 @@ func main() {
 	})
 
 	app.OnRecordCreateRequest("observations").BindFunc(func(e *core.RecordRequestEvent) error {
+		if autoValidateCreatedObservations(e.App) && e.Record.Collection().Fields.GetByName("visible") != nil {
+			e.Record.Set("visible", true)
+		}
 		ensureObservationImageURL(e.Record)
 		return e.Next()
 	})
@@ -74,6 +79,27 @@ func main() {
 	app.OnRecordUpdateRequest("observations").BindFunc(func(e *core.RecordRequestEvent) error {
 		ensureObservationImageURL(e.Record)
 		return e.Next()
+	})
+
+	app.OnRecordCreateRequest(settingsCollectionName).BindFunc(func(e *core.RecordRequestEvent) error {
+		records, err := e.App.FindRecordsByFilter(settingsCollectionName, "", "", 1, 0)
+		if err != nil {
+			return apis.NewApiError(500, "Failed to check settings singleton.", err)
+		}
+		if len(records) > 0 {
+			return apis.NewBadRequestError("The settings collection can only contain one record.", nil)
+		}
+		e.Record.Set("key", settingsKey)
+		return e.Next()
+	})
+
+	app.OnRecordUpdateRequest(settingsCollectionName).BindFunc(func(e *core.RecordRequestEvent) error {
+		e.Record.Set("key", settingsKey)
+		return e.Next()
+	})
+
+	app.OnRecordDeleteRequest(settingsCollectionName).BindFunc(func(e *core.RecordRequestEvent) error {
+		return apis.NewBadRequestError("The settings record cannot be deleted.", nil)
 	})
 
 	app.OnRecordAfterCreateSuccess("observations").BindFunc(func(e *core.RecordEvent) error {
@@ -782,7 +808,7 @@ func createWaterObservation(app core.App, e *core.RequestEvent) (*core.Record, e
 		record.Set("user", e.Auth.Id)
 	}
 	if collection.Fields.GetByName("visible") != nil {
-		record.Set("visible", isAuthenticatedUser)
+		record.Set("visible", isAuthenticatedUser || autoValidateCreatedObservations(app))
 	}
 
 	if err := setRequiredNumber(record, "latitude", e.Request.FormValue("latitude")); err != nil {
@@ -932,6 +958,19 @@ func currentDemoTime(app core.App) time.Time {
 	}
 
 	return override.Time().UTC()
+}
+
+func autoValidateCreatedObservations(app core.App) bool {
+	record, err := app.FindFirstRecordByData(
+		settingsCollectionName,
+		"key",
+		settingsKey,
+	)
+	if err != nil {
+		return false
+	}
+
+	return record.GetBool("autoValidateObservations")
 }
 
 func mapWaterObservations(records []*core.Record, includeHidden bool) []map[string]any {

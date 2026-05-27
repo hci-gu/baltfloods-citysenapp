@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { AuthService } from '@core/services/auth.service';
 import { environment } from '@environments/environment';
-import { map, Observable } from 'rxjs';
+import { EMPTY, expand, map, Observable, reduce } from 'rxjs';
 
 interface PocketbaseListResponse<T> {
   page: number;
@@ -94,6 +94,34 @@ export class ObservationRecordsService {
       .pipe(map((response) => response.items ?? []));
   }
 
+  public listObservationsByDisplayTimeRange(
+    start: Date,
+    end: Date,
+  ): Observable<ObservationRecord[]> {
+    const pageSize = 500;
+    const startTimestamp = Math.floor(start.getTime() / 1000);
+    const endTimestamp = Math.floor(end.getTime() / 1000);
+    const requestPage = (page: number) =>
+      this.listObservationsByDisplayTimeRangePage(
+        page,
+        pageSize,
+        startTimestamp,
+        endTimestamp,
+      );
+
+    return requestPage(1).pipe(
+      expand((response) =>
+        response.page < response.totalPages
+          ? requestPage(response.page + 1)
+          : EMPTY,
+      ),
+      reduce(
+        (items, response) => [...items, ...(response.items ?? [])],
+        [] as ObservationRecord[],
+      ),
+    );
+  }
+
   public deleteObservation(recordId: string, authToken: string): Observable<void> {
     return this.http.delete<void>(
       `${this.baseUrl}/collections/observations/records/${recordId}`,
@@ -123,6 +151,28 @@ export class ObservationRecordsService {
 
   private formatPocketbaseDate(date: Date): string {
     return date.toISOString().replace('T', ' ');
+  }
+
+  private listObservationsByDisplayTimeRangePage(
+    page: number,
+    perPage: number,
+    startTimestamp: number,
+    endTimestamp: number,
+  ): Observable<PocketbaseListResponse<ObservationRecord>> {
+    const headers = this.createOptionalAuthHeaders();
+
+    return this.http.get<PocketbaseListResponse<ObservationRecord>>(
+      `${this.baseUrl}/collections/observations/records`,
+      {
+        ...(headers ? { headers } : {}),
+        params: {
+          page: `${page}`,
+          perPage: `${perPage}`,
+          sort: 'dataRetrievedTimestamp',
+          filter: `dataRetrievedTimestamp >= ${startTimestamp} && dataRetrievedTimestamp <= ${endTimestamp}`,
+        },
+      },
+    );
   }
 
   private createOptionalAuthHeaders(): HttpHeaders | null {

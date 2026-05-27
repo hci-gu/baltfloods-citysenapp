@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: baltfloods
+  name: baltfloods-tallinn
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: baltfloods
+      app: baltfloods-tallinn
   template:
     metadata:
       labels:
-        app: baltfloods
+        app: baltfloods-tallinn
     spec:
       containers:
-        - name: baltfloods
-          image: 'registry.k8s.gu.se/appademin/baltfloods:0.4.1'
+        - name: baltfloods-tallinn
+          image: 'registry.k8s.gu.se/appademin/baltfloods:0.4.3-tallinn'
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -24,10 +24,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: baltfloods-service
+  name: baltfloods-tallinn-service
 spec:
   selector:
-    app: baltfloods
+    app: baltfloods-tallinn
   ports:
     - protocol: TCP
       port: 8080
@@ -35,14 +35,14 @@ spec:
 kind: Route
 apiVersion: route.openshift.io/v1
 metadata:
-  name: baltfloods
+  name: baltfloods-tallinn
   annotations:
     kubernetes.io/tls-acme: "true"
 spec:
-  host: baltfloods.prod.appadem.in
+  host: baltfloods-tallinn.prod.appadem.in
   to:
     kind: Service
-    name: baltfloods-service
+    name: baltfloods-tallinn-service
     weight: 100
   port:
     targetPort: 8080

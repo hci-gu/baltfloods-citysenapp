@@ -32,75 +32,7 @@ func init() {
 		const stormSeedCount = 160
 		now := time.Now()
 		rng := rand.New(rand.NewSource(1767789710))
-
-		spots := []stormSeedSpot{
-			{
-				name:                "Gota River - Opera",
-				latitude:            57.70630,
-				longitude:           11.96690,
-				waterLevelBase:      0.95,
-				conductivityBase:    520,
-				turbidityBase:       3.1,
-				flowRateBase:        0.42,
-				waterTemperatureMid: 7.8,
-				weight:              4,
-			},
-			{
-				name:                "Gota River - Lilla Bommen",
-				latitude:            57.70690,
-				longitude:           11.97980,
-				waterLevelBase:      1.08,
-				conductivityBase:    545,
-				turbidityBase:       3.3,
-				flowRateBase:        0.47,
-				waterTemperatureMid: 8.2,
-				weight:              5,
-			},
-			{
-				name:                "Klara Alv - Klippan",
-				latitude:            57.70685,
-				longitude:           11.95525,
-				waterLevelBase:      0.88,
-				conductivityBase:    500,
-				turbidityBase:       2.8,
-				flowRateBase:        0.35,
-				waterTemperatureMid: 8.0,
-				weight:              3,
-			},
-			{
-				name:                "Stigbergskajen",
-				latitude:            57.70195,
-				longitude:           11.94090,
-				waterLevelBase:      1.02,
-				conductivityBase:    565,
-				turbidityBase:       3.6,
-				flowRateBase:        0.52,
-				waterTemperatureMid: 7.5,
-				weight:              2,
-			},
-			{
-				name:                "Rosenlund",
-				latitude:            57.70270,
-				longitude:           11.95840,
-				waterLevelBase:      0.84,
-				conductivityBase:    515,
-				turbidityBase:       2.9,
-				flowRateBase:        0.33,
-				waterTemperatureMid: 8.1,
-				weight:              2,
-			},
-			{
-				name:                "Masthuggskajen",
-				latitude:            57.69860,
-				longitude:           11.94670,
-				waterLevelBase:      0.91,
-				conductivityBase:    530,
-				turbidityBase:       3.4,
-				flowRateBase:        0.38,
-				waterTemperatureMid: 7.7,
-				weight:              3,
-			},
-		}
+		spots := cityStormSeedSpots(currentSeedCity())
 
 		for i := 0; i < stormSeedCount; i++ {
 			spot := pickStormSpot(rng, spots)
@@ -190,6 +122,44 @@ func pickStormSpot(rng *rand.Rand, spots []stormSeedSpot) stormSeedSpot {
 	}
 
 	return spots[0]
+}
+
+func cityStormSeedSpots(city seedCity) []stormSeedSpot {
+	return []stormSeedSpot{
+		newStormSeedSpot(city, "Central Waterfront", 0.0, 0.0, 0.95, 520, 3.1, 0.42, 7.8, 4),
+		newStormSeedSpot(city, "East Waterfront", 0.45, 1.2, 1.08, 545, 3.3, 0.47, 8.2, 5),
+		newStormSeedSpot(city, "West Canal", -0.15, -1.3, 0.88, 500, 2.8, 0.35, 8.0, 3),
+		newStormSeedSpot(city, "Harbor Basin", -0.9, -2.2, 1.02, 565, 3.6, 0.52, 7.5, 2),
+		newStormSeedSpot(city, "Inner Canal", -0.55, -0.45, 0.84, 515, 2.9, 0.33, 8.1, 2),
+		newStormSeedSpot(city, "South Runoff", -1.35, 0.9, 0.91, 530, 3.4, 0.38, 7.7, 3),
+	}
+}
+
+func newStormSeedSpot(
+	city seedCity,
+	label string,
+	northKm float64,
+	eastKm float64,
+	waterLevelBase float64,
+	conductivityBase float64,
+	turbidityBase float64,
+	flowRateBase float64,
+	waterTemperatureMid float64,
+	weight int,
+) stormSeedSpot {
+	latitude, longitude := seedOffsetCoordinate(city, northKm, eastKm)
+
+	return stormSeedSpot{
+		name:                seedSpotDisplayName(city, label),
+		latitude:            latitude,
+		longitude:           longitude,
+		waterLevelBase:      waterLevelBase,
+		conductivityBase:    conductivityBase,
+		turbidityBase:       turbidityBase,
+		flowRateBase:        flowRateBase,
+		waterTemperatureMid: waterTemperatureMid,
+		weight:              weight,
+	}
 }
 
 func randomSeedTimestamp(rng *rand.Rand, now time.Time, spanYears int) time.Time {

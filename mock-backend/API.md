@@ -12,6 +12,8 @@ This document summarizes the external HTTP endpoints used by the app, with reque
 
 **Auth**: `X-Api-Key: <streetAiApiKey>` header on every request.
 
+Seeded mock data is generated around `CITYSEN_SEED_CITY`, `CITYSEN_SEED_LATITUDE`, and `CITYSEN_SEED_LONGITUDE`. If those env vars are not set, the mock backend falls back to the committed Lappeenranta default location.
+
 ### GET `/weather/conditions`
 
 Returns an array of weather condition data points.
@@ -161,6 +163,8 @@ Visibility defaults:
 
 - authenticated `users` submitter: `visible = true`
 - anonymous submitter: `visible = false`
+- if `settings.autoValidateObservations = true`: created observations are
+  forced to `visible = true`
 
 Form fields:
 

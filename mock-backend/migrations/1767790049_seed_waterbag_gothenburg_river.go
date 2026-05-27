@@ -30,16 +30,8 @@ func init() {
 		const waterbagSeedCount = 280
 		now := time.Now()
 		rng := rand.New(rand.NewSource(1767790049))
-
-		spots := []waterbagSeedSpot{
-			{name: "Klippan", latitude: 57.70685, longitude: 11.95525, visibility: 2.8, turbidity: 3.0, nitrate: 1.4, phosphate: 0.18, weight: 4},
-			{name: "Stigbergskajen", latitude: 57.70195, longitude: 11.94090, visibility: 3.2, turbidity: 2.9, nitrate: 1.3, phosphate: 0.16, weight: 3},
-			{name: "Opera", latitude: 57.70630, longitude: 11.96690, visibility: 2.6, turbidity: 3.5, nitrate: 1.6, phosphate: 0.21, weight: 5},
-			{name: "Lilla Bommen", latitude: 57.70690, longitude: 11.97980, visibility: 2.4, turbidity: 3.8, nitrate: 1.8, phosphate: 0.23, weight: 5},
-			{name: "Rosenlund", latitude: 57.70270, longitude: 11.95840, visibility: 2.9, turbidity: 2.8, nitrate: 1.2, phosphate: 0.15, weight: 3},
-			{name: "Eriksberg", latitude: 57.70855, longitude: 11.91580, visibility: 2.2, turbidity: 4.1, nitrate: 1.9, phosphate: 0.27, weight: 2},
-			{name: "Lindholmen", latitude: 57.70710, longitude: 11.93810, visibility: 2.5, turbidity: 3.6, nitrate: 1.7, phosphate: 0.22, weight: 4},
-		}
+		city := currentSeedCity()
+		spots := cityWaterbagSeedSpots(city)
 
 		for i := 0; i < waterbagSeedCount; i++ {
 			spot := pickWaterbagSpot(rng, spots)
@@ -61,7 +53,7 @@ func init() {
 				"coords_latitudeValue":                   spot.latitude + rng.NormFloat64()*0.0022,
 				"coords_longitudeValue":                  spot.longitude + rng.NormFloat64()*0.0028,
 				"dataRetrievedTimestamp":                 metricTimestamp,
-				"imageUrl":                               fmt.Sprintf("uploads/waterbag/gbg_seed_%s_%03d.jpg", sanitizeSlug(spot.name), i+1),
+				"imageUrl":                               fmt.Sprintf("%s%s_%03d.jpg", seededWaterbagUploadPrefixes[0], sanitizeSlug(spot.name), i+1),
 				"airTemp_value":                          airTemp,
 				"airTemp_dataRetrievedTimestamp":         metricTimestamp,
 				"waterTemp_value":                        waterTemp,
@@ -97,20 +89,22 @@ func init() {
 
 		return nil
 	}, func(app core.App) error {
-		records, err := app.FindRecordsByFilter(
-			"streetai_waterbag_testkit",
-			`imageUrl ~ "uploads/waterbag/gbg_seed_"`,
-			"",
-			0,
-			0,
-		)
-		if err != nil {
-			return err
-		}
-
-		for _, record := range records {
-			if err := app.Delete(record); err != nil {
+		for _, prefix := range seededWaterbagUploadPrefixes {
+			records, err := app.FindRecordsByFilter(
+				"streetai_waterbag_testkit",
+				fmt.Sprintf(`imageUrl ~ "%s"`, prefix),
+				"",
+				0,
+				0,
+			)
+			if err != nil {
 				return err
+			}
+
+			for _, record := range records {
+				if err := app.Delete(record); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -133,6 +127,43 @@ func pickWaterbagSpot(rng *rand.Rand, spots []waterbagSeedSpot) waterbagSeedSpot
 	}
 
 	return spots[0]
+}
+
+func cityWaterbagSeedSpots(city seedCity) []waterbagSeedSpot {
+	return []waterbagSeedSpot{
+		newWaterbagSeedSpot(city, "Central Shore", 0.0, 0.0, 2.8, 3.0, 1.4, 0.18, 4),
+		newWaterbagSeedSpot(city, "West Shore", -0.2, -1.4, 3.2, 2.9, 1.3, 0.16, 3),
+		newWaterbagSeedSpot(city, "Central Waterfront", 0.15, 0.3, 2.6, 3.5, 1.6, 0.21, 5),
+		newWaterbagSeedSpot(city, "East Shore", 0.45, 1.2, 2.4, 3.8, 1.8, 0.23, 5),
+		newWaterbagSeedSpot(city, "Urban Canal", -0.6, -0.5, 2.9, 2.8, 1.2, 0.15, 3),
+		newWaterbagSeedSpot(city, "Harbor Edge", 0.7, -2.4, 2.2, 4.1, 1.9, 0.27, 2),
+		newWaterbagSeedSpot(city, "Park Wetland", -1.4, 1.1, 2.5, 3.6, 1.7, 0.22, 4),
+	}
+}
+
+func newWaterbagSeedSpot(
+	city seedCity,
+	label string,
+	northKm float64,
+	eastKm float64,
+	visibility float64,
+	turbidity float64,
+	nitrate float64,
+	phosphate float64,
+	weight int,
+) waterbagSeedSpot {
+	latitude, longitude := seedOffsetCoordinate(city, northKm, eastKm)
+
+	return waterbagSeedSpot{
+		name:       seedSpotDisplayName(city, label),
+		latitude:   latitude,
+		longitude:  longitude,
+		visibility: visibility,
+		turbidity:  turbidity,
+		nitrate:    nitrate,
+		phosphate:  phosphate,
+		weight:     weight,
+	}
 }
 
 func qualityBand(value float64, optimalLow float64, optimalHigh float64, goodLow float64, goodHigh float64) int {
