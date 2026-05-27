@@ -1,12 +1,11 @@
 import { Shallow } from 'shallow-render';
 import { AppComponent } from './app.component';
-import { ActivatedRoute, RouterModule, RouterOutlet } from '@angular/router';
+import { RouterModule, RouterOutlet } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { NavigationHeaderComponent } from './shared/components/navigation/navigation-header/navigation-header.component';
 import { SharedModule } from 'primeng/api';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { GoogleAnalyticsService } from 'ngx-google-analytics';
-import { LocationService } from '@core/services/location.service';
 import { AuthService } from '@core/services/auth.service';
 import { of } from 'rxjs';
 
@@ -19,15 +18,7 @@ describe('AppComponent', () => {
       .mock(GoogleAnalyticsService, { pageView: jest.fn() })
       .mockPipe(TranslatePipe, (input) => `translated ${input}`)
       .provideMock(SharedModule)
-      .mock(AuthService, { authState$: of({ token: null, record: null }) })
-      .mock(LocationService, { setOverriddenLocation: jest.fn() })
-      .mock(ActivatedRoute, {
-        snapshot: {
-          queryParamMap: {
-            get: jest.fn(),
-          },
-        },
-      });
+      .mock(AuthService, { authState$: of({ token: null, record: null }) });
 
     jest.spyOn(sessionStorage, 'getItem').mockImplementation((key: string) => {
       const store: Record<string, string> = { myKey: 'mockValue' };
@@ -96,82 +87,5 @@ describe('AppComponent', () => {
       expect(sessionStorage.setItem).toHaveBeenCalledWith('ga-tracked', 'true');
     });
 
-    it('should set overridden location when lat and lon are present in query params', async () => {
-      const lat = '55.123';
-      const lon = '12.456';
-      
-      const { inject, instance } = await shallow.render();
-      const route = inject(ActivatedRoute);
-      const locationService = inject(LocationService);
-
-      (route.snapshot.queryParamMap.get as jest.Mock).mockImplementation((key: string) => {
-        if (key === 'lat') return lat;
-        if (key === 'lon') return lon;
-        return null;
-      });
-
-      instance.ngOnInit();
-
-      expect(locationService.setOverriddenLocation).toHaveBeenCalledWith([
-        parseFloat(lat),
-        parseFloat(lon),
-      ]);
-    });
-
-    it('should not set overridden location when lat or lon are missing in query params', async () => {
-      const { inject, instance } = await shallow.render();
-      const route = inject(ActivatedRoute);
-      const locationService = inject(LocationService);
-
-      (route.snapshot.queryParamMap.get as jest.Mock).mockImplementation((key: string) => {
-        if (key === 'lat') return '55.123';
-        return null;
-      });
-
-      instance.ngOnInit();
-
-      expect(locationService.setOverriddenLocation).not.toHaveBeenCalled();
-    });
-
-    it('should not set overridden location when lat or lon are invalid', async () => {
-      const { inject, instance } = await shallow.render();
-      const route = inject(ActivatedRoute);
-      const locationService = inject(LocationService);
-
-      (route.snapshot.queryParamMap.get as jest.Mock).mockImplementation(
-        (key: string) => {
-          if (key === 'lat') return 'invalid';
-          if (key === 'lon') return '12.456';
-          return null;
-        },
-      );
-
-      instance.ngOnInit();
-
-      expect(locationService.setOverriddenLocation).not.toHaveBeenCalled();
-    });
-
-    it('should set overridden location from window search params when route snapshot params are missing', async () => {
-      Object.defineProperty(window, 'location', {
-        value: {
-          pathname: '/mocked-path',
-          search: '?lat=57.7089&lon=11.9746',
-        },
-        writable: true,
-      });
-
-      const { inject, instance } = await shallow.render();
-      const route = inject(ActivatedRoute);
-      const locationService = inject(LocationService);
-
-      (route.snapshot.queryParamMap.get as jest.Mock).mockReturnValue(null);
-
-      instance.ngOnInit();
-
-      expect(locationService.setOverriddenLocation).toHaveBeenCalledWith([
-        57.7089,
-        11.9746,
-      ]);
-    });
   });
 });

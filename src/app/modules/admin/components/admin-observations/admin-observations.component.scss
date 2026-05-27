@@ -100,14 +100,6 @@
   }
 }
 
-.demo-time-panel {
-  border-top: 1px solid var(--surface-border);
-  padding-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 .alert-panel {
   border-top: 1px solid var(--surface-border);
   padding-top: 12px;
@@ -116,32 +108,9 @@
   gap: 10px;
 }
 
-.demo-time-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
 .alert-copy {
   margin: 0;
   color: var(--text-color-secondary);
-}
-
-.demo-time-status,
-.demo-time-effective {
-  margin: 0;
-}
-
-.demo-time-effective {
-  color: var(--text-color-secondary);
-  text-align: right;
-}
-
-.demo-time-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .alert-controls {
@@ -150,13 +119,11 @@
   gap: 6px;
 }
 
-.demo-time-field,
 .alert-field,
 .alert-duration-unit {
   color: var(--text-color-secondary);
 }
 
-.demo-time-input,
 .alert-input,
 .alert-textarea,
 .alert-select {
@@ -189,8 +156,6 @@
   background: #fff;
 }
 
-.demo-time-presets,
-.demo-time-actions,
 .alert-actions {
   display: flex;
   flex-wrap: wrap;

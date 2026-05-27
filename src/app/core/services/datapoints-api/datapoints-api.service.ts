@@ -2,7 +2,6 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { LatLong } from '@core/models/location';
 import { AuthService } from '@core/services/auth.service';
-import { DemoTimeService } from '@core/services/demo-time.service';
 import { IntotoApiService } from '@core/services/intoto-api/intoto-api.service';
 import {
   IntotoEnumDto,
@@ -89,7 +88,6 @@ export class DataPointsApi {
     private readonly httpClient: HttpClient,
     private readonly authService: AuthService,
     private readonly intotoApi: IntotoApiService,
-    private readonly demoTimeService: DemoTimeService,
   ) {}
 
   public getWeatherConditions(): Observable<WeatherConditionDataPoint[]> {
@@ -371,7 +369,7 @@ export class DataPointsApi {
           return of([] as WeatherStormWaterDataPoint[]);
         }
 
-        const now = this.demoTimeService.now();
+        const now = new Date(Date.now());
         const fromDateTime = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
         return forkJoin(
@@ -638,7 +636,7 @@ export class DataPointsApi {
     return response.map((item) => {
       const dataTimestamp =
         item.dataRetrievedTimestamp ??
-        Math.floor(this.demoTimeService.now().getTime() / 1000);
+        Math.floor(Date.now() / 1000);
       const algaeValue = this.mapAlgaeLevel(item.algaeLevel);
       const fallbackNamePrefix =
         item.observationType === 'water_overflow'

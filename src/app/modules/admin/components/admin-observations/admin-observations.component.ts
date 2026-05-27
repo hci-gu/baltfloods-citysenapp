@@ -5,12 +5,10 @@ import {
   Component,
   DestroyRef,
   computed,
-  effect,
   inject,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { DemoTimeService } from '@core/services/demo-time.service';
 import {
   ObservationRecord,
   ObservationRecordsPage,
@@ -28,8 +26,6 @@ import {
   debounceTime,
   forkJoin,
   interval,
-  Observable,
-  of,
   startWith,
   switchMap,
   take,
@@ -85,10 +81,6 @@ interface UploadChart {
   totalPeriodUploads: number;
 }
 
-const DEMO_START_TIME_INPUT = '2026-02-14T12:00';
-const DEMO_TRIGGER_ALARM_TIME_INPUT = '2026-02-15T20:00';
-const DEMO_BACK_TO_NORMAL_TIME_INPUT = '2026-02-16T12:00';
-
 @Component({
   selector: 'app-admin-observations',
   standalone: true,
@@ -107,18 +99,12 @@ export class AdminObservationsComponent {
   private readonly chartPaddingBottom = 6;
   private readonly chartPaddingHorizontal = 2;
   public readonly pageSize = 50;
-  private readonly demoTimeOverride = toSignal(this.demoTimeService.override$, {
-    initialValue: null,
-  });
   private authState = toSignal(this.authService.authState$, {
     initialValue: { token: null, record: null },
   });
 
   public isLoading = signal<boolean>(true);
   public errorMessage = signal<string>('');
-  public demoTimeError = signal<string>('');
-  public demoTimeInput = signal<string>('');
-  public isSavingDemoTime = signal<boolean>(false);
   public alertTitleInput = signal<string>('');
   public alertMessageInput = signal<string>('');
   public alertTypeInput = signal<DashboardMessageType>('info');
@@ -138,10 +124,6 @@ export class AdminObservationsComponent {
     () => this.isAuthenticated() && this.isAdminUser(),
   );
   public canDelete = this.canManageObservations;
-  public effectiveDemoTime = computed(
-    () => this.demoTimeOverride() ?? this.demoTimeService.now(),
-  );
-  public hasDemoTimeOverride = computed(() => !!this.demoTimeOverride());
 
   public observationFeed = computed<ObservationFeedItem[]>(() =>
     this._observations()
@@ -261,20 +243,12 @@ export class AdminObservationsComponent {
   });
 
   public constructor(
-    private readonly demoTimeService: DemoTimeService,
     private readonly observationRecordsService: ObservationRecordsService,
     private readonly observationRealtimeService: ObservationRealtimeService,
     private readonly scheduledMessagesService: ScheduledMessagesService,
     private readonly authService: AuthService,
     private readonly router: Router,
   ) {
-    effect(() => {
-      const override = this.demoTimeOverride();
-      this.demoTimeInput.set(
-        this.formatDateTimeInput(override ?? this.demoTimeService.now()),
-      );
-    });
-
     interval(15000)
       .pipe(
         startWith(0),
@@ -317,25 +291,11 @@ export class AdminObservationsComponent {
         this.loadObservationPage(this.currentPage());
         this.loadInsights();
       });
-
-    this.demoTimeService.overrideChanged$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.loadInsights();
-      });
   }
 
   public refresh(): void {
     this.loadObservationPage(this.currentPage(), true);
     this.loadInsights();
-  }
-
-  public onDemoTimeInputChange(value: string): void {
-    this.demoTimeInput.set(value);
-  }
-
-  public useDeviceTimeAsFakeTime(): void {
-    this.demoTimeInput.set(this.formatDateTimeInput(new Date()));
   }
 
   public onAlertTitleChange(value: string): void {
@@ -396,152 +356,6 @@ export class AdminObservationsComponent {
           this.alertError.set('Failed to send message. Please try again.');
         },
       });
-  }
-
-  public setDemoStartTime(): void {
-    this.applyDemoTimePreset(DEMO_START_TIME_INPUT);
-  }
-
-  public triggerDemoAlarm(): void {
-    this.applyDemoTimePreset(DEMO_TRIGGER_ALARM_TIME_INPUT);
-  }
-
-  public setDemoBackToNormalTime(): void {
-    this.demoTimeInput.set(DEMO_BACK_TO_NORMAL_TIME_INPUT);
-    this.saveDemoTimeOverrideAndHideDemoObservations();
-  }
-
-  public saveDemoTimeOverride(): void {
-    if (!this.canManageObservations()) {
-      this.demoTimeError.set('Sign in as an admin to update demo time.');
-      return;
-    }
-
-    const parsed = this.parseDateTimeInput(this.demoTimeInput());
-    if (!parsed) {
-      this.demoTimeError.set('Enter a valid date and time.');
-      return;
-    }
-
-    this.demoTimeError.set('');
-    this.isSavingDemoTime.set(true);
-    this.demoTimeService
-      .setOverride(parsed)
-      .pipe(take(1))
-      .subscribe({
-        next: () => {
-          this.isSavingDemoTime.set(false);
-        },
-        error: () => {
-          this.isSavingDemoTime.set(false);
-          this.demoTimeError.set(
-            'Failed to update demo time. Please try again.',
-          );
-        },
-      });
-  }
-
-  public clearDemoTimeOverride(): void {
-    if (!this.canManageObservations()) {
-      this.demoTimeError.set('Sign in as an admin to update demo time.');
-      return;
-    }
-
-    this.demoTimeError.set('');
-    this.isSavingDemoTime.set(true);
-    this.demoTimeService
-      .setOverride(null)
-      .pipe(take(1))
-      .subscribe({
-        next: () => {
-          this.isSavingDemoTime.set(false);
-        },
-        error: () => {
-          this.isSavingDemoTime.set(false);
-          this.demoTimeError.set(
-            'Failed to clear demo time. Please try again.',
-          );
-        },
-      });
-  }
-
-  private applyDemoTimePreset(value: string): void {
-    this.demoTimeInput.set(value);
-    this.saveDemoTimeOverride();
-  }
-
-  private saveDemoTimeOverrideAndHideDemoObservations(): void {
-    if (!this.canManageObservations()) {
-      this.demoTimeError.set('Sign in as an admin to update demo time.');
-      return;
-    }
-
-    const parsed = this.parseDateTimeInput(this.demoTimeInput());
-    const token = this.authService.token;
-    if (!parsed) {
-      this.demoTimeError.set('Enter a valid date and time.');
-      return;
-    }
-
-    if (!token) {
-      this.demoTimeError.set('Sign in as an admin to update observations.');
-      return;
-    }
-
-    this.demoTimeError.set('');
-    this.isSavingDemoTime.set(true);
-    forkJoin({
-      override: this.demoTimeService.setOverride(parsed),
-      hiddenObservations: this.hideDemoWindowObservations(token),
-    })
-      .pipe(take(1))
-      .subscribe({
-        next: () => {
-          this.isSavingDemoTime.set(false);
-          this.loadObservationPage(this.currentPage());
-          this.loadInsights();
-        },
-        error: () => {
-          this.isSavingDemoTime.set(false);
-          this.demoTimeError.set(
-            'Failed to reset demo state. Please try again.',
-          );
-        },
-      });
-  }
-
-  private hideDemoWindowObservations(
-    authToken: string,
-  ): Observable<ObservationRecord[]> {
-    const start = this.parseDateTimeInput(DEMO_START_TIME_INPUT);
-    const end = this.parseDateTimeInput(DEMO_BACK_TO_NORMAL_TIME_INPUT);
-    if (!start || !end) {
-      return of([]);
-    }
-
-    return this.observationRecordsService
-      .listObservationsByDisplayTimeRange(start, end)
-      .pipe(
-        switchMap((records) => {
-          const recordsToHide = records.filter(
-            (record) => record.visible !== false,
-          );
-
-          if (recordsToHide.length === 0) {
-            return of([]);
-          }
-
-          return forkJoin(
-            recordsToHide.map((record) =>
-              this.observationRecordsService.updateObservation(
-                record.id,
-                { visible: false },
-                authToken,
-              ),
-            ),
-          );
-        }),
-      );
   }
 
   public onPageChange(event: { page?: number }): void {
@@ -883,21 +697,4 @@ export class AdminObservationsComponent {
     return dayStart;
   }
 
-  private formatDateTimeInput(date: Date): string {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    const hours = `${date.getHours()}`.padStart(2, '0');
-    const minutes = `${date.getMinutes()}`.padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  }
-
-  private parseDateTimeInput(value: string): Date | null {
-    if (!value.trim()) {
-      return null;
-    }
-
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
 }

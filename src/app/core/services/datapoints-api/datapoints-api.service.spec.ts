@@ -6,19 +6,18 @@ import { CoreModule } from '../../core.module';
 import { MockHttpClient } from '../mock-http-client';
 import { DataPointsApi } from './datapoints-api.service';
 import { AuthService } from '../auth.service';
-import { DemoTimeService } from '../demo-time.service';
 import { IntotoApiService } from '../intoto-api/intoto-api.service';
 
 describe('DataPointsApi', () => {
   let shallow: Shallow<DataPointsApi>;
 
   beforeEach(() => {
+    jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2026-03-20T12:00:00Z').getTime());
     shallow = new Shallow(DataPointsApi, CoreModule)
       .mock(HttpClient, { get: new MockHttpClient().get })
       .mock(AuthService, { token: null })
-      .mock(DemoTimeService, {
-        now: jest.fn(() => new Date('2026-03-20T12:00:00Z')),
-      })
       .mock(IntotoApiService, {
         getMyAreas: jest.fn().mockReturnValue(of([])),
         getSeriesCategories: jest.fn().mockReturnValue(of([])),
@@ -26,6 +25,10 @@ describe('DataPointsApi', () => {
         getSeriesUnits: jest.fn().mockReturnValue(of([])),
         getSeriesData: jest.fn().mockReturnValue(of([])),
       });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('should return an observable of weather conditions', async () => {

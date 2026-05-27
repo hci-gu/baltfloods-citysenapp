@@ -1,7 +1,0 @@
-[     130ms] [ERROR] Invalid Sentry Dsn: your_secret_key @ http://127.0.0.1:8080/main-D5N67RU3.js:6
-[     235ms] [ERROR] EventSource's response has a MIME type ("text/html") that is not "text/event-stream". Aborting the connection. @ http://127.0.0.1:8080/:0
-[     235ms] [ERROR] EventSource's response has a MIME type ("text/html") that is not "text/event-stream". Aborting the connection. @ http://127.0.0.1:8080/:0
-[     235ms] [ERROR] EventSource's response has a MIME type ("text/html") that is not "text/event-stream". Aborting the connection. @ http://127.0.0.1:8080/:0
-[     364ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.intoto.io/api/v1/enums/seriesSubCategories:0
-[     563ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.intoto.io/api/v1/enums/seriesSubCategories:0
-[    1754ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.intoto.io/api/v1/enums/seriesUnits:0

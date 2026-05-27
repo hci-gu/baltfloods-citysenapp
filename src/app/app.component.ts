@@ -1,10 +1,9 @@
 import { Component, inject, ViewChild, OnInit } from '@angular/core';
-import { ActivatedRoute, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { getCountryCodeFromLanguageCode } from '@shared/utils/i18n-utils';
 import { SharedModule } from '@shared/shared.module';
 import { GoogleAnalyticsService } from 'ngx-google-analytics';
-import { LocationService } from '@core/services/location.service';
 
 @Component({
   selector: 'app-root',
@@ -21,8 +20,6 @@ export class AppComponent implements OnInit {
   private readonly googleAnalyticsService: GoogleAnalyticsService = inject(
     GoogleAnalyticsService,
   );
-  private readonly locationService = inject(LocationService);
-  private readonly route = inject(ActivatedRoute);
 
   public constructor(private readonly translateService: TranslateService) {
     translateService.use(getCountryCodeFromLanguageCode(navigator.language));
@@ -33,25 +30,7 @@ export class AppComponent implements OnInit {
   }
 
   public ngOnInit(): void {
-    this.handleQueryLocation();
     this.gaTracked();
-  }
-
-  private handleQueryLocation(): void {
-    const routeLat = this.route.snapshot.queryParamMap.get('lat');
-    const routeLon = this.route.snapshot.queryParamMap.get('lon');
-    const searchParams = new URLSearchParams(window.location.search);
-    const lat = routeLat ?? searchParams.get('lat');
-    const lon = routeLon ?? searchParams.get('lon');
-
-    if (lat && lon) {
-      const parsedLat = Number.parseFloat(lat);
-      const parsedLon = Number.parseFloat(lon);
-
-      if (Number.isFinite(parsedLat) && Number.isFinite(parsedLon)) {
-        this.locationService.setOverriddenLocation([parsedLat, parsedLon]);
-      }
-    }
   }
 
   private gaTracked(): void {

@@ -17,7 +17,6 @@ import {
   ObservationType,
 } from '@core/services/observation-api/observation-api.service';
 import { ObservationDraftService } from '@core/services/observation-draft.service';
-import { LocationService } from '@core/services/location.service';
 import { StepsComponent } from '@shared/components/steps/steps.component';
 import { IconComponent } from '@shared/components/icon/icon.component';
 import { Button } from 'primeng/button';
@@ -67,8 +66,6 @@ const OBSERVATION_PHOTO_COMPRESSION_OPTIONS: Options = {
   ],
 })
 export class ObservationFormComponent {
-  private readonly overrideLocationJitterMaxMeters = 5;
-  private readonly metersPerDegreeLatitude = 111_320;
   public STEP = ObservationFormStep;
   private readonly fullStepFlow: ObservationFormStep[] = [
     ObservationFormStep.LOCATION,
@@ -124,7 +121,6 @@ export class ObservationFormComponent {
     private readonly observationApi: ObservationApiService,
     private readonly router: Router,
     private readonly observationDraftService: ObservationDraftService,
-    private readonly locationService: LocationService,
   ) {
     this.applyQuickObservationDraft();
     this.observationForm.controls.observationType.valueChanges.subscribe(() => {
@@ -322,31 +318,7 @@ export class ObservationFormComponent {
   }
 
   private getSubmissionLocation(location: LatLong): LatLong {
-    if (!this.locationService.isLocationOverridden) {
-      return location;
-    }
-
-    return this.jitterLocation(location);
-  }
-
-  private jitterLocation(location: LatLong): LatLong {
-    const radiusMeters =
-      Math.sqrt(Math.random()) * this.overrideLocationJitterMaxMeters;
-    const angle = Math.random() * Math.PI * 2;
-    const latitudeOffset =
-      (Math.cos(angle) * radiusMeters) / this.metersPerDegreeLatitude;
-    const latitudeRadians = (location[0] * Math.PI) / 180;
-    const metersPerDegreeLongitude = Math.max(
-      1,
-      Math.abs(this.metersPerDegreeLatitude * Math.cos(latitudeRadians)),
-    );
-    const longitudeOffset =
-      (Math.sin(angle) * radiusMeters) / metersPerDegreeLongitude;
-
-    return [
-      location[0] + latitudeOffset,
-      location[1] + longitudeOffset,
-    ] as LatLong;
+    return location;
   }
 
   private updateFlowAndValidation(): void {

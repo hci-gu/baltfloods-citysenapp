@@ -11,7 +11,6 @@ import {
 import {
   takeUntilDestroyed,
   toObservable,
-  toSignal,
 } from '@angular/core/rxjs-interop';
 import {
   SENSOR_THRESHOLD_COLORS,
@@ -32,7 +31,6 @@ import {
   DataPointsApi,
   SensorHistoryPoint,
 } from '@core/services/datapoints-api/datapoints-api.service';
-import { DemoTimeService } from '@core/services/demo-time.service';
 import { LocationService, UserLocation } from '@core/services/location.service';
 import { ObservationRealtimeService } from '@core/services/observation-realtime.service';
 import {
@@ -257,9 +255,6 @@ const SENSOR_SEVERITY_RANK: Record<SensorThresholdSeverity, number> = {
 })
 export class DashboardMapComponent implements AfterViewInit {
   public readonly DATA_POINT_TYPE = DataPointType;
-  private readonly demoTimeOverride = toSignal(this.demoTimeService.override$, {
-    initialValue: null,
-  });
   private _allDataPoints = signal<DataPoint[]>([]);
   private readonly timelinePaddingTop = 7;
   private readonly timelinePaddingBottom = 8;
@@ -296,10 +291,7 @@ export class DashboardMapComponent implements AfterViewInit {
   });
   private observationTimespanBounds = computed<ObservationTimespanBounds>(
     () => {
-      const overrideTime = this.demoTimeOverride();
-      const now = overrideTime
-        ? new Date(overrideTime)
-        : this.demoTimeService.now();
+      const now = new Date(Date.now());
       const endMs = this.getDayEnd(now).getTime();
       const selectedKey = this.selectedObservationTimespan();
       const selectedOption = this.observationTimespanOptions.find(
@@ -546,7 +538,7 @@ export class DashboardMapComponent implements AfterViewInit {
         return fallbackBounds;
       }
 
-      const currentTimeMs = this.demoTimeService.now().getTime();
+      const currentTimeMs = Date.now();
       const widestCacheEntry = Object.values(this.sensorHistoryCache())
         .filter(
           (entry) =>
@@ -870,7 +862,6 @@ export class DashboardMapComponent implements AfterViewInit {
   private readonly userLocation$!: Observable<UserLocation>;
 
   public constructor(
-    private readonly demoTimeService: DemoTimeService,
     private readonly locationService: LocationService,
     private readonly dataPointsApi: DataPointsApi,
     private readonly observationRealtimeService: ObservationRealtimeService,
@@ -975,13 +966,6 @@ export class DashboardMapComponent implements AfterViewInit {
       .subscribe(() =>
         this.refreshObservationDataPoints(this._mapCenterSubject$.value, true),
       );
-
-    this.demoTimeService.overrideChanged$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.resetSensorViewRange();
-        this.refreshObservationDataPoints(this._mapCenterSubject$.value, true);
-      });
 
     this.scheduledMessagesService
       .watchActiveMessages()
@@ -1846,7 +1830,7 @@ export class DashboardMapComponent implements AfterViewInit {
     historyPoints: SensorHistoryPoint[],
     thresholdConfig: SensorThresholdConfig,
   ): ActiveSensorThresholdPoint | null {
-    const currentTimeMs = this.demoTimeService.now().getTime();
+    const currentTimeMs = Date.now();
     const recentThresholdMs =
       currentTimeMs - thresholdConfig.warningMaxAgeHours * 60 * 60 * 1000;
 
@@ -2407,7 +2391,7 @@ export class DashboardMapComponent implements AfterViewInit {
       return false;
     }
 
-    const currentTimeMs = this.demoTimeService.now().getTime();
+    const currentTimeMs = Date.now();
     const firstTimestamp = cacheEntry.historyPoints[0].timestamp.getTime();
     const lastTimestamp =
       cacheEntry.historyPoints[
@@ -2452,7 +2436,7 @@ export class DashboardMapComponent implements AfterViewInit {
       return null;
     }
 
-    const currentTimeMs = this.demoTimeService.now().getTime();
+    const currentTimeMs = Date.now();
     const recentThresholdMs =
       currentTimeMs - thresholdConfig.warningMaxAgeHours * 60 * 60 * 1000;
     const redPoints = historyPoints.filter(

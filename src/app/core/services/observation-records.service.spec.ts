@@ -66,31 +66,4 @@ describe('ObservationRecordsService', () => {
     );
   });
 
-  it('should filter observations by display timestamp range', async () => {
-    const { instance, inject } = shallow.createService();
-
-    await firstValueFrom(
-      instance.listObservationsByDisplayTimeRange(
-        new Date('2026-02-14T12:00:00'),
-        new Date('2026-02-16T12:00:00'),
-      ),
-    );
-
-    const httpClient = inject(HttpClient);
-    const startTimestamp = Math.floor(
-      new Date('2026-02-14T12:00:00').getTime() / 1000,
-    );
-    const endTimestamp = Math.floor(
-      new Date('2026-02-16T12:00:00').getTime() / 1000,
-    );
-    expect(httpClient.get).toHaveBeenCalledWith(
-      expect.stringContaining('/collections/observations/records'),
-      expect.objectContaining({
-        params: expect.objectContaining({
-          filter: `dataRetrievedTimestamp >= ${startTimestamp} && dataRetrievedTimestamp <= ${endTimestamp}`,
-          sort: 'dataRetrievedTimestamp',
-        }),
-      }),
-    );
-  });
 });
