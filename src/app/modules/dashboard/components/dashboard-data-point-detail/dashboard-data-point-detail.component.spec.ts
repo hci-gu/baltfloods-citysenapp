@@ -133,13 +133,13 @@ describe('DashboardDataPointDetailComponent', () => {
 
         expect(find('.sensor-detail')).toHaveFound(1);
         expect(
-          find('.sensor-detail__value').nativeElement.textContent.trim(),
+          find('.sensor-detail-value').nativeElement.textContent.trim(),
         ).toBe('19.7');
         expect(
-          find('.sensor-detail__status-copy').nativeElement.textContent,
+          find('.sensor-detail-status-copy').nativeElement.textContent,
         ).toContain('Above the highest configured threshold.');
         expect(
-          find('.sensor-detail__meta').nativeElement.textContent,
+          find('.sensor-detail-meta').nativeElement.textContent,
         ).toContain('Yellow 18 MASL');
       });
 

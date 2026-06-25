@@ -98,9 +98,7 @@ export class ObservationRecordsService {
     return this.http.delete<void>(
       `${this.baseUrl}/collections/observations/records/${recordId}`,
       {
-        headers: new HttpHeaders({
-          Authorization: `Bearer ${authToken}`,
-        }),
+        headers: new HttpHeaders().set('Authorization', `Bearer ${authToken}`),
       },
     );
   }
@@ -114,9 +112,7 @@ export class ObservationRecordsService {
       `${this.baseUrl}/collections/observations/records/${recordId}`,
       data,
       {
-        headers: new HttpHeaders({
-          Authorization: `Bearer ${authToken}`,
-        }),
+        headers: new HttpHeaders().set('Authorization', `Bearer ${authToken}`),
       },
     );
   }
@@ -131,9 +127,7 @@ export class ObservationRecordsService {
       return null;
     }
 
-    return new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
+    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
   }
 
   private looksLikeJwt(token: string): boolean {

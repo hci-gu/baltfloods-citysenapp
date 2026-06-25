@@ -207,7 +207,7 @@ export class DashboardDataPointDetailComponent implements OnChanges {
 
   public getStormWaterMetrics(
     dataPoint: WeatherStormWaterDataPoint,
-  ): Array<{ key: string; value: string | number }> {
+  ): { key: string; value: string | number }[] {
     return Object.entries(dataPoint.data)
       .filter(([key]) => key !== 'fillLevel')
       .map(([key, value]) => ({ key, value }));

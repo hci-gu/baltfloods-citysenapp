@@ -31,7 +31,7 @@ export class LocationService {
         )
         .subscribe((permissionStatus) => {
           this._locationPermissionStateSubject$.next(permissionStatus.state);
-          permissionStatus.onchange = () =>
+          permissionStatus.onchange = (): void =>
             this._locationPermissionStateSubject$.next(permissionStatus.state);
         });
     }

@@ -110,7 +110,7 @@
           "options": {
             "eslintConfig": ".eslintrc.json",
             "ignorePath": ".eslintignore",
-            "lintFilePatterns": ["app/**/*.ts", "app/**/*.html"]
+            "lintFilePatterns": ["src/app/**/*.ts", "src/app/**/*.html"]
           }
         },
         "test": {

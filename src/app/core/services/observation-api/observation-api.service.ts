@@ -95,9 +95,7 @@ export class ObservationApiService {
       return null;
     }
 
-    return new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
+    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
   }
 
   private looksLikeJwt(token: string): boolean {

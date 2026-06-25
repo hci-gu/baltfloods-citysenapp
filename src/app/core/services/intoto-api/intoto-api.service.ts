@@ -13,9 +13,10 @@ import {
 @Injectable({ providedIn: 'root' })
 export class IntotoApiService {
   private readonly baseUrl = environment.intoToApiUrl.replace(/\/$/, '');
-  private readonly defaultHeaders = new HttpHeaders({
-    'x-api-key': environment.intoToApiKey,
-  });
+  private readonly defaultHeaders = new HttpHeaders().set(
+    'x-api-key',
+    environment.intoToApiKey,
+  );
 
   public constructor(private readonly httpClient: HttpClient) {}
 

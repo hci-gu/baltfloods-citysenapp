@@ -305,7 +305,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
 
-    const heatPoints: Array<[number, number, number]> = markers.map(
+    const heatPoints: [number, number, number][] = markers.map(
       (marker) => [
         marker.location[0],
         marker.location[1],
@@ -316,24 +316,26 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     const heatLayerFactory = (
       leaflet as unknown as {
         heatLayer: (
-          latlngs: Array<[number, number, number]>,
+          latlngs: [number, number, number][],
           options?: leaflet.HeatMapOptions,
         ) => leaflet.HeatLayer;
       }
     ).heatLayer;
+
+    const heatGradient = Object.fromEntries([
+      [0.2, '#0ea5e9'],
+      [0.4, '#22c55e'],
+      [0.6, '#facc15'],
+      [0.8, '#f97316'],
+      [1, '#dc2626'],
+    ]);
 
     this.heatLayer = heatLayerFactory(heatPoints, {
       radius: 30,
       blur: 22,
       minOpacity: 0.35,
       maxZoom: 18,
-      gradient: {
-        0.2: '#0ea5e9',
-        0.4: '#22c55e',
-        0.6: '#facc15',
-        0.8: '#f97316',
-        1.0: '#dc2626',
-      },
+      gradient: heatGradient,
     }).addTo(this.map);
   }
 
@@ -343,7 +345,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     if (!this.heatLayerLoadPromise) {
-      (globalThis as { L?: typeof leaflet }).L = leaflet;
+      (globalThis as { ['L']?: typeof leaflet })['L'] = leaflet;
       this.heatLayerLoadPromise = import('leaflet.heat')
         .then(() => this.hasHeatLayerFactory())
         .catch(() => false);

@@ -3,13 +3,16 @@ import { Injectable } from '@angular/core';
 import { SwPush } from '@angular/service-worker';
 import { environment } from '@environments/environment';
 import { Observable, from, of, throwError } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { map, switchMap, take } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PushNotificationsService {
   private readonly baseUrl = environment.pushApiUrl;
+  public readonly messages$ = this.swPush.messages;
+  public readonly notificationClicks$ = this.swPush.notificationClicks;
+  public readonly subscription$ = this.swPush.subscription;
 
   public constructor(
     private readonly swPush: SwPush,
@@ -49,12 +52,21 @@ export class PushNotificationsService {
       return of(undefined);
     }
 
-    return from(this.swPush.unsubscribe()).pipe(
-      switchMap(() => this.http.post<void>(`${this.baseUrl}/unsubscribe`, {})),
+    return this.swPush.subscription.pipe(
+      take(1),
+      switchMap((subscription) => {
+        const endpoint = subscription?.endpoint;
+        if (!endpoint) {
+          return from(this.swPush.unsubscribe());
+        }
+
+        return from(this.swPush.unsubscribe()).pipe(
+          switchMap(() =>
+            this.http.post<void>(`${this.baseUrl}/unsubscribe`, { endpoint }),
+          ),
+        );
+      }),
     );
   }
 
-  public readonly messages$ = this.swPush.messages;
-  public readonly notificationClicks$ = this.swPush.notificationClicks;
-  public readonly subscription$ = this.swPush.subscription;
 }

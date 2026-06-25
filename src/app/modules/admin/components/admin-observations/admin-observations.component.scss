@@ -39,7 +39,7 @@
   padding: 24px 20px;
   border-radius: 16px;
   background-color: var(--surface-card);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 8%);
   min-height: 0;
   min-width: 0;
 }
@@ -203,7 +203,7 @@
   height: 260px;
   border: 1px solid var(--surface-border);
   border-radius: 10px;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
   overflow: hidden;
 }
 
@@ -219,7 +219,7 @@
 }
 
 .chart-area {
-  fill: rgba(39, 93, 56, 0.12);
+  fill: rgba(39, 93, 56, 12%);
 }
 
 .chart-line {
@@ -338,7 +338,7 @@
   justify-content: flex-end;
 }
 
-@media (max-width: 1100px) {
+@media (width <= 1100px) {
   .admin-page {
     overflow-y: auto;
   }

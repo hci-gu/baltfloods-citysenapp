@@ -85,9 +85,7 @@ export class AuthService {
       return throwError(() => new Error('Not authenticated'));
     }
 
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
+    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
 
     return this.http
       .patch<PocketbaseUserRecord>(

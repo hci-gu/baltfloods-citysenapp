@@ -13,7 +13,13 @@ import {
   toObservable,
 } from '@angular/core/rxjs-interop';
 import {
+  capitalizeSensorSeverity,
+  getSensorThresholdColor,
+  getSensorThresholdSeverity,
+  getSensorThresholdValues,
+  getWorseSensorSeverity,
   SENSOR_THRESHOLD_COLORS,
+  SENSOR_SEVERITY_RANK,
   SENSOR_THRESHOLDS_BY_SERIES_ID,
   SensorThresholdConfig,
   SensorThresholdSeverity,
@@ -46,7 +52,10 @@ import {
   MapComponent,
   Marker,
 } from '@shared/components/map/map.component';
-import { isSameLocation } from '@shared/utils/location-utils';
+import {
+  calculateDistanceKm,
+  isSameLocation,
+} from '@shared/utils/location-utils';
 import { groupBy, isEqual } from 'lodash-es';
 import { MessageService, PrimeTemplate } from 'primeng/api';
 import {
@@ -162,18 +171,18 @@ interface SensorValueTimelinePoint {
 }
 
 interface SensorValueTimeline {
-  segments: Array<{
+  segments: {
     path: string;
     color: string;
-  }>;
+  }[];
   points: SensorValueTimelinePoint[];
-  thresholdLines: Array<{
+  thresholdLines: {
     id: string;
     y: number;
     value: number;
     color: string;
     label: string;
-  }>;
+  }[];
   minValue: number;
   maxValue: number;
   startLabel: string;
@@ -217,13 +226,6 @@ const INTOTO_SENSOR_MARKER_ICON = 'sensor-water-level-icon.svg';
 const WEB_MERCATOR_TILE_SIZE = 256;
 const OBSERVATION_REFRESH_MIN_DISTANCE_KM = 1.5;
 const OBSERVATION_REFRESH_VIEWPORT_FRACTION = 0.35;
-const SENSOR_SEVERITY_RANK: Record<SensorThresholdSeverity, number> = {
-  green: 0,
-  yellow: 1,
-  orange: 2,
-  red: 3,
-};
-
 @Component({
   selector: 'app-dashboard-map',
   templateUrl: './dashboard-map.component.html',
@@ -356,10 +358,10 @@ export class DashboardMapComponent implements AfterViewInit {
   public hasActiveTypeFilter = computed(
     () => this.dataPointTypeFilter().length > 0,
   );
-  public readonly displayModeOptions: Array<{
+  public readonly displayModeOptions: {
     key: MapDisplayMode;
     label: string;
-  }> = [
+  }[] = [
     { key: 'default', label: 'Default' },
     { key: 'heatmap', label: 'Heatmap' },
   ];
@@ -586,7 +588,7 @@ export class DashboardMapComponent implements AfterViewInit {
       this.getDayStart(startDate).getTime(),
       availableBounds.startMs,
     );
-    let endMs = Math.min(
+    const endMs = Math.min(
       this.getDayEnd(endDate).getTime(),
       availableBounds.endMs,
     );
@@ -735,9 +737,7 @@ export class DashboardMapComponent implements AfterViewInit {
       .filter((item) =>
         this.matchesTypeFilter(item.type, this.dataPointTypeFilter()),
       )
-      .filter((item) => item.lastUpdatedOn) as Array<
-      ObservationFeedItem & { lastUpdatedOn: Date }
-    >;
+      .filter((item) => item.lastUpdatedOn) as (ObservationFeedItem & { lastUpdatedOn: Date })[];
 
     const start = this.getDayStart(new Date(bounds.startMs));
     const end = this.getDayStart(new Date(bounds.endMs));
@@ -1578,10 +1578,10 @@ export class DashboardMapComponent implements AfterViewInit {
 
   private createDataPointClusters(points: DataPoint[]): DataPointCluster[] {
     const zoom = this.visibleMapBounds()?.zoom ?? 13;
-    const clusters: Array<{
+    const clusters: {
       points: DataPoint[];
-      projectedPoints: Array<{ x: number; y: number }>;
-    }> = [];
+      projectedPoints: { x: number; y: number }[];
+    }[] = [];
 
     points.forEach((point) => {
       const projectedPoint = this.projectLocationToWorldPixel(
@@ -1788,7 +1788,7 @@ export class DashboardMapComponent implements AfterViewInit {
       );
     }
 
-    const currentSeverity = this.getSensorThresholdSeverity(
+    const currentSeverity = getSensorThresholdSeverity(
       value,
       thresholdConfig,
     );
@@ -1843,7 +1843,7 @@ export class DashboardMapComponent implements AfterViewInit {
           return highestPoint;
         }
 
-        const severity = this.getSensorThresholdSeverity(
+        const severity = getSensorThresholdSeverity(
           historyPoint.value,
           thresholdConfig,
         );
@@ -1877,14 +1877,10 @@ export class DashboardMapComponent implements AfterViewInit {
       return left;
     }
 
-    const severityRank: Record<SensorThresholdSeverity, number> = {
-      green: 0,
-      yellow: 1,
-      orange: 2,
-      red: 3,
-    };
-
-    return severityRank[left] >= severityRank[right] ? left : right;
+    return getWorseSensorSeverity(left, right) as Exclude<
+      SensorThresholdSeverity,
+      'green'
+    >;
   }
 
   private getWorseActiveSensorThresholdPoint(
@@ -1951,7 +1947,7 @@ export class DashboardMapComponent implements AfterViewInit {
     const bottomY = 100 - this.timelinePaddingBottom;
     const plotWidth = rightX - leftX;
     const plotHeight = bottomY - topY;
-    const thresholdValues = this.getSensorThresholdValues(thresholdConfig);
+    const thresholdValues = getSensorThresholdValues(thresholdConfig);
     const minValue = Math.min(
       ...sortedPoints.map((point) => point.value),
       ...thresholdValues,
@@ -1977,8 +1973,8 @@ export class DashboardMapComponent implements AfterViewInit {
         y,
         timestamp: point.timestamp,
         value: point.value,
-        severity: this.getSensorThresholdSeverity(point.value, thresholdConfig),
-        color: this.getSensorThresholdColor(point.value, thresholdConfig),
+        severity: getSensorThresholdSeverity(point.value, thresholdConfig),
+        color: getSensorThresholdColor(point.value, thresholdConfig),
         markerPath: `M ${x.toFixed(2)} ${y.toFixed(2)} L ${x.toFixed(2)} ${y.toFixed(2)}`,
       };
     });
@@ -2006,30 +2002,22 @@ export class DashboardMapComponent implements AfterViewInit {
 
   private buildSensorTimelineSegments(
     points: SensorValueTimelinePoint[],
-  ): Array<{ path: string; color: string }> {
+  ): { path: string; color: string }[] {
     if (points.length < 2) {
       return [];
     }
 
-    const severityRank: Record<SensorThresholdSeverity, number> = {
-      green: 0,
-      yellow: 1,
-      orange: 2,
-      red: 3,
-    };
-    const segments: Array<{ path: string; color: string }> = [];
-    let activeSeverity = this.getWorseSensorSeverity(
+    const segments: { path: string; color: string }[] = [];
+    let activeSeverity = getWorseSensorSeverity(
       points[0].severity,
       points[1].severity,
-      severityRank,
     );
     let activePath = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} L ${points[1].x.toFixed(2)} ${points[1].y.toFixed(2)}`;
 
     for (let index = 1; index < points.length - 1; index += 1) {
-      const nextSeverity = this.getWorseSensorSeverity(
+      const nextSeverity = getWorseSensorSeverity(
         points[index].severity,
         points[index + 1].severity,
-        severityRank,
       );
 
       if (nextSeverity === activeSeverity) {
@@ -2059,13 +2047,13 @@ export class DashboardMapComponent implements AfterViewInit {
     valueRange: number,
     topY: number,
     bottomY: number,
-  ): Array<{
+  ): {
     id: string;
     y: number;
     value: number;
     color: string;
     label: string;
-  }> {
+  }[] {
     if (!thresholdConfig) {
       return [];
     }
@@ -2077,7 +2065,7 @@ export class DashboardMapComponent implements AfterViewInit {
       y: bottomY - ((band.value - minValue) / valueRange) * plotHeight,
       value: band.value,
       color: SENSOR_THRESHOLD_COLORS[band.severity],
-      label: `${this.capitalizeSensorSeverity(band.severity)} threshold`,
+      label: `${capitalizeSensorSeverity(band.severity)} threshold`,
     }));
   }
 
@@ -2106,83 +2094,6 @@ export class DashboardMapComponent implements AfterViewInit {
     });
 
     return Array.from(maxPointByDay.values());
-  }
-
-  private getSensorThresholdValues(
-    thresholdConfig: SensorThresholdConfig | null,
-  ): number[] {
-    if (!thresholdConfig) {
-      return [];
-    }
-
-    return thresholdConfig.bands.map((band) => band.value);
-  }
-
-  private getSensorThresholdSeverity(
-    value: number,
-    thresholdConfig: SensorThresholdConfig | null,
-  ): SensorThresholdSeverity {
-    if (!thresholdConfig) {
-      return 'green';
-    }
-
-    const severityRank: Record<SensorThresholdSeverity, number> = {
-      green: 0,
-      yellow: 1,
-      orange: 2,
-      red: 3,
-    };
-
-    const severity = thresholdConfig.bands.reduce<SensorThresholdSeverity>(
-      (severity, band) => {
-        if (value < band.value) {
-          return severity;
-        }
-
-        return this.getWorseSensorSeverity(
-          severity,
-          band.severity,
-          severityRank,
-        );
-      },
-      'green',
-    );
-
-    const highestBand = thresholdConfig.bands.reduce(
-      (highest, band) => (band.value > highest.value ? band : highest),
-      thresholdConfig.bands[0],
-    );
-
-    if (
-      highestBand &&
-      highestBand.severity !== 'red' &&
-      value >= highestBand.value
-    ) {
-      return 'red';
-    }
-
-    return severity;
-  }
-
-  private getSensorThresholdColor(
-    value: number,
-    thresholdConfig: SensorThresholdConfig | null,
-  ): string {
-    return SENSOR_THRESHOLD_COLORS[
-      this.getSensorThresholdSeverity(value, thresholdConfig)
-    ];
-  }
-
-  private getWorseSensorSeverity(
-    left: SensorThresholdSeverity,
-    right: SensorThresholdSeverity,
-    severityRank: Record<SensorThresholdSeverity, number>,
-  ): SensorThresholdSeverity {
-    return severityRank[left] >= severityRank[right] ? left : right;
-  }
-
-  private capitalizeSensorSeverity(severity: SensorThresholdSeverity): string {
-    return `${severity.charAt(0).toUpperCase()}${severity.slice(1)}`;
   }
 
   private prefetchSensorHistories(
@@ -2443,7 +2354,7 @@ export class DashboardMapComponent implements AfterViewInit {
       (historyPoint) =>
         historyPoint.timestamp.getTime() >= recentThresholdMs &&
         historyPoint.timestamp.getTime() <= currentTimeMs &&
-        this.getSensorThresholdSeverity(historyPoint.value, thresholdConfig) ===
+        getSensorThresholdSeverity(historyPoint.value, thresholdConfig) ===
           'red',
     );
 
@@ -2483,30 +2394,26 @@ export class DashboardMapComponent implements AfterViewInit {
     if (this.shouldRefreshStormWaterData(center, force)) {
       this.lastObservationRefreshCenter = center;
 
-      if (this.debugIntoto) {
-        console.log('[DashboardMap] refresh storm water data points', {
-          center,
-          force,
-          selectedObservationTimespan: this.selectedObservationTimespan(),
-          selectedTimelineWindow: this.observationTimelineWindow(),
-        });
-      }
+      this.logIntotoDebug('[DashboardMap] refresh storm water data points', {
+        center,
+        force,
+        selectedObservationTimespan: this.selectedObservationTimespan(),
+        selectedTimelineWindow: this.observationTimelineWindow(),
+      });
 
       this.dataPointsApi
         .getWeatherStormWater(center)
         .pipe(take(1), takeUntilDestroyed(this.destroyRef))
         .subscribe((points) => {
-          if (this.debugIntoto) {
-            console.log('[DashboardMap] storm water points received', {
-              count: points.length,
-              points: points.map((point) => ({
-                name: point.name,
-                location: point.location,
-                lastUpdatedOn: point.lastUpdatedOn?.toISOString(),
-                data: point.data,
-              })),
-            });
-          }
+          this.logIntotoDebug('[DashboardMap] storm water points received', {
+            count: points.length,
+            points: points.map((point) => ({
+              name: point.name,
+              location: point.location,
+              lastUpdatedOn: point.lastUpdatedOn?.toISOString(),
+              data: point.data,
+            })),
+          });
 
           this.handleDataPointsByType(points, DataPointType.STORM_WATER);
         });
@@ -2529,7 +2436,7 @@ export class DashboardMapComponent implements AfterViewInit {
     }
 
     return (
-      this.calculateDistanceKm(this.lastObservationRefreshCenter, center) >=
+      calculateDistanceKm(this.lastObservationRefreshCenter, center) >=
       this.getObservationRefreshDistanceKm()
     );
   }
@@ -2540,11 +2447,11 @@ export class DashboardMapComponent implements AfterViewInit {
       return OBSERVATION_REFRESH_MIN_DISTANCE_KM;
     }
 
-    const latSpanKm = this.calculateDistanceKm(
+    const latSpanKm = calculateDistanceKm(
       [bounds.south, bounds.west],
       [bounds.north, bounds.west],
     );
-    const longSpanKm = this.calculateDistanceKm(
+    const longSpanKm = calculateDistanceKm(
       [bounds.south, bounds.west],
       [bounds.south, bounds.east],
     );
@@ -2557,26 +2464,12 @@ export class DashboardMapComponent implements AfterViewInit {
     );
   }
 
-  private calculateDistanceKm(origin: LatLong, target: LatLong): number {
-    const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
-    const earthRadiusKm = 6371;
-    const latDiff = toRadians(target[0] - origin[0]);
-    const longDiff = toRadians(target[1] - origin[1]);
-    const a =
-      Math.sin(latDiff / 2) ** 2 +
-      Math.cos(toRadians(origin[0])) *
-        Math.cos(toRadians(target[0])) *
-        Math.sin(longDiff / 2) ** 2;
-
-    return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
-
   private handleDataPointsByType(
     dataPoints: DataPoint[],
     type: DataPointType,
   ): void {
-    if (this.debugIntoto && type === DataPointType.STORM_WATER) {
-      console.log('[DashboardMap] handleDataPointsByType(STORM_WATER)', {
+    if (type === DataPointType.STORM_WATER) {
+      this.logIntotoDebug('[DashboardMap] handleDataPointsByType(STORM_WATER)', {
         incomingCount: dataPoints.length,
         filteredWindow: this.observationTimelineWindow(),
       });
@@ -2632,5 +2525,14 @@ export class DashboardMapComponent implements AfterViewInit {
     return (
       latitude >= bounds.south && latitude <= bounds.north && longitudeInBounds
     );
+  }
+
+  private logIntotoDebug(message: string, context: unknown): void {
+    if (!this.debugIntoto) {
+      return;
+    }
+
+    // eslint-disable-next-line no-console
+    console.debug(message, context);
   }
 }

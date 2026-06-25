@@ -4,8 +4,9 @@
 
 #### Prerequisites
 
-1. `npm install`
-2. `npm run serve` to serve the Angular app on `localhost:4200` without service workers
+1. Use Node `22.23.1` and npm `10.9.0`
+2. `npm install`
+3. `npm run serve` to serve the Angular app on `localhost:4200` without service workers
 
 #### Use of service workers
 

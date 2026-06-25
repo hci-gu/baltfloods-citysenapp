@@ -76,24 +76,24 @@
       @case (DATA_POINT_TYPE.STORM_WATER) {
         @if (isIntotoStormWaterDataPoint(dataPoint)) {
           <section class="sensor-detail">
-            <div class="sensor-detail__hero">
-              <div class="sensor-detail__value-block">
-                <p class="sensor-detail__eyebrow">Sensor reading</p>
-                <div class="sensor-detail__value-row">
-                  <p class="sensor-detail__value">
+            <div class="sensor-detail-hero">
+              <div class="sensor-detail-value-block">
+                <p class="sensor-detail-eyebrow">Sensor reading</p>
+                <div class="sensor-detail-value-row">
+                  <p class="sensor-detail-value">
                     {{ getSensorValueLabel(dataPoint) }}
                   </p>
-                  <p class="sensor-detail__unit">
+                  <p class="sensor-detail-unit">
                     {{ getSensorUnitLabel(dataPoint) }}
                   </p>
                 </div>
-                <p class="sensor-detail__type">Water level</p>
+                <p class="sensor-detail-type">Water level</p>
               </div>
 
-              <div class="sensor-detail__status-block">
-                <p class="sensor-detail__eyebrow">Status</p>
+              <div class="sensor-detail-status-block">
+                <p class="sensor-detail-eyebrow">Status</p>
                 <p-chip
-                  class="chip sensor-detail__status-chip"
+                  class="chip sensor-detail-status-chip"
                   [style]="{
                     'background-color':
                       getSensorStatusBackgroundColor(dataPoint),
@@ -101,13 +101,13 @@
                   }"
                   [label]="getSensorStatusLabel(dataPoint)"
                 ></p-chip>
-                <p class="sensor-detail__status-copy body-sm">
+                <p class="sensor-detail-status-copy body-sm">
                   {{ getSensorStatusDescription(dataPoint) }}
                 </p>
               </div>
             </div>
 
-            <ul class="sensor-detail__meta">
+            <ul class="sensor-detail-meta">
               <li>
                 <p class="button-sm">
                   {{

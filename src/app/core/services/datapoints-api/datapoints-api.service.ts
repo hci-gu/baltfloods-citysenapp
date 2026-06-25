@@ -123,11 +123,7 @@ export class DataPointsApi {
   public getWeatherStormWater(
     center?: LatLong,
   ): Observable<WeatherStormWaterDataPoint[]> {
-    if (this.debugIntoto) {
-      console.log('[Intoto] getWeatherStormWater', {
-        center,
-      });
-    }
+    this.logIntotoDebug('[Intoto] getWeatherStormWater', { center });
 
     const streetAi$ = this.httpClient
       .get<WeatherStormWaterResponse>(
@@ -144,12 +140,10 @@ export class DataPointsApi {
     const intoto$ = center
       ? this.getNearbyIntotoStormWater(center).pipe(
           catchError((error) => {
-            if (this.debugIntoto) {
-              console.error('[Intoto] nearby storm water lookup failed', {
-                center,
-                error,
-              });
-            }
+            this.logIntotoDebug('[Intoto] nearby storm water lookup failed', {
+              center,
+              error,
+            });
 
             return of([] as WeatherStormWaterDataPoint[]);
           }),
@@ -158,18 +152,16 @@ export class DataPointsApi {
 
     return forkJoin([streetAi$, intoto$]).pipe(
       map(([streetAi, intoto]) => {
-        if (this.debugIntoto) {
-          console.log('[Intoto] merged storm water points', {
-            streetAiCount: streetAi.length,
-            intotoCount: intoto.length,
-            intotoPoints: intoto.map((point) => ({
-              name: point.name,
-              location: point.location,
-              lastUpdatedOn: point.lastUpdatedOn?.toISOString(),
-              data: point.data,
-            })),
-          });
-        }
+        this.logIntotoDebug('[Intoto] merged storm water points', {
+          streetAiCount: streetAi.length,
+          intotoCount: intoto.length,
+          intotoPoints: intoto.map((point) => ({
+            name: point.name,
+            location: point.location,
+            lastUpdatedOn: point.lastUpdatedOn?.toISOString(),
+            data: point.data,
+          })),
+        });
 
         return [...streetAi, ...intoto];
       }),
@@ -349,21 +341,19 @@ export class DataPointsApi {
     return this.getIntotoCatalog().pipe(
       map((catalog) => this.findNearbyIntotoSeries(catalog, center)),
       switchMap((candidates) => {
-        if (this.debugIntoto) {
-          console.log('[Intoto] nearby series candidates', {
-            center,
-            candidateCount: candidates.length,
-            candidates: candidates.map((candidate) => ({
-              seriesId: candidate.series.id,
-              locationName: candidate.locationName,
-              location: candidate.location,
-              distanceKm: Math.round(candidate.distanceKm * 100) / 100,
-              description: candidate.description,
-              unitName: candidate.unitName,
-              referenceLevelName: candidate.referenceLevelName,
-            })),
-          });
-        }
+        this.logIntotoDebug('[Intoto] nearby series candidates', {
+          center,
+          candidateCount: candidates.length,
+          candidates: candidates.map((candidate) => ({
+            seriesId: candidate.series.id,
+            locationName: candidate.locationName,
+            location: candidate.location,
+            distanceKm: Math.round(candidate.distanceKm * 100) / 100,
+            description: candidate.description,
+            unitName: candidate.unitName,
+            referenceLevelName: candidate.referenceLevelName,
+          })),
+        });
 
         if (candidates.length === 0) {
           return of([] as WeatherStormWaterDataPoint[]);
@@ -383,13 +373,11 @@ export class DataPointsApi {
                   this.mapIntotoSeriesToStormWater(candidate, seriesData),
                 ),
                 catchError((error) => {
-                  if (this.debugIntoto) {
-            console.error('[Intoto] series fetch failed', {
-                      seriesId: candidate.series.id,
-                      locationName: candidate.locationName,
-                      error,
-                    });
-                  }
+                  this.logIntotoDebug('[Intoto] series fetch failed', {
+                    seriesId: candidate.series.id,
+                    locationName: candidate.locationName,
+                    error,
+                  });
 
                   return of(null);
                 }),
@@ -415,25 +403,19 @@ export class DataPointsApi {
         units: this.intotoApi.getSeriesUnits(),
       }).pipe(
         map((catalog) => {
-          if (this.debugIntoto) {
-            console.log('[Intoto] catalog loaded', {
-              areaCount: catalog.areas.length,
-              categoryCount: catalog.categories.length,
-              subCategoryCount: catalog.subCategories.length,
-              unitCount: catalog.units.length,
-            });
-          }
+          this.logIntotoDebug('[Intoto] catalog loaded', {
+            areaCount: catalog.areas.length,
+            categoryCount: catalog.categories.length,
+            subCategoryCount: catalog.subCategories.length,
+            unitCount: catalog.units.length,
+          });
 
           return catalog;
         }),
         catchError((error) => {
           this.intotoCatalog$ = undefined;
 
-          if (this.debugIntoto) {
-            console.error('[Intoto] catalog load failed', {
-              error,
-            });
-          }
+          this.logIntotoDebug('[Intoto] catalog load failed', { error });
 
           return throwError(() => error);
         }),
@@ -562,13 +544,11 @@ export class DataPointsApi {
       );
 
     if (!latest || latest.value === undefined || !latest.timestamp) {
-      if (this.debugIntoto) {
-        console.log('[Intoto] no usable latest point', {
-          seriesId: candidate.series.id,
-          locationName: candidate.locationName,
-          pointCount: seriesData.length,
-        });
-      }
+      this.logIntotoDebug('[Intoto] no usable latest point', {
+        seriesId: candidate.series.id,
+        locationName: candidate.locationName,
+        pointCount: seriesData.length,
+      });
 
       return null;
     }
@@ -597,15 +577,13 @@ export class DataPointsApi {
       },
     };
 
-    if (this.debugIntoto) {
-      console.log('[Intoto] mapped storm water point', {
-        seriesId: candidate.series.id,
-        locationName: candidate.locationName,
-        location: candidate.location,
-        latestTimestamp: latest.timestamp,
-        latestValue: latest.value,
-      });
-    }
+    this.logIntotoDebug('[Intoto] mapped storm water point', {
+      seriesId: candidate.series.id,
+      locationName: candidate.locationName,
+      location: candidate.location,
+      latestTimestamp: latest.timestamp,
+      latestValue: latest.value,
+    });
 
     return mappedPoint;
   }
@@ -701,7 +679,10 @@ export class DataPointsApi {
     return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
 
-  private toMetric(value: number | null | undefined, timestamp: number) {
+  private toMetric(
+    value: number | null | undefined,
+    timestamp: number,
+  ): { value: number; dataRetrievedTimestamp: number } | null {
     if (value === null || value === undefined) {
       return null;
     }
@@ -742,9 +723,16 @@ export class DataPointsApi {
       return null;
     }
 
-    return new HttpHeaders({
-      Authorization: `Bearer ${authToken}`,
-    });
+    return new HttpHeaders().set('Authorization', `Bearer ${authToken}`);
+  }
+
+  private logIntotoDebug(message: string, context: unknown): void {
+    if (!this.debugIntoto) {
+      return;
+    }
+
+    // eslint-disable-next-line no-console
+    console.debug(message, context);
   }
 
   private getValidAuthToken(): string | null {

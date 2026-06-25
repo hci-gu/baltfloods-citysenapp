@@ -54,7 +54,7 @@ export class ScheduledMessagesService {
 
   public getActiveMessages(): Observable<ScheduledMessage[]> {
     return this.http
-      .get<Array<Partial<ScheduledMessage>>>(`${this.baseUrl}/active`)
+      .get<Partial<ScheduledMessage>[]>(`${this.baseUrl}/active`)
       .pipe(map((messages) => messages.map(this.normalizeMessage)))
       .pipe(catchError(() => of([])));
   }
@@ -75,9 +75,7 @@ export class ScheduledMessagesService {
 
     return this.http
       .post<Partial<ScheduledMessage>>(`${this.baseUrl}/alert`, request, {
-        headers: new HttpHeaders({
-          Authorization: `Bearer ${token}`,
-        }),
+        headers: new HttpHeaders().set('Authorization', `Bearer ${token}`),
       })
       .pipe(map((message) => this.normalizeMessage(message)));
   }
@@ -190,7 +188,7 @@ export class ScheduledMessagesService {
         eventSource = new EventSource(`${this.pocketbaseUrl}/realtime`);
         eventSource.addEventListener('PB_CONNECT', onConnect);
         eventSource.addEventListener(this.realtimeTopic, onRefresh);
-        eventSource.onerror = () => resetConnectionWithReconnect();
+        eventSource.onerror = (): void => resetConnectionWithReconnect();
       };
 
       subscriber.next();

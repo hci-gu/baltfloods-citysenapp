@@ -631,7 +631,7 @@ export class AdminObservationsComponent {
     return `<p>${escapedMessage}</p>`;
   }
 
-  private handleLoadError(error: HttpErrorResponse): void {
+  private handleLoadError(_error: HttpErrorResponse): void {
     this.isLoading.set(false);
     this.errorMessage.set('Failed to load observations.');
   }

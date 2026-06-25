@@ -33,7 +33,6 @@ const (
 	observationTypeWaterOverflow   = "water_overflow"
 	observationRefreshTopic        = "observations-refresh"
 	scheduledMessagesRefreshTopic  = "scheduled-messages-refresh"
-	observationBackendAPIURL       = "https://baltfloods-api.prod.appadem.in"
 )
 
 func main() {
@@ -1339,8 +1338,7 @@ func ensureObservationImageURL(record *core.Record) bool {
 }
 
 func observationPhotoURL(recordID string, filename string) string {
-	return strings.TrimRight(observationBackendAPIURL, "/") +
-		"/api/files/observations/" + recordID + "/" + url.PathEscape(filename)
+	return "/api/files/observations/" + recordID + "/" + url.PathEscape(filename)
 }
 
 func backfillObservationImageURLs(app core.App) error {
