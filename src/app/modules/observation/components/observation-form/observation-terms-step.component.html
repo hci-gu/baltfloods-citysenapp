@@ -1,0 +1,45 @@
+<h2 class="title">{{ "OBSERVATION.HEADER.TERMS_TITLE" | translate }}</h2>
+<div class="content flex-column" [formGroup]="observationForm">
+  <p class="description">
+    {{ "OBSERVATION.TERMS.DESCRIPTION" | translate }}
+  </p>
+  <div class="flex-column">
+    <label class="p-label" for="identificationCode">
+      {{ "OBSERVATION.FIELD.IDENTIFICATION_CODE" | translate }}
+    </label>
+    <input
+      pInputText
+      id="identificationCode"
+      type="text"
+      formControlName="identificationCode"
+    />
+  </div>
+  <p class="help-text">
+    {{ "OBSERVATION.TERMS.IDENTIFICATION_HINT" | translate }}
+  </p>
+  <div class="p-checkbox-container">
+    <p-checkbox
+      formControlName="termsAccepted"
+      inputId="termsAccepted"
+      [binary]="true"
+      [required]="true"
+    ></p-checkbox>
+    <label class="p-checkbox-label" for="termsAccepted">
+      {{ "OBSERVATION.TERMS.ACCEPT_TERMS" | translate }}
+    </label>
+  </div>
+  <div class="p-checkbox-container">
+    <p-checkbox
+      formControlName="cc0Accepted"
+      inputId="cc0Accepted"
+      [binary]="true"
+      [required]="true"
+    ></p-checkbox>
+    <label class="p-checkbox-label" for="cc0Accepted">
+      {{ "OBSERVATION.TERMS.ACCEPT_CC0" | translate }}
+    </label>
+  </div>
+  @if (submissionErrorKey) {
+    <small class="p-error">{{ submissionErrorKey | translate }}</small>
+  }
+</div>

@@ -12,12 +12,16 @@ import {
 } from '@core/models/data-point';
 import { RadarService } from '@core/services/radar.service';
 import { environment } from '@environments/environment';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { SharedModule } from 'primeng/api';
 import { Chip } from 'primeng/chip';
+import { of } from 'rxjs';
 import { Shallow } from 'shallow-render';
 import { DashboardDataPointDetailComponent } from './dashboard-data-point-detail.component';
 import { DatePipe, KeyValuePipe } from '@angular/common';
+import { StormWaterDetailComponent } from './storm-water-detail.component';
+import { WaterbagTestkitDetailComponent } from './waterbag-testkit-detail.component';
+import { WeatherConditionsDetailComponent } from './weather-conditions-detail.component';
 
 // jest.useFakeTimers();
 
@@ -28,13 +32,23 @@ describe('DashboardDataPointDetailComponent', () => {
 
   beforeEach(() => {
     shallow = new Shallow(DashboardDataPointDetailComponent)
-      .mock(TranslateService, { instant: jest.fn((key) => key) })
+      .mock(TranslateService, {
+        instant: jest.fn((key) => key),
+        get: jest.fn((key) => of(key)),
+        onTranslationChange: of({}) as never,
+        onLangChange: of({}) as never,
+        onDefaultLangChange: of({}) as never,
+      })
       .mock(RadarService, {
         reverseGeocode: jest.fn().mockReturnValue(address),
       })
       .provideMock(DatePipe)
       .provideMock(KeyValuePipe)
-      .provideMock(SharedModule);
+      .provideMock(SharedModule)
+      .mockPipe(TranslatePipe, (input) => input)
+      .dontMock(WeatherConditionsDetailComponent)
+      .dontMock(StormWaterDetailComponent)
+      .dontMock(WaterbagTestkitDetailComponent);
   });
 
   describe('data points input', () => {
@@ -138,9 +152,9 @@ describe('DashboardDataPointDetailComponent', () => {
         expect(
           find('.sensor-detail-status-copy').nativeElement.textContent,
         ).toContain('Above the highest configured threshold.');
-        expect(
-          find('.sensor-detail-meta').nativeElement.textContent,
-        ).toContain('Yellow 18 MASL');
+        expect(find('.sensor-detail-meta').nativeElement.textContent).toContain(
+          'Yellow 18 MASL',
+        );
       });
 
       it('when type is weather condition', async () => {
@@ -246,7 +260,7 @@ describe('DashboardDataPointDetailComponent', () => {
           'DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.TITLE',
         );
         expect(find('p.body-xs').nativeElement.innerHTML).toEqual(address);
-        expect(findComponent(Chip).length).toEqual(8);
+        expect(find('.chip').length).toEqual(8);
         expect(find('.observation-image')).toHaveFound(1);
         expect(
           find('.observation-image').nativeElement.getAttribute('src'),

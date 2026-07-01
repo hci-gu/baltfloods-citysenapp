@@ -20,6 +20,7 @@ describe('MapComponent', () => {
 
   beforeEach(() => {
     delete leafletWithHeat.heatLayer;
+    delete (globalThis as { L?: typeof leaflet }).L;
     shallow = new Shallow(MapComponent)
       .mock(HttpClient, {
         get: () => of('<svg fill="currentColor" stroke="strokeColor"></svg>'),
@@ -174,6 +175,14 @@ describe('MapComponent', () => {
     });
 
     it('should keep rendering regular markers when heatmap markers are present', async () => {
+      const addHeatLayerToMap = jest.fn();
+      const heatLayer = jest.fn(() => ({
+        addTo: addHeatLayerToMap,
+      }));
+      (globalThis as { L?: Record<string, unknown> }).L = {
+        ...leaflet,
+        heatLayer,
+      };
       const markers: Marker[] = [
         {
           location: [0, 0],
@@ -188,12 +197,6 @@ describe('MapComponent', () => {
       ];
 
       const { find, fixture, instance } = await shallow.render();
-      const renderHeatLayerSpy = jest
-        .spyOn(
-          instance as unknown as { renderHeatLayer: () => Promise<void> },
-          'renderHeatLayer',
-        )
-        .mockResolvedValue(undefined);
 
       instance.markers = markers;
       instance.ngOnChanges({
@@ -204,10 +207,8 @@ describe('MapComponent', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       fixture.detectChanges();
 
-      expect(renderHeatLayerSpy).toHaveBeenCalledWith(
-        [markers[0]],
-        expect.any(Number),
-      );
+      expect(heatLayer).toHaveBeenCalled();
+      expect(addHeatLayerToMap).toHaveBeenCalledWith(instance.map);
       expect(find('.leaflet-marker-icon')).toHaveFound(1);
     });
 

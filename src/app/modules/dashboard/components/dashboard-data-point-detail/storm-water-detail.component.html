@@ -1,0 +1,102 @@
+@if (isIntotoStormWaterDataPoint()) {
+  <section class="sensor-detail">
+    <div class="sensor-detail-hero">
+      <div class="sensor-detail-value-block">
+        <p class="sensor-detail-eyebrow">Sensor reading</p>
+        <div class="sensor-detail-value-row">
+          <p class="sensor-detail-value">
+            {{ getSensorValueLabel() }}
+          </p>
+          <p class="sensor-detail-unit">
+            {{ getSensorUnitLabel() }}
+          </p>
+        </div>
+        <p class="sensor-detail-type">Water level</p>
+      </div>
+
+      <div class="sensor-detail-status-block">
+        <p class="sensor-detail-eyebrow">Status</p>
+        <p-chip
+          class="chip sensor-detail-status-chip"
+          [style]="{
+            'background-color': getSensorStatusBackgroundColor(),
+            color: getSensorStatusTextColor(),
+          }"
+          [label]="getSensorStatusLabel()"
+        ></p-chip>
+        <p class="sensor-detail-status-copy body-sm">
+          {{ getSensorStatusDescription() }}
+        </p>
+      </div>
+    </div>
+
+    <ul class="sensor-detail-meta">
+      <li>
+        <p class="button-sm">
+          {{
+            "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON" | translate
+          }}
+        </p>
+        <p class="body-sm">
+          {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
+        </p>
+      </li>
+      <li>
+        <p class="button-sm">Alert thresholds</p>
+        <p class="body-sm">
+          {{ getSensorAlertThresholdSummary() }}
+        </p>
+      </li>
+    </ul>
+  </section>
+} @else {
+  <ul class="metric-container">
+    <li>
+      <p class="button-sm">
+        {{
+          "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON" | translate
+        }}
+      </p>
+      <p class="body-sm">
+        {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
+      </p>
+    </li>
+    <li>
+      <p class="button-sm">
+        {{ "MISC.QUALITY" | translate }}
+      </p>
+      <p-chip
+        class="chip"
+        [style]="{
+          'background-color': getDataQualityBackgroundColor(),
+          color: getDataQualityTextColor(),
+        }"
+        [label]="getQualityTranslation() | translate"
+      ></p-chip>
+    </li>
+    @if (hasStormWaterFillLevel()) {
+      <li>
+        <p class="button-sm">
+          {{ "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate }}
+        </p>
+        <small class="body-sm">
+          {{
+            "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL_RESULT." +
+              dataPoint.data["fillLevel"].toString() | translate
+          }}
+        </small>
+      </li>
+    }
+    @for (metric of getStormWaterMetrics(); track metric.key) {
+      <li>
+        <p class="button-sm">
+          {{ getDataPointTranslation(DATA_POINT_TYPE.STORM_WATER, metric.key) }}
+        </p>
+        <small class="body-sm">
+          {{ getStormWeatherMetricValue(metric.value, metric.key)
+          }}{{ getMetricUnitForDataPoint(metric.key) }}
+        </small>
+      </li>
+    }
+  </ul>
+}

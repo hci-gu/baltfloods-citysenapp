@@ -9,29 +9,23 @@ import {
   SimpleChanges,
 } from '@angular/core';
 import {
-  SENSOR_THRESHOLD_COLORS,
-  SENSOR_THRESHOLDS_BY_SERIES_ID,
-  SensorThresholdConfig,
-  SensorThresholdSeverity,
-} from '@core/config/sensor-thresholds';
-import {
-  DATA_POINT_QUALITY_COLOR_CHART,
   DataPoint,
   DataPointQuality,
   DataPointType,
   WeatherStormWaterDataPoint,
-  WATERBAG_TESTKIT_METRIC_UNIT,
   WaterbagTestKitDataPoint,
   WaterbagTestKitDataPointData,
-  WEATHER_CONDITIONS_METRIC_UNIT,
-  WEATHER_STORM_WATER_METRIC_UNIT,
 } from '@core/models/data-point';
 import { RadarService } from '@core/services/radar.service';
-import { environment } from '@environments/environment';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Chip } from 'primeng/chip';
 import { Skeleton } from 'primeng/skeleton';
 import { IconComponent } from '@shared/components/icon/icon.component';
+import * as detailViewModel from './data-point-detail-view-model';
+import * as sensorViewModel from './sensor-threshold-view-model';
+import { StormWaterDetailComponent } from './storm-water-detail.component';
+import { WaterbagTestkitDetailComponent } from './waterbag-testkit-detail.component';
+import { WeatherConditionsDetailComponent } from './weather-conditions-detail.component';
 
 @Component({
   selector: 'app-dashboard-data-point-detail',
@@ -44,6 +38,9 @@ import { IconComponent } from '@shared/components/icon/icon.component';
     TranslatePipe,
     DatePipe,
     KeyValuePipe,
+    WeatherConditionsDetailComponent,
+    StormWaterDetailComponent,
+    WaterbagTestkitDetailComponent,
   ],
   standalone: true,
 })
@@ -116,13 +113,9 @@ export class DashboardDataPointDetailComponent implements OnChanges {
   public getWeatherConditionMetricValue(
     value: string | number,
   ): string | number {
-    if (typeof value === 'number') {
-      return Math.round(value * 10) / 10;
-    }
-
-    return this.getDataPointTranslation(
-      DataPointType.WEATHER_CONDITIONS,
+    return detailViewModel.getWeatherConditionMetricValue(
       value,
+      this.translateService,
     );
   }
 
@@ -130,294 +123,115 @@ export class DashboardDataPointDetailComponent implements OnChanges {
     value: string | number,
     key: string,
   ): string | number {
-    if (key === 'dataRetrievedTimestamp') {
-      const date = this.datePipe.transform(value, 'dd/MM/yyyy');
-      return date ? date : '';
-    }
-
-    return value;
+    return detailViewModel.getStormWeatherMetricValue(
+      value,
+      key,
+      this.datePipe,
+    );
   }
 
   public getQualityTranslation(quality: DataPointQuality): string {
-    return `DASHBOARD.DATA_POINTS.QUALITY.${DataPointQuality[quality]}`;
+    return detailViewModel.getQualityTranslation(quality);
   }
 
   public getWaterbagTestkitValue(
     value: WaterbagTestKitDataPointData,
     key: keyof WaterbagTestKitDataPoint['data'],
   ): number {
-    if (key === 'algae') {
-      return this.translateService.instant(
-        `DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.ALGAE_DESCRIPTION.${value.value}`,
-      );
-    }
-
-    return value.calculatedValue ?? value.value;
+    return detailViewModel.getWaterbagTestkitValue(
+      value,
+      key,
+      this.translateService,
+    );
   }
 
   public getDataQualityBackgroundColor(quality: DataPointQuality): string {
-    return DATA_POINT_QUALITY_COLOR_CHART[quality];
+    return detailViewModel.getDataQualityBackgroundColor(quality);
   }
 
   public getDataQualityTextColor(quality: DataPointQuality): string {
-    return quality === DataPointQuality.DEFAULT ? 'white' : 'black';
+    return detailViewModel.getDataQualityTextColor(quality);
   }
 
   public getMetricUnit(type: DataPointType, key: string): string | undefined {
-    if (type === DataPointType.WEATHER_CONDITIONS) {
-      return (
-        WEATHER_CONDITIONS_METRIC_UNIT[
-          key as keyof typeof WEATHER_CONDITIONS_METRIC_UNIT
-        ] ?? ''
-      );
-    }
-
-    if (type === DataPointType.STORM_WATER) {
-      return (
-        WEATHER_STORM_WATER_METRIC_UNIT[
-          key as keyof typeof WEATHER_STORM_WATER_METRIC_UNIT
-        ] ?? ''
-      );
-    }
-
-    if (type === DataPointType.WATERBAG_TESTKIT) {
-      return (
-        WATERBAG_TESTKIT_METRIC_UNIT[
-          key as keyof typeof WATERBAG_TESTKIT_METRIC_UNIT
-        ] ?? ''
-      );
-    }
-
-    return undefined;
+    return detailViewModel.getMetricUnit(type, key);
   }
 
   public getMetricUnitForDataPoint(
     point: DataPoint,
     key: string,
   ): string | undefined {
-    if (
-      point.type === DataPointType.STORM_WATER &&
-      point.dataUnitOverrides?.[key]
-    ) {
-      return point.dataUnitOverrides[key];
-    }
-
-    return this.getMetricUnit(point.type, key);
+    return detailViewModel.getMetricUnitForDataPoint(point, key);
   }
 
   public getStormWaterMetrics(
     dataPoint: WeatherStormWaterDataPoint,
   ): { key: string; value: string | number }[] {
-    return Object.entries(dataPoint.data)
-      .filter(([key]) => key !== 'fillLevel')
-      .map(([key, value]) => ({ key, value }));
+    return detailViewModel.getStormWaterMetrics(dataPoint);
   }
 
   public getSensorValue(dataPoint: WeatherStormWaterDataPoint): number | null {
-    const value = dataPoint.data['waterLevel'];
-    return typeof value === 'number' ? value : null;
+    return sensorViewModel.getSensorValue(dataPoint);
   }
 
   public getSensorValueLabel(dataPoint: WeatherStormWaterDataPoint): string {
-    const value = this.getSensorValue(dataPoint);
-
-    if (value === null) {
-      return 'No reading';
-    }
-
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 3,
-    }).format(value);
+    return sensorViewModel.getSensorValueLabel(dataPoint);
   }
 
   public getSensorStatusLabel(dataPoint: WeatherStormWaterDataPoint): string {
-    const severity = this.getSensorSeverity(dataPoint);
-
-    switch (severity) {
-      case 'yellow':
-        return 'Watch';
-      case 'orange':
-        return 'Warning';
-      case 'red':
-        return 'Critical';
-      default:
-        return 'Normal';
-    }
+    return sensorViewModel.getSensorStatusLabel(dataPoint);
   }
 
   public getSensorStatusDescription(
     dataPoint: WeatherStormWaterDataPoint,
   ): string {
-    const severity = this.getSensorSeverity(dataPoint);
-
-    switch (severity) {
-      case 'yellow':
-        return 'Above the watch threshold.';
-      case 'orange':
-        return 'Above the warning threshold.';
-      case 'red':
-        return 'Above the highest configured threshold.';
-      default:
-        return 'Within the normal range.';
-    }
+    return sensorViewModel.getSensorStatusDescription(dataPoint);
   }
 
   public getSensorStatusBackgroundColor(
     dataPoint: WeatherStormWaterDataPoint,
   ): string {
-    return SENSOR_THRESHOLD_COLORS[this.getSensorSeverity(dataPoint)];
+    return sensorViewModel.getSensorStatusBackgroundColor(dataPoint);
   }
 
   public getSensorStatusTextColor(
     dataPoint: WeatherStormWaterDataPoint,
   ): string {
-    return this.getSensorSeverity(dataPoint) === 'yellow' ? '#111827' : 'white';
+    return sensorViewModel.getSensorStatusTextColor(dataPoint);
   }
 
   public getSensorAlertThresholdSummary(
     dataPoint: WeatherStormWaterDataPoint,
   ): string {
-    const thresholdConfig = this.getSensorThresholdConfig(dataPoint);
-
-    if (!thresholdConfig) {
-      return 'No alert thresholds configured.';
-    }
-
-    const yellowThreshold = thresholdConfig.bands.find(
-      (band) => band.severity === 'yellow',
-    )?.value;
-    const orangeThreshold = thresholdConfig.bands.find(
-      (band) => band.severity === 'orange',
-    )?.value;
-    const highestThreshold = thresholdConfig.bands.reduce(
-      (max, band) => Math.max(max, band.value),
-      Number.NEGATIVE_INFINITY,
-    );
-    const unitLabel = thresholdConfig.unitLabel;
-    const parts = [
-      yellowThreshold !== undefined
-        ? `Yellow ${yellowThreshold} ${unitLabel}`
-        : null,
-      orangeThreshold !== undefined
-        ? `Orange ${orangeThreshold} ${unitLabel}`
-        : null,
-      Number.isFinite(highestThreshold)
-        ? `Red above ${highestThreshold} ${unitLabel}`
-        : null,
-    ].filter((value): value is string => value !== null);
-
-    return parts.join('  •  ');
+    return sensorViewModel.getSensorAlertThresholdSummary(dataPoint);
   }
 
   public getSensorUnitLabel(dataPoint: WeatherStormWaterDataPoint): string {
-    return (
-      dataPoint.dataUnitOverrides?.['waterLevel'] ??
-      dataPoint.historySeries?.unitLabel ??
-      this.getMetricUnit(dataPoint.type, 'waterLevel') ??
-      ''
-    );
+    return sensorViewModel.getSensorUnitLabel(dataPoint);
   }
 
   public isIntotoStormWaterDataPoint(
     dataPoint: WeatherStormWaterDataPoint,
   ): boolean {
-    return dataPoint.historySeries?.provider === 'intoto';
+    return sensorViewModel.isIntotoStormWaterDataPoint(dataPoint);
   }
 
   public hasStormWaterFillLevel(
     dataPoint: WeatherStormWaterDataPoint,
   ): boolean {
-    return dataPoint.data['fillLevel'] !== undefined;
+    return sensorViewModel.hasStormWaterFillLevel(dataPoint);
   }
 
   public getDataPointTranslation(type: DataPointType, key: string): string {
-    const i18nKey = `DASHBOARD.DATA_POINTS.${Object.values(DataPointType)[type]}.${key.toUpperCase()}`;
-    return this.translateService.instant(i18nKey);
+    return detailViewModel.getDataPointTranslation(
+      type,
+      key,
+      this.translateService,
+    );
   }
 
   public getDataPointImageUrl(imageUrl: string): string {
-    let normalized = imageUrl.trim();
-    const pocketbaseBase = environment.pocketbaseUrl.replace(/\/$/, '');
-
-    if (normalized.startsWith('../')) {
-      normalized = normalized.replace(/^(\.\.\/)+/, '');
-    }
-
-    if (/^https?:\/\//i.test(normalized)) {
-      return normalized;
-    }
-
-    if (normalized.startsWith('/api/')) {
-      return normalized;
-    }
-
-    if (normalized.startsWith('api/')) {
-      return `/${normalized.replace(/^\/+/, '')}`;
-    }
-
-    if (normalized.startsWith('/files/')) {
-      return `${pocketbaseBase}/${normalized.replace(/^\/+/, '')}`;
-    }
-
-    if (normalized.startsWith('files/')) {
-      return `${pocketbaseBase}/${normalized}`;
-    }
-
-    if (normalized.startsWith('/')) {
-      return normalized;
-    }
-
-    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
-  }
-
-  private getSensorSeverity(
-    dataPoint: WeatherStormWaterDataPoint,
-  ): SensorThresholdSeverity {
-    const value = this.getSensorValue(dataPoint);
-    const thresholdConfig = this.getSensorThresholdConfig(dataPoint);
-
-    if (value === null || !thresholdConfig) {
-      return 'green';
-    }
-
-    const matchingBands = thresholdConfig.bands.filter(
-      (band) => value >= band.value,
-    );
-
-    if (matchingBands.length === 0) {
-      return 'green';
-    }
-
-    const highestBand = matchingBands.reduce((currentHighest, band) =>
-      band.value > currentHighest.value ? band : currentHighest,
-    );
-    const highestConfiguredValue = thresholdConfig.bands.reduce(
-      (max, band) => Math.max(max, band.value),
-      Number.NEGATIVE_INFINITY,
-    );
-
-    if (
-      highestBand.severity !== 'red' &&
-      value >= highestConfiguredValue &&
-      Number.isFinite(highestConfiguredValue)
-    ) {
-      return 'red';
-    }
-
-    return highestBand.severity;
-  }
-
-  private getSensorThresholdConfig(
-    dataPoint: WeatherStormWaterDataPoint,
-  ): SensorThresholdConfig | null {
-    const seriesId = dataPoint.historySeries?.seriesId;
-
-    if (seriesId === undefined) {
-      return null;
-    }
-
-    return SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null;
+    return detailViewModel.getDataPointImageUrl(imageUrl);
   }
 
   private setActiveDataPoint(index: number): void {
