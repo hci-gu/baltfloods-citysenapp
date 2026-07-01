@@ -1,0 +1,103 @@
+<section class="admin-card list-card">
+  <header class="admin-header">
+    <div>
+      <h1 class="heading-sm">Observations</h1>
+    </div>
+
+    <div class="actions">
+      <p-button
+        label="Refresh"
+        severity="secondary"
+        [disabled]="isLoading"
+        (click)="refresh.emit()"
+      ></p-button>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <p class="p-error body-sm">{{ errorMessage }}</p>
+  }
+
+  @if (isLoading) {
+    <p class="body-sm">Loading observations...</p>
+  } @else {
+    <div class="list-content">
+      @if (observations.length > 0) {
+        <ul class="observations-list">
+          @for (observation of observations; track observation.id) {
+            <li class="observation-row">
+              <div class="observation-content">
+                @if (observation.imageUrl) {
+                  <img
+                    class="observation-thumbnail"
+                    [src]="observation.imageUrl"
+                    [alt]="'Image for ' + observation.name"
+                    loading="lazy"
+                  />
+                }
+                <p class="observation-name body-sm">
+                  {{ observation.name }}
+                </p>
+                <p class="observation-type body-xs">
+                  {{ observation.type }}
+                </p>
+                <p
+                  class="observation-visibility body-xs"
+                  [class.hidden]="!observation.visible"
+                >
+                  {{ observation.visible ? "Visible" : "Hidden" }}
+                </p>
+                @if (observation.createdOn) {
+                  <p class="observation-time body-xs">
+                    {{ observation.createdOn | date: "dd/MM/yyyy HH:mm" }}
+                  </p>
+                }
+              </div>
+
+              @if (canDelete) {
+                <div class="observation-actions">
+                  <p-button
+                    [label]="observation.visible ? 'Hide' : 'Show'"
+                    severity="secondary"
+                    [outlined]="true"
+                    [loading]="isVisibilityUpdating(observation.id)"
+                    [disabled]="
+                      isVisibilityUpdating(observation.id) ||
+                      isDeleting(observation.id)
+                    "
+                    (click)="toggleVisibility.emit(observation)"
+                  ></p-button>
+                  <p-button
+                    label="Delete"
+                    severity="danger"
+                    [outlined]="true"
+                    [loading]="isDeleting(observation.id)"
+                    [disabled]="
+                      isDeleting(observation.id) ||
+                      isVisibilityUpdating(observation.id)
+                    "
+                    (click)="deleteObservation.emit(observation)"
+                  ></p-button>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="body-sm">No observations yet.</p>
+      }
+
+      @if (totalItems > pageSize) {
+        <p-paginator
+          class="observations-paginator"
+          [first]="(currentPage - 1) * pageSize"
+          [rows]="pageSize"
+          [totalRecords]="totalItems"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="{first} - {last} of {totalRecords}"
+          (onPageChange)="pageChange.emit($event)"
+        ></p-paginator>
+      }
+    </div>
+  }
+</section>

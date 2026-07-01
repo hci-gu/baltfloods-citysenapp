@@ -1,0 +1,29 @@
+<h2 class="title">{{ "OBSERVATION.HEADER.TEMPERATURE_TITLE" | translate }}</h2>
+<div class="content flex-column" [formGroup]="observationForm">
+  <div class="flex-column">
+    <label class="p-label" for="airTemp">
+      {{ "OBSERVATION.FIELD.AIR_TEMP" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <input
+      pInputText
+      id="airTemp"
+      type="number"
+      step="0.1"
+      formControlName="airTemp"
+    />
+  </div>
+  <div class="flex-column">
+    <label class="p-label" for="waterTemp">
+      {{ "OBSERVATION.FIELD.WATER_TEMP" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <input
+      pInputText
+      id="waterTemp"
+      type="number"
+      step="0.1"
+      formControlName="waterTemp"
+    />
+  </div>
+</div>

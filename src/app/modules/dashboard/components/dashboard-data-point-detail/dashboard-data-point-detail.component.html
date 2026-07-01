@@ -41,155 +41,14 @@
   @if (activeDataPoint(); as dataPoint) {
     @switch (dataPoint.type) {
       @case (DATA_POINT_TYPE.WEATHER_CONDITIONS) {
-        <ul class="metric-container">
-          <li>
-            <p class="button-sm">
-              {{
-                "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON"
-                  | translate
-              }}
-            </p>
-            <p class="body-sm">
-              {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
-            </p>
-          </li>
-          @for (metric of dataPoint.data | keyvalue; track metric.key) {
-            <li>
-              <p class="button-sm">
-                {{
-                  getDataPointTranslation(
-                    DATA_POINT_TYPE.WEATHER_CONDITIONS,
-                    metric.key
-                  )
-                }}
-              </p>
-              <small class="body-sm">
-                {{ getWeatherConditionMetricValue(metric.value)
-                }}{{
-                  getMetricUnit(DATA_POINT_TYPE.WEATHER_CONDITIONS, metric.key)
-                }}</small
-              >
-            </li>
-          }
-        </ul>
+        <app-weather-conditions-detail
+          [dataPoint]="dataPoint"
+        ></app-weather-conditions-detail>
       }
       @case (DATA_POINT_TYPE.STORM_WATER) {
-        @if (isIntotoStormWaterDataPoint(dataPoint)) {
-          <section class="sensor-detail">
-            <div class="sensor-detail-hero">
-              <div class="sensor-detail-value-block">
-                <p class="sensor-detail-eyebrow">Sensor reading</p>
-                <div class="sensor-detail-value-row">
-                  <p class="sensor-detail-value">
-                    {{ getSensorValueLabel(dataPoint) }}
-                  </p>
-                  <p class="sensor-detail-unit">
-                    {{ getSensorUnitLabel(dataPoint) }}
-                  </p>
-                </div>
-                <p class="sensor-detail-type">Water level</p>
-              </div>
-
-              <div class="sensor-detail-status-block">
-                <p class="sensor-detail-eyebrow">Status</p>
-                <p-chip
-                  class="chip sensor-detail-status-chip"
-                  [style]="{
-                    'background-color':
-                      getSensorStatusBackgroundColor(dataPoint),
-                    color: getSensorStatusTextColor(dataPoint),
-                  }"
-                  [label]="getSensorStatusLabel(dataPoint)"
-                ></p-chip>
-                <p class="sensor-detail-status-copy body-sm">
-                  {{ getSensorStatusDescription(dataPoint) }}
-                </p>
-              </div>
-            </div>
-
-            <ul class="sensor-detail-meta">
-              <li>
-                <p class="button-sm">
-                  {{
-                    "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON"
-                      | translate
-                  }}
-                </p>
-                <p class="body-sm">
-                  {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
-                </p>
-              </li>
-              <li>
-                <p class="button-sm">Alert thresholds</p>
-                <p class="body-sm">
-                  {{ getSensorAlertThresholdSummary(dataPoint) }}
-                </p>
-              </li>
-            </ul>
-          </section>
-        } @else {
-          <ul class="metric-container">
-            <li>
-              <p class="button-sm">
-                {{
-                  "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON"
-                    | translate
-                }}
-              </p>
-              <p class="body-sm">
-                {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
-              </p>
-            </li>
-            <li>
-              <p class="button-sm">
-                {{ "MISC.QUALITY" | translate }}
-              </p>
-              <p-chip
-                class="chip"
-                [style]="{
-                  'background-color': getDataQualityBackgroundColor(
-                    dataPoint.quality
-                  ),
-                  color: getDataQualityTextColor(dataPoint.quality),
-                }"
-                [label]="getQualityTranslation(dataPoint.quality) | translate"
-              ></p-chip>
-            </li>
-            @if (hasStormWaterFillLevel(dataPoint)) {
-              <li>
-                <p class="button-sm">
-                  {{
-                    "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL" | translate
-                  }}
-                </p>
-                <small class="body-sm">
-                  {{
-                    "DASHBOARD.DATA_POINTS.STORM_WATER.FILLLEVEL_RESULT." +
-                      dataPoint.data["fillLevel"].toString() | translate
-                  }}
-                </small>
-              </li>
-            }
-            @for (metric of getStormWaterMetrics(dataPoint); track metric.key) {
-              <li>
-                <p class="button-sm">
-                  {{
-                    getDataPointTranslation(
-                      DATA_POINT_TYPE.STORM_WATER,
-                      metric.key
-                    )
-                  }}
-                </p>
-                <small class="body-sm">
-                  {{ getStormWeatherMetricValue(metric.value, metric.key)
-                  }}{{
-                    getMetricUnitForDataPoint(dataPoint, metric.key)
-                  }}</small
-                >
-              </li>
-            }
-          </ul>
-        }
+        <app-storm-water-detail
+          [dataPoint]="dataPoint"
+        ></app-storm-water-detail>
       }
       @case (DATA_POINT_TYPE.AIR_QUALITY) {
         <ul class="metric-container">
@@ -243,61 +102,9 @@
         </ul>
       }
       @case (DATA_POINT_TYPE.WATERBAG_TESTKIT) {
-        <ul class="metric-container">
-          <li>
-            <p class="button-sm">
-              {{
-                "DASHBOARD.DATA_POINTS.WATERBAG_TESTKIT.LAST_UPDATED_ON"
-                  | translate
-              }}
-            </p>
-            <p class="body-sm">
-              {{ dataPoint.lastUpdatedOn | date: "dd/MM/yyyy HH:mm" }}
-            </p>
-          </li>
-          @for (metric of dataPoint.data | keyvalue; track metric.key) {
-            <li>
-              <p class="button-sm">
-                {{
-                  getDataPointTranslation(
-                    DATA_POINT_TYPE.WATERBAG_TESTKIT,
-                    metric.key
-                  )
-                }}
-              </p>
-              @if (metric.key === "algae") {
-                <p class="body-sm">
-                  {{ getWaterbagTestkitValue(metric.value, metric.key) }}
-                </p>
-              } @else {
-                <p-chip
-                  class="chip"
-                  [style]="{
-                    'background-color': getDataQualityBackgroundColor(
-                      metric.value.result ?? 0
-                    ),
-                    color: getDataQualityTextColor(metric.value.result ?? 0),
-                  }"
-                  [label]="
-                    getWaterbagTestkitValue(metric.value, metric.key) +
-                    '' +
-                    getMetricUnit(DATA_POINT_TYPE.WATERBAG_TESTKIT, metric.key)
-                  "
-                ></p-chip>
-              }
-            </li>
-          }
-        </ul>
-        @if (dataPoint.imageUrl) {
-          <div class="observation-image-preview">
-            <img
-              class="observation-image"
-              [src]="getDataPointImageUrl(dataPoint.imageUrl)"
-              [alt]="'Image for ' + dataPoint.name"
-              loading="lazy"
-            />
-          </div>
-        }
+        <app-waterbag-testkit-detail
+          [dataPoint]="dataPoint"
+        ></app-waterbag-testkit-detail>
       }
       @case (DATA_POINT_TYPE.ROAD_WORKS) {
         <ul class="metric-container">

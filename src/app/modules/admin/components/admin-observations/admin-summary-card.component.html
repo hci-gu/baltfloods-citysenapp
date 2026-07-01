@@ -1,0 +1,45 @@
+<article class="admin-card stats-card">
+  <h2 class="heading-sm">Upload snapshot</h2>
+  <div class="stats-grid">
+    <section class="stat-item">
+      <p class="stat-label body-xs">Total uploads</p>
+      <p class="stat-value heading-sm">{{ stats.totalUploads }}</p>
+    </section>
+    <section class="stat-item">
+      <p class="stat-label body-xs">Today</p>
+      <p class="stat-value heading-sm">{{ stats.uploadsToday }}</p>
+    </section>
+  </div>
+
+  @if (stats.latestUpload; as latestUpload) {
+    <div class="latest-upload">
+      <p class="body-sm"><strong>Latest:</strong> {{ latestUpload.id }}</p>
+      <p class="body-xs">
+        {{ latestUpload.type }} •
+        {{ latestUpload.timestamp | date: "dd/MM/yyyy HH:mm" }}
+      </p>
+    </div>
+  } @else {
+    <p class="body-sm">No uploads yet.</p>
+  }
+
+  <app-admin-alert-panel
+    [canManageObservations]="canManageObservations"
+  ></app-admin-alert-panel>
+
+  <div>
+    <p class="body-xs breakdown-title">Types today</p>
+    @if (stats.typeBreakdownToday.length > 0) {
+      <ul class="type-breakdown">
+        @for (item of stats.typeBreakdownToday; track item.type) {
+          <li>
+            <span>{{ item.type }}</span>
+            <strong>{{ item.count }}</strong>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="body-xs">No uploads today.</p>
+    }
+  </div>
+</article>

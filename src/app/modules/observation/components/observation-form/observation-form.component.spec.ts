@@ -109,7 +109,6 @@ describe('ObservationFormComponent', () => {
       { queryParamsHandling: 'preserve' },
     );
   });
-
 });
 
 async function flushPromises(): Promise<void> {

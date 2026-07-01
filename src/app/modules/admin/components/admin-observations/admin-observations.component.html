@@ -1,283 +1,30 @@
 <main class="admin-page">
   <section class="admin-layout">
     <section class="left-column">
-      <article class="admin-card stats-card">
-        <h2 class="heading-sm">Upload snapshot</h2>
-        <div class="stats-grid">
-          <section class="stat-item">
-            <p class="stat-label body-xs">Total uploads</p>
-            <p class="stat-value heading-sm">{{ stats().totalUploads }}</p>
-          </section>
-          <section class="stat-item">
-            <p class="stat-label body-xs">Today</p>
-            <p class="stat-value heading-sm">{{ stats().uploadsToday }}</p>
-          </section>
-        </div>
+      <app-admin-summary-card
+        [stats]="stats()"
+        [canManageObservations]="canManageObservations()"
+      ></app-admin-summary-card>
 
-        @if (stats().latestUpload; as latestUpload) {
-          <div class="latest-upload">
-            <p class="body-sm">
-              <strong>Latest:</strong> {{ latestUpload.id }}
-            </p>
-            <p class="body-xs">
-              {{ latestUpload.type }} •
-              {{ latestUpload.timestamp | date: "dd/MM/yyyy HH:mm" }}
-            </p>
-          </div>
-        } @else {
-          <p class="body-sm">No uploads yet.</p>
-        }
-
-        <section class="alert-panel">
-          <div class="alert-header">
-            <div>
-              <p class="body-xs breakdown-title">Immediate message</p>
-              <p class="body-sm alert-copy">Send a message to all users.</p>
-            </div>
-          </div>
-
-          <div class="alert-controls">
-            <label class="alert-field body-xs" for="alert-title-input">
-              Alert title
-            </label>
-            <input
-              id="alert-title-input"
-              class="alert-input body-sm"
-              type="text"
-              [value]="alertTitleInput()"
-              [disabled]="isSendingAlert() || !canManageObservations()"
-              (input)="onAlertTitleChange($any($event.target).value)"
-            />
-          </div>
-
-          <div class="alert-controls">
-            <label class="alert-field body-xs" for="alert-message-input">
-              Message
-            </label>
-            <textarea
-              id="alert-message-input"
-              class="alert-textarea body-sm"
-              rows="3"
-              [value]="alertMessageInput()"
-              [disabled]="isSendingAlert() || !canManageObservations()"
-              (input)="onAlertMessageChange($any($event.target).value)"
-            ></textarea>
-          </div>
-
-          <div class="alert-controls">
-            <label class="alert-field body-xs" for="alert-type-input">
-              Message type
-            </label>
-            <select
-              id="alert-type-input"
-              class="alert-select body-sm"
-              [value]="alertTypeInput()"
-              [disabled]="isSendingAlert() || !canManageObservations()"
-              (change)="onAlertTypeChange($any($event.target).value)"
-            >
-              <option value="info">Info</option>
-              <option value="warning">Warning</option>
-            </select>
-          </div>
-
-          <div class="alert-controls">
-            <label class="alert-field body-xs" for="alert-duration-input">
-              Duration
-            </label>
-            <div class="alert-duration-control">
-              <input
-                id="alert-duration-input"
-                class="alert-duration-input body-sm"
-                type="number"
-                min="0.25"
-                step="0.25"
-                [value]="alertDurationHoursInput()"
-                [disabled]="isSendingAlert() || !canManageObservations()"
-                (input)="onAlertDurationHoursChange($any($event.target).value)"
-              />
-              <span class="body-xs alert-duration-unit">hours</span>
-            </div>
-          </div>
-
-          <div class="alert-actions">
-            <p-button
-              label="Send message"
-              [severity]="alertTypeInput() === 'warning' ? 'danger' : 'primary'"
-              [loading]="isSendingAlert()"
-              [disabled]="isSendingAlert() || !canManageObservations()"
-              (click)="sendImmediateAlert()"
-            ></p-button>
-          </div>
-
-          @if (alertError()) {
-            <p class="p-error body-sm">{{ alertError() }}</p>
-          }
-          @if (alertSuccess()) {
-            <p class="alert-success body-sm">{{ alertSuccess() }}</p>
-          }
-        </section>
-
-        <div>
-          <p class="body-xs breakdown-title">Types today</p>
-          @if (stats().typeBreakdownToday.length > 0) {
-            <ul class="type-breakdown">
-              @for (item of stats().typeBreakdownToday; track item.type) {
-                <li>
-                  <span>{{ item.type }}</span>
-                  <strong>{{ item.count }}</strong>
-                </li>
-              }
-            </ul>
-          } @else {
-            <p class="body-xs">No uploads today.</p>
-          }
-        </div>
-      </article>
-
-      <article class="admin-card chart-card">
-        <h2 class="heading-sm">Uploads over time</h2>
-        <p class="body-xs chart-subtitle">
-          Last 30 days · {{ uploadChart().totalPeriodUploads }} uploads
-        </p>
-
-        <div class="chart-wrapper">
-          <svg
-            class="line-chart"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-label="Uploads line chart"
-            role="img"
-          >
-            @for (tick of uploadChart().ticks; track tick.y) {
-              <line
-                class="chart-grid-line"
-                x1="0"
-                [attr.y1]="tick.y"
-                x2="100"
-                [attr.y2]="tick.y"
-              ></line>
-            }
-            <path class="chart-area" [attr.d]="uploadChart().areaPath"></path>
-            <path class="chart-line" [attr.d]="uploadChart().linePath"></path>
-            @for (point of uploadChart().points; track point.x) {
-              @if (point.count > 0) {
-                <path class="chart-point" [attr.d]="point.markerPath">
-                  <title>{{ point.label }}</title>
-                </path>
-              }
-            }
-          </svg>
-        </div>
-
-        <div class="chart-axis">
-          <span>{{ uploadChart().startLabel }}</span>
-          <span>{{ uploadChart().endLabel }}</span>
-        </div>
-      </article>
+      <app-admin-upload-chart-card
+        [chart]="uploadChart()"
+      ></app-admin-upload-chart-card>
     </section>
 
-    <section class="admin-card list-card">
-      <header class="admin-header">
-        <div>
-          <h1 class="heading-sm">Observations</h1>
-        </div>
-
-        <div class="actions">
-          <p-button
-            label="Refresh"
-            severity="secondary"
-            [disabled]="isLoading()"
-            (click)="refresh()"
-          ></p-button>
-        </div>
-      </header>
-
-      @if (errorMessage()) {
-        <p class="p-error body-sm">{{ errorMessage() }}</p>
-      }
-
-      @if (isLoading()) {
-        <p class="body-sm">Loading observations...</p>
-      } @else {
-        <div class="list-content">
-          @if (observationFeed().length > 0) {
-            <ul class="observations-list">
-              @for (observation of observationFeed(); track observation.id) {
-                <li class="observation-row">
-                  <div class="observation-content">
-                    @if (observation.imageUrl) {
-                      <img
-                        class="observation-thumbnail"
-                        [src]="observation.imageUrl"
-                        [alt]="'Image for ' + observation.name"
-                        loading="lazy"
-                      />
-                    }
-                    <p class="observation-name body-sm">
-                      {{ observation.name }}
-                    </p>
-                    <p class="observation-type body-xs">
-                      {{ observation.type }}
-                    </p>
-                    <p
-                      class="observation-visibility body-xs"
-                      [class.hidden]="!observation.visible"
-                    >
-                      {{ observation.visible ? "Visible" : "Hidden" }}
-                    </p>
-                    @if (observation.createdOn) {
-                      <p class="observation-time body-xs">
-                        {{ observation.createdOn | date: "dd/MM/yyyy HH:mm" }}
-                      </p>
-                    }
-                  </div>
-
-                  @if (canDelete()) {
-                    <div class="observation-actions">
-                      <p-button
-                        [label]="observation.visible ? 'Hide' : 'Show'"
-                        severity="secondary"
-                        [outlined]="true"
-                        [loading]="isVisibilityUpdating(observation.id)"
-                        [disabled]="
-                          isVisibilityUpdating(observation.id) ||
-                          isDeleting(observation.id)
-                        "
-                        (click)="toggleVisibility(observation)"
-                      ></p-button>
-                      <p-button
-                        label="Delete"
-                        severity="danger"
-                        [outlined]="true"
-                        [loading]="isDeleting(observation.id)"
-                        [disabled]="
-                          isDeleting(observation.id) ||
-                          isVisibilityUpdating(observation.id)
-                        "
-                        (click)="deleteObservation(observation)"
-                      ></p-button>
-                    </div>
-                  }
-                </li>
-              }
-            </ul>
-          } @else {
-            <p class="body-sm">No observations yet.</p>
-          }
-
-          @if (totalItems() > pageSize) {
-            <p-paginator
-              class="observations-paginator"
-              [first]="(currentPage() - 1) * pageSize"
-              [rows]="pageSize"
-              [totalRecords]="totalItems()"
-              [showCurrentPageReport]="true"
-              currentPageReportTemplate="{first} - {last} of {totalRecords}"
-              (onPageChange)="onPageChange($event)"
-            ></p-paginator>
-          }
-        </div>
-      }
-    </section>
+    <app-admin-observation-list
+      [observations]="observationFeed()"
+      [isLoading]="isLoading()"
+      [errorMessage]="errorMessage()"
+      [totalItems]="totalItems()"
+      [pageSize]="pageSize"
+      [currentPage]="currentPage()"
+      [canDelete]="canDelete()"
+      [deletingRecordIds]="deletingRecordIds()"
+      [updatingVisibilityRecordIds]="updatingVisibilityRecordIds()"
+      (refresh)="refresh()"
+      (pageChange)="onPageChange($event)"
+      (deleteObservation)="deleteObservation($event)"
+      (toggleVisibility)="toggleVisibility($event)"
+    ></app-admin-observation-list>
   </section>
 </main>

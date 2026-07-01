@@ -1,0 +1,41 @@
+<h2 class="title">
+  {{ "OBSERVATION.HEADER.VISIBILITY_TITLE" | translate }}
+</h2>
+<div class="content flex-column" [formGroup]="observationForm">
+  <div class="flex-column">
+    <label class="p-label" for="depthOfView">
+      {{ "OBSERVATION.FIELD.DEPTH_OF_VIEW" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <input
+      pInputText
+      id="depthOfView"
+      type="number"
+      step="1"
+      formControlName="depthOfView"
+    />
+  </div>
+  <div class="flex-column">
+    <label class="p-label" for="algaeLevel">
+      {{ "OBSERVATION.FIELD.ALGAE_LEVEL" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <select id="algaeLevel" class="p-inputtext" formControlName="algaeLevel">
+      <option [ngValue]="null" disabled>
+        {{ "OBSERVATION.FIELD.ALGAE_PLACEHOLDER" | translate }}
+      </option>
+      <option value="none">
+        {{ "OBSERVATION.ALGAE.NONE" | translate }}
+      </option>
+      <option value="little">
+        {{ "OBSERVATION.ALGAE.LITTLE" | translate }}
+      </option>
+      <option value="rich">
+        {{ "OBSERVATION.ALGAE.RICH" | translate }}
+      </option>
+      <option value="very_rich">
+        {{ "OBSERVATION.ALGAE.VERY_RICH" | translate }}
+      </option>
+    </select>
+  </div>
+</div>

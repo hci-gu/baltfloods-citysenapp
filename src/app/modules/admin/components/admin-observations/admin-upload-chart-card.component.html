@@ -1,0 +1,40 @@
+<article class="admin-card chart-card">
+  <h2 class="heading-sm">Uploads over time</h2>
+  <p class="body-xs chart-subtitle">
+    Last 30 days · {{ chart.totalPeriodUploads }} uploads
+  </p>
+
+  <div class="chart-wrapper">
+    <svg
+      class="line-chart"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      aria-label="Uploads line chart"
+      role="img"
+    >
+      @for (tick of chart.ticks; track tick.y) {
+        <line
+          class="chart-grid-line"
+          x1="0"
+          [attr.y1]="tick.y"
+          x2="100"
+          [attr.y2]="tick.y"
+        ></line>
+      }
+      <path class="chart-area" [attr.d]="chart.areaPath"></path>
+      <path class="chart-line" [attr.d]="chart.linePath"></path>
+      @for (point of chart.points; track point.x) {
+        @if (point.count > 0) {
+          <path class="chart-point" [attr.d]="point.markerPath">
+            <title>{{ point.label }}</title>
+          </path>
+        }
+      }
+    </svg>
+  </div>
+
+  <div class="chart-axis">
+    <span>{{ chart.startLabel }}</span>
+    <span>{{ chart.endLabel }}</span>
+  </div>
+</article>

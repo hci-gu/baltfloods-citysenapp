@@ -1,0 +1,79 @@
+<h2 class="title">
+  {{ "OBSERVATION.HEADER.WATER_QUALITY_TITLE" | translate }}
+</h2>
+<div class="content flex-column" [formGroup]="observationForm">
+  <div class="flex-column">
+    <label class="p-label" for="waterPh">
+      {{ "OBSERVATION.FIELD.WATER_PH" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <select id="waterPh" class="p-inputtext" formControlName="waterPh">
+      <option [ngValue]="null" disabled>
+        {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+      </option>
+      @for (value of [4, 5, 6, 7, 8, 9, 10]; track value) {
+        <option [ngValue]="value">pH {{ value }}</option>
+      }
+    </select>
+  </div>
+  <div class="flex-column">
+    <label class="p-label" for="turbidity">
+      {{ "OBSERVATION.FIELD.TURBIDITY" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <select id="turbidity" class="p-inputtext" formControlName="turbidity">
+      <option [ngValue]="null" disabled>
+        {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+      </option>
+      @for (value of [0, 40, 100]; track value) {
+        <option [ngValue]="value">{{ value }} JTU</option>
+      }
+    </select>
+  </div>
+  <div class="flex-column">
+    <label class="p-label" for="dissolvedOxygen">
+      {{ "OBSERVATION.FIELD.DISSOLVED_OXYGEN" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <select
+      id="dissolvedOxygen"
+      class="p-inputtext"
+      formControlName="dissolvedOxygen"
+    >
+      <option [ngValue]="null" disabled>
+        {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+      </option>
+      @for (value of [0, 4, 8]; track value) {
+        <option [ngValue]="value">{{ value }} ppm</option>
+      }
+    </select>
+  </div>
+  <div class="flex-column">
+    <label class="p-label" for="nitrate">
+      {{ "OBSERVATION.FIELD.NITRATE" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <select id="nitrate" class="p-inputtext" formControlName="nitrate">
+      <option [ngValue]="null" disabled>
+        {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+      </option>
+      @for (value of [5, 20, 40]; track value) {
+        <option [ngValue]="value">{{ value }} ppm</option>
+      }
+    </select>
+  </div>
+  <div class="flex-column">
+    <label class="p-label" for="phosphate">
+      {{ "OBSERVATION.FIELD.PHOSPHATE" | translate }}
+      <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+    </label>
+    <select id="phosphate" class="p-inputtext" formControlName="phosphate">
+      <option [ngValue]="null" disabled>
+        {{ "OBSERVATION.FIELD.SELECT_VALUE" | translate }}
+      </option>
+      @for (value of [1, 2, 4]; track value) {
+        <option [ngValue]="value">{{ value }} ppm</option>
+      }
+    </select>
+  </div>
+</div>

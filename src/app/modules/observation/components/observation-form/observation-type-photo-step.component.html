@@ -1,0 +1,53 @@
+<h2 class="title">{{ "OBSERVATION.HEADER.TYPE_TITLE" | translate }}</h2>
+<div class="content flex-column" [formGroup]="observationForm">
+  <div class="flex-column">
+    <label class="p-label" for="observationType">
+      {{ "OBSERVATION.FIELD.TYPE_LABEL" | translate }}
+    </label>
+    <select
+      id="observationType"
+      class="p-inputtext"
+      formControlName="observationType"
+    >
+      <option [ngValue]="null" disabled>
+        {{ "OBSERVATION.FIELD.TYPE_PLACEHOLDER" | translate }}
+      </option>
+      <option value="water_system">
+        {{ "OBSERVATION.TYPE.WATER_SYSTEM" | translate }}
+      </option>
+      <option value="stormwater">
+        {{ "OBSERVATION.TYPE.STORMWATER" | translate }}
+      </option>
+      <option value="water_overflow">
+        {{ "OBSERVATION.TYPE.WATER_OVERFLOW" | translate }}
+      </option>
+    </select>
+  </div>
+  <div class="flex-column">
+    <label class="p-label" for="photo">
+      {{ "OBSERVATION.FIELD.PHOTO_LABEL" | translate }}
+      @if (!isWaterOverflowSelected) {
+        <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
+      }
+    </label>
+    <input
+      id="photo"
+      class="photo-input"
+      type="file"
+      accept="image/*"
+      capture="environment"
+      (change)="photoSelected.emit($event)"
+    />
+    @if (photoName) {
+      <div class="photo-preview">
+        <span>{{ photoName }}</span>
+        <p-button
+          class="remove-photo"
+          [text]="true"
+          [label]="'OBSERVATION.FIELD.PHOTO_REMOVE' | translate"
+          (click)="removePhoto.emit()"
+        ></p-button>
+      </div>
+    }
+  </div>
+</div>
