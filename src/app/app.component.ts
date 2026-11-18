@@ -1,3 +1,4 @@
+import { AppSettingsService } from '@core/services/app-settings.service';
 import { Component, inject, ViewChild, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
@@ -16,6 +17,7 @@ export class AppComponent implements OnInit {
   @ViewChild(RouterOutlet) public outlet: RouterOutlet | undefined;
 
   public title = 'CitySen';
+  public readonly settings = inject(AppSettingsService);
 
   private readonly googleAnalyticsService: GoogleAnalyticsService = inject(
     GoogleAnalyticsService,
@@ -31,6 +33,7 @@ export class AppComponent implements OnInit {
 
   public ngOnInit(): void {
     this.gaTracked();
+    void this.settings.load();
   }
 
   private gaTracked(): void {

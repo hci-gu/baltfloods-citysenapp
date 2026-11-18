@@ -5,6 +5,7 @@
       [center$]="mapCenter$"
       [markers]="(mapMarkers$ | async) ?? []"
       (markerClick)="onMarkerClick($event)"
+      (mapClick)="onDataPointClose()"
       (mapCenterChange)="onMapCenterChange($event)"
       (mapBoundsChange)="onMapBoundsChange($event)"
     ></app-map>
@@ -183,6 +184,14 @@
     </section>
 
     @if (selectedDataPoints(); as selectedDataPoints) {
+      @if (!selectedSensorPoint()) {
+        <button
+          class="detail-backdrop"
+          type="button"
+          aria-label="Close observation"
+          (click)="onDataPointClose()"
+        ></button>
+      }
       <app-dashboard-data-point-detail
         @slideInAndOut
         class="bottom-modal"

@@ -24,7 +24,7 @@ import {
   getSensorUnitLabel,
   getSensorValueLabel,
   hasStormWaterFillLevel,
-  isIntotoStormWaterDataPoint,
+  isSensorDataPoint,
 } from './sensor-threshold-view-model';
 
 @Component({
@@ -45,8 +45,8 @@ export class StormWaterDetailComponent {
     private readonly datePipe: DatePipe,
   ) {}
 
-  public isIntotoStormWaterDataPoint(): boolean {
-    return isIntotoStormWaterDataPoint(this.dataPoint);
+  public isSensorDataPoint(): boolean {
+    return isSensorDataPoint(this.dataPoint);
   }
 
   public getSensorValueLabel(): string {

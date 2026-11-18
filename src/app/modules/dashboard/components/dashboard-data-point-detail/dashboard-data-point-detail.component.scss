@@ -12,6 +12,10 @@
   }
 
   .location-information-container {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: white;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
@@ -19,6 +23,26 @@
 
     & > div {
       gap: 4px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .detail-close-button {
+    display: grid;
+    place-items: center;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+    border: 0;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
     }
   }
 
@@ -148,7 +172,7 @@
 
   .observation-image-preview {
     width: calc(100% - 64px);
-    max-width: 360px;
+    max-width: min(260px, 32dvh);
     aspect-ratio: 1 / 1;
     margin: 16px auto;
     background-color: #f9fafb;
@@ -211,7 +235,6 @@
 
     .observation-image-preview {
       width: calc(100% - 24px);
-      max-width: none;
       margin: 8px auto;
     }
 

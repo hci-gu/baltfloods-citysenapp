@@ -1,4 +1,5 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, inject, Input, Output } from '@angular/core';
+import { ScenarioLocationService } from '@core/services/scenario-location.service';
 import { IconComponent } from '@shared/components/icon/icon.component';
 import { TranslatePipe } from '@ngx-translate/core';
 import { RouterLink } from '@angular/router';
@@ -19,6 +20,8 @@ interface MenuItem {
   imports: [IconComponent, TranslatePipe, RouterLink, DrawerModule],
 })
 export class NavigationSidebarComponent {
+  public readonly scenario = inject(ScenarioLocationService);
+
   @Input({ required: true }) public sidebarOpen!: boolean;
   @Output() public onSidebarClose = new EventEmitter<void>();
 

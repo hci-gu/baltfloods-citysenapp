@@ -9,7 +9,10 @@ import { ObservationForm } from './observation-form.types';
   standalone: true,
   imports: [ReactiveFormsModule, TranslatePipe, FeedbackLocationComponent],
   templateUrl: './observation-location-step.component.html',
-  styleUrls: ['./observation-form.component.scss'],
+  styleUrls: [
+    './observation-form.component.scss',
+    './observation-location-step.component.scss',
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ObservationLocationStepComponent {

@@ -15,7 +15,7 @@ export const OBSERVATION_TIMELINE_COLOR: Record<DataPointType, string> = {
 };
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const INTOTO_SENSOR_MARKER_ICON = 'sensor-water-level-icon.svg';
+export const SENSOR_MARKER_ICON = 'sensor-water-level-icon.svg';
 export const WEB_MERCATOR_TILE_SIZE = 256;
 export const OBSERVATION_REFRESH_MIN_DISTANCE_KM = 1.5;
 export const OBSERVATION_REFRESH_VIEWPORT_FRACTION = 0.35;

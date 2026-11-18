@@ -1,4 +1,9 @@
 {
+  "APP_SETTINGS": {
+    "LOADING": "Loading map location…",
+    "ERROR": "The map location could not be loaded. Check your connection and try again.",
+    "RETRY": "Try again"
+  },
   "DASHBOARD": {
     "DATA_POINTS": {
       "TYPE": {
@@ -107,11 +112,13 @@
       "FIRST_NAME": "First name",
       "I_ACCEPT_THE_SERVICES": "I accept the Service's",
       "LAST_NAME": "Last name",
+      "PHONE_HINT": "Include country code (+…)",
       "PHONE": "Phone",
       "PRIVACY_STATEMENT": "Privacy Statement",
       "TERMS_OF_USE": "Terms of Use",
       "ERROR": {
         "INVALID_EMAIL": "Invalid email format",
+        "INTERNATIONAL_PHONE_NUMBER": "Enter a valid phone number including the country code (starting with +).",
         "INVALID_PHONE_NUMBER": "Invalid phone number format (eg. {{phoneNumberFormat}})"
       }
     },

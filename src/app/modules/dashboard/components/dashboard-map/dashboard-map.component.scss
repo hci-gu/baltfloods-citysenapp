@@ -25,15 +25,25 @@ $floating-card-margin: 8px;
     display: block;
   }
 
+  .detail-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: $z-index;
+    padding: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 12%);
+  }
+
   .bottom-modal {
-    z-index: $z-index - 1;
-    position: absolute;
+    z-index: $z-index + 1;
+    position: fixed;
     left: 50%;
     top: 50%;
-    width: min(760px, calc(100% - 32px));
-    max-height: min(56vh, 520px);
-    overflow: auto;
-    transform: translate(-50%, -115%);
+    width: min(640px, calc(100% - 32px));
+    max-height: min(70dvh, 560px);
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    transform: translate(-50%, -50%);
     border-radius: 12px;
     box-shadow: 0 16px 36px rgba(15, 23, 42, 26%);
   }
@@ -697,15 +707,13 @@ $floating-card-margin: 8px;
   .map-pane {
     .bottom-modal {
       top: auto;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      max-height: min(58vh, 520px);
-      padding-bottom: env(safe-area-inset-bottom);
-      overflow-y: auto;
+      right: 12px;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      left: 12px;
+      width: auto;
+      max-height: min(70dvh, calc(100dvh - 32px));
       transform: none;
-      border-radius: 16px 16px 0 0;
+      border-radius: 16px;
       box-shadow: 0 -10px 28px rgba(15, 23, 42, 18%);
     }
 

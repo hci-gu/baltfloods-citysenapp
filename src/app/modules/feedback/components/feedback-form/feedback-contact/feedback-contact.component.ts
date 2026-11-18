@@ -2,7 +2,6 @@ import { Component, Input } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { environment } from '@environments/environment';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { PhoneNumberFormat, PhoneNumberUtil } from 'google-libphonenumber';
 import { Checkbox } from 'primeng/checkbox';
 import { InputText } from 'primeng/inputtext';
 
@@ -28,16 +27,8 @@ export class FeedbackContactComponent {
   public constructor(private readonly translateService: TranslateService) {}
 
   public get invalidPhoneNumberMessage(): string {
-    const phoneNumberUtil = PhoneNumberUtil.getInstance();
-
     return this.translateService.instant(
-      'FEEDBACK.CONTACT.ERROR.INVALID_PHONE_NUMBER',
-      {
-        phoneNumberFormat: phoneNumberUtil.format(
-          phoneNumberUtil.getExampleNumber(environment.countryCode),
-          PhoneNumberFormat.INTERNATIONAL,
-        ),
-      },
+      'FEEDBACK.CONTACT.ERROR.INTERNATIONAL_PHONE_NUMBER',
     );
   }
 }

@@ -1,6 +1,6 @@
+import { sensorThresholds } from '@core/models/sensor';
 import {
   SENSOR_THRESHOLD_COLORS,
-  SENSOR_THRESHOLDS_BY_SERIES_ID,
   SensorThresholdConfig,
   SensorThresholdSeverity,
 } from '@core/config/sensor-thresholds';
@@ -124,10 +124,10 @@ export function getSensorUnitLabel(
   );
 }
 
-export function isIntotoStormWaterDataPoint(
+export function isSensorDataPoint(
   dataPoint: WeatherStormWaterDataPoint,
 ): boolean {
-  return dataPoint.historySeries?.provider === 'intoto';
+  return !!dataPoint.historySeries;
 }
 
 export function hasStormWaterFillLevel(
@@ -176,11 +176,5 @@ function getSensorSeverity(
 function getSensorThresholdConfig(
   dataPoint: WeatherStormWaterDataPoint,
 ): SensorThresholdConfig | null {
-  const seriesId = dataPoint.historySeries?.seriesId;
-
-  if (seriesId === undefined) {
-    return null;
-  }
-
-  return SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null;
+  return sensorThresholds(dataPoint);
 }

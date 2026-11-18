@@ -1,4 +1,6 @@
+import { AppSettingsService } from '@core/services/app-settings.service';
 import {
+  inject,
   AfterViewInit,
   Component,
   EventEmitter,
@@ -10,7 +12,6 @@ import {
   SimpleChanges,
 } from '@angular/core';
 import { LatLong } from '@core/models/location';
-import { environment } from '@environments/environment';
 import * as leaflet from 'leaflet';
 import { Observable, Subscription } from 'rxjs';
 import { LeafletHeatmapRenderer } from './leaflet-heatmap-renderer';
@@ -37,6 +38,9 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   public map: leaflet.Map | undefined;
 
+  private readonly settings = inject(AppSettingsService);
+  private destroyed = false;
+
   private readonly zoom = 13;
   private readonly heatmapRenderer = new LeafletHeatmapRenderer();
   private readonly markerRenderer: LeafletMarkerRenderer;
@@ -52,6 +56,9 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   public ngAfterViewInit(): void {
     setTimeout(() => {
+      if (this.destroyed) {
+        return;
+      }
       this.initialiseMap();
       this.initialiseMarkers();
     });
@@ -68,6 +75,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   public ngOnDestroy(): void {
+    this.destroyed = true;
     this.centerSubscription?.unsubscribe();
     this.destroyMap();
   }
@@ -80,10 +88,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       })
       .on('click', this.onClickMap.bind(this))
       .on('moveend', this.onMoveEnd.bind(this))
-      .setView(
-        new leaflet.LatLng(...(environment.defaultLocation as LatLong)),
-        this.zoom,
-      );
+      .setView(new leaflet.LatLng(...this.settings.origin), this.zoom);
 
     if (this.latestCenter) {
       this.applyCenter(this.latestCenter);

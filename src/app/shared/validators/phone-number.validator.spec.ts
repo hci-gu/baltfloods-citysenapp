@@ -18,6 +18,13 @@ describe('phoneNumberValidator', () => {
     expect(result).toEqual(null);
   });
 
+  it('requires a country code instead of assuming the previous city', () => {
+    expect(phoneNumberValidator(new FormControl('04573990004'))).toEqual({
+      invalidPhoneNumber: true,
+    });
+    expect(phoneNumberValidator(new FormControl('+46701234567'))).toBeNull();
+  });
+
   it('should return error object if phone number is invalid', () => {
     const control = new FormControl('12345', phoneNumberValidator);
     const result = phoneNumberValidator(control);

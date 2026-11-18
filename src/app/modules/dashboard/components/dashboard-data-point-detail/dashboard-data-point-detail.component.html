@@ -35,7 +35,14 @@
         </div>
       }
     </div>
-    <app-icon icon="close" (click)="close.emit()"></app-icon>
+    <button
+      type="button"
+      class="detail-close-button"
+      aria-label="Close observation"
+      (click)="close.emit()"
+    >
+      <app-icon icon="close"></app-icon>
+    </button>
   </div>
 
   @if (activeDataPoint(); as dataPoint) {

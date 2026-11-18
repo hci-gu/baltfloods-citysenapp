@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { environment } from '@environments/environment';
 import { authGuard } from '@core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -9,7 +8,7 @@ export const routes: Routes = [
       import('./modules/dashboard/dashboard.module').then(
         (m) => m.DashboardModule,
       ),
-    data: { navigationHeaderTitle: environment.jurisdiction },
+    data: { navigationHeaderTitle: 'CitySen' },
   },
   {
     path: 'feedback',

@@ -1,3 +1,5 @@
+import { SensorDemoService } from '../sensor-demo.service';
+import { environment } from '@environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { DataPointQuality, DataPointType } from '../../models/data-point';
 import { firstValueFrom, of } from 'rxjs';
@@ -12,12 +14,14 @@ describe('DataPointsApi', () => {
   let shallow: Shallow<DataPointsApi>;
 
   beforeEach(() => {
+    environment.intotoEnabled = true;
     jest
       .spyOn(Date, 'now')
       .mockReturnValue(new Date('2026-03-20T12:00:00Z').getTime());
     shallow = new Shallow(DataPointsApi, CoreModule)
       .mock(HttpClient, { get: new MockHttpClient().get })
       .mock(AuthService, { token: null })
+      .mock(SensorDemoService, { getSensors: () => of([]) })
       .mock(IntotoApiService, {
         getMyAreas: jest.fn().mockReturnValue(of([])),
         getSeriesCategories: jest.fn().mockReturnValue(of([])),
@@ -29,6 +33,7 @@ describe('DataPointsApi', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    environment.intotoEnabled = false;
   });
 
   it('should return an observable of weather conditions', async () => {

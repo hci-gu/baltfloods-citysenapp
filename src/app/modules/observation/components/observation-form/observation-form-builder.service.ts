@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
+import { ScenarioLocationService } from '@core/services/scenario-location.service';
 import {
   FormBuilder,
   FormControl,
@@ -14,12 +15,14 @@ import { ObservationForm } from './observation-form.types';
 
 @Injectable({ providedIn: 'root' })
 export class ObservationFormBuilderService {
+  private readonly scenario = inject(ScenarioLocationService);
+
   public constructor(private readonly formBuilder: FormBuilder) {}
 
   public createForm(): FormGroup<ObservationForm> {
     return this.formBuilder.group({
       location: this.formBuilder.control<LatLong | null>(
-        null,
+        this.scenario.location,
         Validators.required,
       ),
       observationType: this.formBuilder.control<ObservationType | null>(

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { DataPoint, DataPointType } from '@core/models/data-point';
 import { environment } from '@environments/environment';
 import { OBSERVATION_TIMELINE_COLOR } from '../dashboard-map.constants';
-import { normalizeImageUrl } from '../dashboard-image-url.utils';
+import { normalizeImageUrl } from '@shared/utils/image-url.utils';
 import { ObservationFeedItem } from '../dashboard-map.types';
 import { isPointWithinBounds } from '../dashboard-map-geometry.utils';
 import { MapBounds } from '@shared/components/map/map.component';
@@ -53,9 +53,9 @@ export class DashboardObservationFeedService {
   public getObservationFeedTypeLabel(point: DataPoint): string {
     if (
       point.type === DataPointType.STORM_WATER &&
-      point.historySeries?.provider === 'intoto'
+      !!point.historySeries
     ) {
-      return 'Sensor reading';
+      return point.simulated ? 'Simulated sensor reading' : 'Sensor reading';
     }
 
     return this.getObservationTypeLabel(point.type);

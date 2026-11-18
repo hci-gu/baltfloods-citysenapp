@@ -1,2 +1,26 @@
-<app-navigation-header [title]="navigationHeaderTitle | translate"></app-navigation-header>
-<router-outlet></router-outlet>
+@if (settings.ready()) {
+  <app-navigation-header
+    [title]="navigationHeaderTitle | translate"
+  ></app-navigation-header>
+  <router-outlet></router-outlet>
+} @else {
+  <main
+    class="settings-status"
+    aria-live="polite"
+    [attr.aria-busy]="settings.loading()"
+  >
+    <h1>CitySen</h1>
+    @if (settings.failed()) {
+      <p>{{ "APP_SETTINGS.ERROR" | translate }}</p>
+      <button
+        type="button"
+        (click)="settings.load()"
+        [disabled]="settings.loading()"
+      >
+        {{ "APP_SETTINGS.RETRY" | translate }}
+      </button>
+    } @else {
+      <p>{{ "APP_SETTINGS.LOADING" | translate }}</p>
+    }
+  </main>
+}

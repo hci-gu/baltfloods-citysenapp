@@ -123,7 +123,7 @@ export interface SensorTimelineCursor {
 
 export interface SensorHistoryCacheEntry {
   cacheKey: string;
-  seriesId: number;
+  seriesId: number | string;
   startMs: number;
   endMs: number;
   historyPoints: SensorHistoryPoint[];

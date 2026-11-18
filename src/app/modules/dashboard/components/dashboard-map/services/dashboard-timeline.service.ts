@@ -302,7 +302,18 @@ export class DashboardTimelineService {
       }
     });
 
-    return Array.from(maxPointByDay.values());
+    const bucketed = Array.from(maxPointByDay.values());
+    // Retain the actual latest reading as well as daily peaks. Otherwise the
+    // default cursor can show an earlier high value after a demo reset/recovery.
+    const latest = historyPoints.reduce<SensorHistoryPoint | undefined>(
+      (current, point) =>
+        !current || point.timestamp > current.timestamp ? point : current,
+      undefined,
+    );
+    if (latest && !bucketed.includes(latest)) {
+      bucketed.push(latest);
+    }
+    return bucketed;
   }
 
   private matchesTypeFilter(

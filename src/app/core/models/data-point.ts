@@ -1,3 +1,4 @@
+import { SensorThresholdConfig } from '@core/config/sensor-thresholds';
 import { LatLong } from './location';
 
 export enum DataPointType {
@@ -18,21 +19,28 @@ interface BaseDataPoint<T extends DataPointType> {
   createdOn?: Date;
 }
 
-export type WeatherConditionDataPoint = BaseDataPoint<DataPointType.WEATHER_CONDITIONS> & {
-  data: Record<string, string | number>;
-};
-
-export type WeatherStormWaterDataPoint = BaseDataPoint<DataPointType.STORM_WATER> & {
-  data: Record<string, string | number>;
-  dataUnitOverrides?: Partial<Record<string, string>>;
-  historySeries?: {
-    provider: 'intoto';
-    seriesId: number;
-    unitLabel?: string;
+export type WeatherConditionDataPoint =
+  BaseDataPoint<DataPointType.WEATHER_CONDITIONS> & {
+    data: Record<string, string | number>;
   };
-};
 
-export type WeatherAirQualityDataPoint = BaseDataPoint<DataPointType.AIR_QUALITY>;
+export type WeatherStormWaterDataPoint =
+  BaseDataPoint<DataPointType.STORM_WATER> & {
+    data: Record<string, string | number>;
+    dataUnitOverrides?: Partial<Record<string, string>>;
+    simulated?: boolean;
+    sensorThresholds?: SensorThresholdConfig;
+    historySeries?: {
+      provider: 'intoto' | 'pocketbase';
+      seriesId: number | string;
+      revision?: number;
+      effectiveTimeMs?: number;
+      unitLabel?: string;
+    };
+  };
+
+export type WeatherAirQualityDataPoint =
+  BaseDataPoint<DataPointType.AIR_QUALITY>;
 
 export type ParkingDataPoint = BaseDataPoint<DataPointType.PARKING> & {
   availableSpots: number;
@@ -49,10 +57,11 @@ export interface WaterbagTestKitDataPointData {
   calculatedValue?: number;
 }
 
-export type WaterbagTestKitDataPoint = BaseDataPoint<DataPointType.WATERBAG_TESTKIT> & {
-  imageUrl?: string;
-  data: Record<string, WaterbagTestKitDataPointData>;
-};
+export type WaterbagTestKitDataPoint =
+  BaseDataPoint<DataPointType.WATERBAG_TESTKIT> & {
+    imageUrl?: string;
+    data: Record<string, WaterbagTestKitDataPointData>;
+  };
 
 export type DataPoint =
   | WeatherConditionDataPoint
@@ -72,15 +81,16 @@ export enum DataPointQuality {
   NO_DATA_AVAILABLE,
 }
 
-export const DATA_POINT_QUALITY_COLOR_CHART: Record<DataPointQuality, string> = {
-  [DataPointQuality.DEFAULT]: '#275D38',
-  [DataPointQuality.GOOD]: '#7AC143',
-  [DataPointQuality.SATISFACTORY]: '#A5D580',
-  [DataPointQuality.FAIR]: '#FEDF89',
-  [DataPointQuality.POOR]: '#FDA29B',
-  [DataPointQuality.VERY_POOR]: '#F04438',
-  [DataPointQuality.NO_DATA_AVAILABLE]: '#D0D5DD',
-};
+export const DATA_POINT_QUALITY_COLOR_CHART: Record<DataPointQuality, string> =
+  {
+    [DataPointQuality.DEFAULT]: '#275D38',
+    [DataPointQuality.GOOD]: '#7AC143',
+    [DataPointQuality.SATISFACTORY]: '#A5D580',
+    [DataPointQuality.FAIR]: '#FEDF89',
+    [DataPointQuality.POOR]: '#FDA29B',
+    [DataPointQuality.VERY_POOR]: '#F04438',
+    [DataPointQuality.NO_DATA_AVAILABLE]: '#D0D5DD',
+  };
 
 export const DATA_POINT_TYPE_ICON: Record<DataPointType, string> = {
   [DataPointType.WEATHER_CONDITIONS]: 'weather-icon.svg',

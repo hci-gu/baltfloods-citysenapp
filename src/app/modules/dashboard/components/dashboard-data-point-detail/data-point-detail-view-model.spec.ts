@@ -55,7 +55,7 @@ describe('data point detail view model', () => {
 
   it('should normalize image URLs', () => {
     expect(getDataPointImageUrl('/api/files/observations/1/photo.jpg')).toBe(
-      '/api/files/observations/1/photo.jpg',
+      `${environment.pocketbaseUrl}/files/observations/1/photo.jpg`,
     );
     expect(getDataPointImageUrl('../uploads/photo.jpg')).toBe(
       `${environment.streetAiUploadUrl.replace(/\/$/, '')}/uploads/photo.jpg`,

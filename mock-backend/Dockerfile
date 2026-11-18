@@ -1,27 +1,33 @@
-FROM alpine:latest
+FROM --platform=$BUILDPLATFORM golang:1.24.11-alpine AS build
 
-ARG GOLANG_VERSION=1.24.11
+ARG TARGETOS
+ARG TARGETARCH
 
-RUN apk update && apk add go gcc bash musl-dev openssl-dev ca-certificates && update-ca-certificates
+WORKDIR /src
 
-RUN wget https://dl.google.com/go/go$GOLANG_VERSION.src.tar.gz && tar -C /usr/local -xzf go$GOLANG_VERSION.src.tar.gz
-RUN cd /usr/local/go/src && ./make.bash
-ENV PATH=$PATH:/usr/local/go/bin
-RUN rm go$GOLANG_VERSION.src.tar.gz
+COPY go.mod go.sum ./
+RUN go mod download
 
-#we delete the apk installed version to avoid conflict
-RUN apk del go
+COPY ./*.go ./
+COPY ./migrations ./migrations
+COPY ./demo ./demo
+COPY ./sensordemo ./sensordemo
 
-# add go files
-ADD main.go /pb/main.go
-ADD go.mod /pb/go.mod
-ADD go.sum /pb/go.sum
-COPY ./migrations /pb/migrations
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+  go build -trimpath -ldflags="-s -w" -o /out/app .
 
-# build binary
-RUN cd /pb && go build -o app
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates \
+  && mkdir -p /pb/pb_data \
+  && chgrp -R 0 /pb \
+  && chmod -R g+rwX /pb
+
+WORKDIR /pb
+
+COPY --from=build /out/app /pb/app
+COPY ./pb_public /pb/pb_public
 
 EXPOSE 8080
 
-# start PocketBase
 CMD ["/pb/app", "serve", "--http=0.0.0.0:8080"]

@@ -14,12 +14,10 @@ export const normalizeImageUrl = (
     return normalized;
   }
 
-  if (normalized.startsWith('/api/')) {
-    return normalized;
-  }
-
-  if (normalized.startsWith('api/')) {
-    return `/${normalized.replace(/^\/+/, '')}`;
+  // PocketBase file paths belong to the configured API, which may be on a
+  // different host from the frontend. The base already includes /api.
+  if (/^\/?api\//.test(normalized)) {
+    return `${pocketbaseBase}/${normalized.replace(/^\/?api\//, '')}`;
   }
 
   if (normalized.startsWith('/files/')) {

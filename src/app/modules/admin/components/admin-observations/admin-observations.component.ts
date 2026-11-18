@@ -1,3 +1,4 @@
+import { AdminSensorDemoComponent } from './admin-sensor-demo.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -9,6 +10,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '@core/services/auth.service';
 import { ObservationRecord } from '@core/services/observation-records.service';
 import { environment } from '@environments/environment';
+import { normalizeImageUrl } from '@shared/utils/image-url.utils';
 import { AdminObservationListComponent } from './admin-observation-list.component';
 import {
   AdminStats,
@@ -28,6 +30,7 @@ import { AdminUploadChartCardComponent } from './admin-upload-chart-card.compone
   styleUrls: ['./admin-observations.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    AdminSensorDemoComponent,
     AdminSummaryCardComponent,
     AdminUploadChartCardComponent,
     AdminObservationListComponent,
@@ -124,41 +127,10 @@ export class AdminObservationsComponent {
       return undefined;
     }
 
-    return this.normalizeImageUrl(observation.imageUrl);
-  }
-
-  private normalizeImageUrl(imageUrl: string): string {
-    let normalized = imageUrl.trim();
-    const pocketbaseBase = environment.pocketbaseUrl.replace(/\/$/, '');
-
-    if (normalized.startsWith('../')) {
-      normalized = normalized.replace(/^(\.\.\/)+/, '');
-    }
-
-    if (/^https?:\/\//i.test(normalized)) {
-      return normalized;
-    }
-
-    if (normalized.startsWith('/api/')) {
-      return normalized;
-    }
-
-    if (normalized.startsWith('api/')) {
-      return `/${normalized.replace(/^\/+/, '')}`;
-    }
-
-    if (normalized.startsWith('/files/')) {
-      return `${pocketbaseBase}/${normalized.replace(/^\/+/, '')}`;
-    }
-
-    if (normalized.startsWith('files/')) {
-      return `${pocketbaseBase}/${normalized}`;
-    }
-
-    if (normalized.startsWith('/')) {
-      return normalized;
-    }
-
-    return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
+    return normalizeImageUrl(
+      observation.imageUrl,
+      environment.pocketbaseUrl,
+      environment.streetAiUploadUrl,
+    );
   }
 }

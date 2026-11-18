@@ -4,8 +4,6 @@ import { SharedModule } from 'primeng/api';
 import { TranslateService } from '@ngx-translate/core';
 import { FeedbackContactComponent } from './feedback-contact.component';
 import { phoneNumberValidator } from '@shared/validators/phone-number.validator';
-import { PhoneNumberFormat, PhoneNumberUtil } from 'google-libphonenumber';
-import { environment } from '@environments/environment';
 
 describe('FeedbackContactComponent', () => {
   let shallow: Shallow<FeedbackContactComponent>;
@@ -55,19 +53,10 @@ describe('FeedbackContactComponent', () => {
 
     fixture.detectChanges();
 
-    const phoneNumberUtil = PhoneNumberUtil.getInstance();
-    const phoneNumberFormat = phoneNumberUtil.format(
-      phoneNumberUtil.getExampleNumber(environment.countryCode),
-      PhoneNumberFormat.INTERNATIONAL,
-    );
-
     expect(find('small')).toHaveFoundOne();
 
     expect(inject(TranslateService).instant).toHaveBeenCalledWith(
-      'FEEDBACK.CONTACT.ERROR.INVALID_PHONE_NUMBER',
-      {
-        phoneNumberFormat,
-      },
+      'FEEDBACK.CONTACT.ERROR.INTERNATIONAL_PHONE_NUMBER',
     );
   });
 });

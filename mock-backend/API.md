@@ -92,13 +92,16 @@ Response item shape:
   - `latitudeValue` (number)
   - `longitudeValue` (number)
 - `dataRetrievedTimestamp` (number, unix seconds)
-- `imageUrl` (string, relative or absolute; UI prepends `streetAiUploadUrl` when needed)
+- `imageUrl` (string, relative or absolute; resolved by the UI as described below)
 - Metrics (objects):
   - `airTemp`, `waterTemp`, `visibility`, `algae`: `{ value: number, dataRetrievedTimestamp: number }`
   - `waterPh`, `turbidity`, `nitrate`, `phosphate`: `{ value: number, dataRetrievedTimestamp: number, result: number }`
   - `dissolvedOxygen`: `{ value: number, dataRetrievedTimestamp: number, result: number, calculatedValue: number }`
 
-**Related base URL for image files**: `streetAiUploadUrl` (default `https://opendata.streetai.net/uploads`).
+**Image URL resolution**: PocketBase file paths such as `/api/files/observations/...`
+resolve against `pocketbaseUrl` (which includes `/api`), including when the API
+and frontend use different hosts. `/assets/...` paths use the frontend host,
+absolute URLs are preserved, and legacy relative uploads use `streetAiUploadUrl`.
 
 ## Service API (eFeedback georeport)
 
@@ -310,3 +313,212 @@ Static page served from `./pb_public/admin/push-test.html`.
 Open: `/admin/push-test.html`
 
 It posts to `/push/test` with a superuser token and shows the response.
+
+## Runtime map origin and demo reset
+
+The singleton `app_settings` record (`appsettings0001`) controls the map origin
+and all generated storm-water, waterbag-testkit, and overflow observations.
+Changing its `origin` through the normal PocketBase API or admin UI relocates
+the app without rebuilding either application.
+
+**Read (public)**: `GET /api/collections/app_settings/records/appsettings0001`
+
+```json
+{
+  "id": "appsettings0001",
+  "origin": { "latitude": 61.05871, "longitude": 28.18871 },
+  "revision": 1
+}
+```
+
+**Change (PocketBase superuser)**:
+`PATCH /api/collections/app_settings/records/appsettings0001`
+
+Use the usual `Authorization: Bearer <superuser_token>` header and this JSON body:
+
+```json
+{
+  "origin": { "latitude": 59.4377, "longitude": 24.7330 }
+}
+```
+
+Latitude and longitude must both be finite numbers, within ±90 and ±180
+respectively. Zero is valid. `revision` is managed by the server. Saving the
+same coordinates is a no-op. The record cannot be created or deleted through
+the API, including by superusers; edit the existing record.
+
+A successful change atomically replaces records marked `demoGenerated` with
+10 storm-water, 10 waterbag-testkit, and 10 overflow records near the new
+origin, then increments `revision`. Only one overflow observation is current;
+together with the simulated sensor, this gives two demo data points in the
+default 30-day map window. The other 29 observations are at least 31 days old
+and span three years of history. Existing user submissions remain visible
+according to their timestamps and moderation status. Layouts
+are synthetic offsets, not actual local waterways. Generation failure rolls
+back settings, observations, and the owned sensor together. Superseded concurrent
+lookups are rejected; see the owned sensor section below.
+
+The new migration conservatively marks historical seed records using their
+seed names, image paths, and absence of submission metadata/user/photos.
+Ordinary admin users cannot change this marker. Unmarked observations,
+accounts, uploaded photos, messages, and service requests remain intact.
+Other layers with no existing seed generator are not fabricated or relocated;
+when enabled, real Intoto sensors are fetched near the new map center.
+
+Clients subscribe to PocketBase's `app_settings/appsettings0001` realtime topic.
+The settings update is delivered after commit. The frontend restarts at its
+base map page when the revision changes, clearing in-memory drafts, filters,
+selections, history caches, and pending requests while retaining login storage.
+It rechecks on subscription/reconnect, returning online, visibility changes,
+and every 30 seconds as a fallback when realtime is unavailable.
+
+### Rollout
+
+Deploy the updated backend first. Starting `serve` runs the new migration;
+it initializes the origin to the historical backend seed origin (Lappeenranta)
+and preserves existing observations. Then edit `app_settings.origin` to the
+intended location and deploy the frontend. An older backend without this record
+will cause the new frontend to show a retry screen instead of an incorrect map.
+
+Ensure `pocketbaseUrl`, `streetAiApiUrl`, and `observationApiUrl` point to this
+same backend. The tracked production/template environments use `/api`,
+`/street-ai`, and `/observation`; these paths must reach PocketBase through your
+hosting proxy or through explicitly configured backend URLs. Deployment API
+jurisdiction identifiers and legal-page URLs remain deployment settings, not
+geographic origins. The UI uses a neutral CitySen heading and international
+phone numbers so an origin change does not retain a previous city's defaults.
+
+### Verification
+
+From `mock-backend`: `go test ./...` covers relocation, legacy cleanup,
+submissions retained, no-op updates, coordinate validation, partial-generation
+rollback, concurrent resets, and API permissions using temporary databases.
+Frontend coverage includes bootstrap/retry, runtime map defaults, GPS precedence,
+realtime resets, reconnects, and polling fallback.
+
+## Owned flood sensor demo
+
+The demo no longer depends on Intoto. `sensors` contains one permanent simulated
+water-level sensor (`floodsensor0001`), `sensor_readings` contains its generated
+history, and `demo_runs` (`floodrun0000001`) holds the shared stage, effective time,
+seed, scenario version, and revision. The readings use metres above an arbitrary
+local reference, **not elevation above sea level or actual flood measurements**.
+
+Migration creates an unplaced sensor. On the first server start, an asynchronous
+OpenStreetMap/Overpass lookup places it near the current origin and seeds its
+history. A failed lookup leaves it unplaced with an explanation in
+`run.placementError`; an administrator can retry or choose a position on the map.
+The sensor is not plotted at arbitrary fallback coordinates.
+
+### State and history (public)
+
+- `GET /api/demo/state` returns `{settings, sensor, run, latest}` from one database
+  snapshot. `latest` is the last reading at or before the demo cursor.
+- `GET /api/sensors/floodsensor0001/history?from=<seconds>&to=<seconds>&revision=<run revision>`
+  returns ascending `{timestamp, value}` readings, with Unix timestamps in seconds.
+  The range is limited to four years and clipped to the demo cursor, so future
+  flood readings are hidden. A superseded revision returns HTTP 409.
+- Sensor and run metadata are publicly readable through PocketBase. Raw history
+  and placement-cache collections require superuser access. Direct record writes
+  through the collection API are blocked; use the commands below to retain
+  consistent sensor/history/run state.
+
+### Commands (administrator or PocketBase superuser)
+
+Use an authenticated `users` token whose record has `type=admin`, or a superuser
+bearer token. Ordinary users and anonymous clients cannot execute commands.
+
+`POST /api/demo/action`:
+
+```json
+{ "stage": "peak", "revision": 2 }
+```
+
+The revision is the most recent `run.revision` from the state endpoint. Supported
+stages are `normal`, `rising`, `warning`, `peak`, `recovery`, and `reset`:
+
+| Stage | Demo offset | Water level | Meaning |
+| --- | --- | --- | --- |
+| normal | 0 h | 1.0 m | Baseline / start |
+| rising | 6 h | 1.7 m | Yellow / watch |
+| warning | 12 h | 2.3 m | Orange / warning |
+| peak | 18 h | 3.2 m | Red / simulated flood |
+| recovery | 72 h | 1.0 m | Normal; flood is outside the 12-hour alert window |
+| reset | 0 h | 1.0 m | Regenerate sensor history and the sparse demo observations with fresh dates |
+
+Stages are saved checkpoints, not a running wall-clock timer. They survive server
+restarts. The baseline starts 72 hours before seeding so the complete flood fits
+within real-world dates. History contains three years of daily readings, a month
+of hourly readings, and 15-minute readings through the flood. The saved seed and
+scenario version make sensor resets reproducible. Reset also replaces only
+observations marked `demoGenerated`, using the same sparse dataset as a location
+change, and broadcasts one observation refresh after the transaction commits.
+Accounts, user submissions, and uploaded photos remain intact. The other stage
+actions leave observations unchanged. Concurrent/stale commands return HTTP 409.
+
+`POST /api/demo/location`:
+
+```json
+{
+  "origin": { "latitude": 57.7089, "longitude": 11.9746 },
+  "revision": 1,
+  "runRevision": 2
+}
+```
+
+This command finds water automatically, then atomically regenerates the sensor,
+its history, demo run, and generated observations with the new origin. Both
+revisions come from `/api/demo/state`. For a manual water-side position add:
+
+```json
+{ "placement": { "latitude": 57.7120, "longitude": 11.9650, "name": "Selected riverside" } }
+```
+
+Manual positions must be within 5 km of the supplied origin. An administrator is
+responsible for choosing a water-side point; manual placement is not checked
+against an external map. Its provenance is saved as `manual`.
+
+### Automatic placement and relocation
+
+Changing `app_settings.origin` directly as a superuser also invokes automatic
+placement. Water lookup occurs **before** the write transaction, with a 15-second
+HTTP deadline. The resolver searches within 5 km for river, canal, stream, and
+water-polygon geometry, preferring named rivers/canals and proximity to bridges.
+For lakes it uses an actual shoreline segment instead of a polygon centroid.
+The feature name, OSM identity, coordinates, and provenance are saved. Successful
+placements are cached by origin and reused when returning to a location. Explicit
+automatic placement in the administrator panel replaces a saved manual override.
+
+Override the service endpoint with `OVERPASS_API_URL` if needed (default:
+`https://overpass-api.de/api/interpreter`). This read-only lookup sends the chosen
+origin to that service; sensor data itself remains in PocketBase. Map/geometry
+attribution is shown in the administrator location panel.
+
+If no water is found or the service fails, the request fails with a manual
+placement suggestion and the **previous complete app state remains intact**.
+If the location or demo changes while a lookup is running, the obsolete result
+is rejected with HTTP 409. Generation and placement-cache failures also roll back.
+The location command can re-place/reseed a sensor at the same origin; unlike a
+no-op raw settings PATCH, this intentionally increments the app revision.
+
+### Frontend and testing
+
+The administrator dashboard includes the flood controls and a location/map
+picker. Map markers, threshold colours, warnings, and charts use sensor metadata,
+regardless of provider. Demo labels identify simulated data. The sensor's effective
+time is scoped to its warnings and charts; real observations keep real timestamps.
+History keys include provider, sensor ID, and run revision. Stage changes cancel
+old chart requests, clear cached history, and refresh the sensor in every open
+client via `demo_runs/floodrun0000001` realtime events. Clients re-fetch after
+reconnection and poll every 15 seconds if realtime is unavailable.
+
+Intoto remains an optional real-data adapter: set `intotoEnabled: true` in the
+frontend environment to enable it. It is disabled by default, and its thresholds
+and data never control the owned demo.
+
+To verify: run `go test ./...` in `mock-backend` and `npm test -- --runInBand` at
+the repository root. In two browser tabs, sign in as an administrator in one,
+open the map in the other, and try peak → recovery → reset. Then change the origin
+and verify that both tabs restart at the new location. Test manual placement by
+clicking a nearby shoreline in the location panel. Deploy the backend (including
+migrations and the `sensordemo` Go package) before the updated frontend.

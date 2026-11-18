@@ -1,4 +1,5 @@
 <main class="admin-page">
+  @if (canManageObservations()) { <app-admin-sensor-demo /> }
   <section class="admin-layout">
     <section class="left-column">
       <app-admin-summary-card

@@ -34,6 +34,7 @@
               <div
                 class="menu-item flex-row"
                 [routerLink]="['/', item.route]"
+                [queryParams]="scenario.queryParams"
                 (click)="onSidebarClose.emit()"
               >
                 <app-icon class="icon" [icon]="item.icon"></app-icon>

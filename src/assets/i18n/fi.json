@@ -1,4 +1,9 @@
 {
+  "APP_SETTINGS": {
+    "LOADING": "Ladataan kartan sijaintia…",
+    "ERROR": "Kartan sijaintia ei voitu ladata. Tarkista yhteys ja yritä uudelleen.",
+    "RETRY": "Yritä uudelleen"
+  },
   "DASHBOARD": {
     "DATA_POINTS": {
       "TYPE": {
@@ -107,11 +112,13 @@
       "FIRST_NAME": "Etunimi",
       "I_ACCEPT_THE_SERVICES": "Hyväksyn seuraavat:",
       "LAST_NAME": "Sukunimi",
+      "PHONE_HINT": "Sisällytä maatunnus (+…)",
       "PHONE": "Puhelinnumero",
       "PRIVACY_STATEMENT": "Tietosuojaseloste",
       "TERMS_OF_USE": "Käyttöehdot",
       "ERROR": {
         "INVALID_EMAIL": "Sähköpostiosoitteen muoto on virheellinen",
+        "INTERNATIONAL_PHONE_NUMBER": "Anna kelvollinen puhelinnumero maatunnuksen kanssa (alkaen +).",
         "INVALID_PHONE_NUMBER": "Puhelinnumeron muoto on virheellinen (esim. {{phoneNumberFormat}})"
       }
     },

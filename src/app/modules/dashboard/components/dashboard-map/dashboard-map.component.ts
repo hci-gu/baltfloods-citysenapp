@@ -1,3 +1,7 @@
+import { sensorKey, sensorNow, sensorThresholds } from '@core/models/sensor';
+import { SensorDemoService } from '@core/services/sensor-demo.service';
+import { AppSettingsService } from '@core/services/app-settings.service';
+import { ScenarioLocationService } from '@core/services/scenario-location.service';
 import { animate, style, transition, trigger } from '@angular/animations';
 import {
   AfterViewInit,
@@ -9,10 +13,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import {
-  SENSOR_THRESHOLDS_BY_SERIES_ID,
-  SensorThresholdConfig,
-} from '@core/config/sensor-thresholds';
+import { SensorThresholdConfig } from '@core/config/sensor-thresholds';
 import {
   DataPoint,
   DataPointType,
@@ -45,7 +46,6 @@ import {
   BehaviorSubject,
   combineLatest,
   debounceTime,
-  filter,
   map,
   Observable,
   of,
@@ -314,12 +314,12 @@ export class DashboardMapComponent implements AfterViewInit {
     const cache = this.sensorHistoryCache();
 
     return this.sensorHistoryService
-      .getIntotoStormWaterPoints(this._allDataPoints())
+      .getSensorPoints(this._allDataPoints())
       .filter((point) =>
         isPointWithinBounds(point.location, this.visibleMapBounds()),
       )
       .map((point) => {
-        const seriesId = point.historySeries?.seriesId;
+        const seriesId = sensorKey(point);
         if (seriesId === undefined) {
           return null;
         }
@@ -391,9 +391,7 @@ export class DashboardMapComponent implements AfterViewInit {
 
       const point = selected.find(
         (item): item is WeatherStormWaterDataPoint =>
-          item.type === DataPointType.STORM_WATER &&
-          !!item.historySeries &&
-          item.historySeries.provider === 'intoto',
+          item.type === DataPointType.STORM_WATER && !!item.historySeries,
       );
 
       return point ?? null;
@@ -402,12 +400,12 @@ export class DashboardMapComponent implements AfterViewInit {
   private selectedSensorAvailableBounds = computed<ObservationTimespanBounds>(
     () => {
       const fallbackBounds = this.observationTimespanBounds();
-      const seriesId = this.selectedSensorPoint()?.historySeries?.seriesId;
+      const seriesId = sensorKey(this.selectedSensorPoint());
       if (seriesId === undefined) {
         return fallbackBounds;
       }
 
-      const currentTimeMs = Date.now();
+      const currentTimeMs = sensorNow(this.selectedSensorPoint());
       const widestCacheEntry = Object.values(this.sensorHistoryCache())
         .filter(
           (entry) =>
@@ -474,10 +472,7 @@ export class DashboardMapComponent implements AfterViewInit {
   );
   public selectedSensorThresholdConfig = computed<SensorThresholdConfig | null>(
     () => {
-      const seriesId = this.selectedSensorPoint()?.historySeries?.seriesId;
-      return seriesId
-        ? (SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null)
-        : null;
+      return sensorThresholds(this.selectedSensorPoint());
     },
   );
   public selectedSensorTimeline = computed<SensorValueTimeline | null>(() => {
@@ -603,11 +598,14 @@ export class DashboardMapComponent implements AfterViewInit {
 
   public readonly TOAST_KEY = 'loading';
 
+  private readonly settings = inject(AppSettingsService);
+  private readonly scenario = inject(ScenarioLocationService);
+
   private _mapCenterSubject$ = new BehaviorSubject<LatLong>(
-    environment.defaultLocation as LatLong,
+    this.scenario.location ?? this.settings.origin,
   );
   public mapCenter$ = this._mapCenterSubject$.asObservable();
-  private currentMapCenter: LatLong = environment.defaultLocation as LatLong;
+  private currentMapCenter: LatLong = this.scenario.location ?? this.settings.origin;
   private latestUserLocation?: LatLong;
 
   private _focusLocation$ = new Subject<void>();
@@ -615,6 +613,8 @@ export class DashboardMapComponent implements AfterViewInit {
   private waterbagTestKitsLoaded = false;
 
   private readonly destroyRef = inject(DestroyRef);
+  private stormWaterRequestVersion = 0;
+  private readonly sensorDemo = inject(SensorDemoService);
   private readonly debugIntoto = !environment.production;
   private readonly userLocation$!: Observable<UserLocation>;
 
@@ -628,9 +628,9 @@ export class DashboardMapComponent implements AfterViewInit {
     private readonly observationDraftService: ObservationDraftService,
     private readonly router: Router,
   ) {
-    this.userLocation$ = this.locationService.userLocation$.pipe(
-      shareReplay(1),
-    );
+    this.userLocation$ = this.scenario.location
+      ? of({ loading: false, location: this.scenario.location })
+      : this.locationService.userLocation$.pipe(shareReplay(1));
     this.mapMarkers$ = combineLatest([
       this._filteredDataPoints$,
       toObservable(this._activeLocation),
@@ -720,6 +720,15 @@ export class DashboardMapComponent implements AfterViewInit {
         this.handleDataPointsByType(points, DataPointType.ROAD_WORKS),
       );
 
+    this.sensorDemo.changes$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.sensorHistoryService.clear();
+        this.selectedSensorHistoryPoints.set([]);
+        this.sensorCursorRatio.set(1);
+        this.refreshObservationDataPoints(this._mapCenterSubject$.value, true);
+      });
+
     this.observationRealtimeService.observationChanges$
       .pipe(debounceTime(200), takeUntilDestroyed(this.destroyRef))
       .subscribe(() =>
@@ -738,7 +747,7 @@ export class DashboardMapComponent implements AfterViewInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(([points, bounds]) =>
         this.prefetchSensorHistories(
-          this.sensorHistoryService.getIntotoStormWaterPoints(points),
+          this.sensorHistoryService.getSensorPoints(points),
           bounds,
         ),
       );
@@ -881,12 +890,19 @@ export class DashboardMapComponent implements AfterViewInit {
   }
 
   public onFocusLocationClick(): void {
+    if (this.scenario.location) {
+      this.currentMapCenter = this.scenario.location;
+      this._mapCenterSubject$.next(this.scenario.location);
+      return;
+    }
     this.locationService.refreshUserLocation();
     this._focusLocation$.next();
   }
 
   public onQuickObservationCameraClick(): void {
-    this.locationService.refreshUserLocation();
+    if (!this.scenario.location) {
+      this.locationService.refreshUserLocation();
+    }
   }
 
   public onQuickObservationPhotoSelected(event: Event): void {
@@ -899,7 +915,7 @@ export class DashboardMapComponent implements AfterViewInit {
     }
 
     this.observationDraftService.setQuickObservationDraft({
-      location: this.latestUserLocation ?? this.currentMapCenter,
+      location: this.scenario.location ?? this.latestUserLocation ?? this.currentMapCenter,
       observationType: 'water_overflow',
       photo,
     });
@@ -1128,22 +1144,6 @@ export class DashboardMapComponent implements AfterViewInit {
       .subscribe(([_, userLocation, permissionState]) =>
         this.onFocusLocation(userLocation, permissionState),
       );
-
-    combineLatest([
-      this.userLocation$,
-      this.locationService.locationPermissionState$,
-    ])
-      .pipe(
-        filter(
-          ([userLocation, permissionState]) =>
-            !userLocation.loading &&
-            permissionState === 'granted' &&
-            !!userLocation.location,
-        ),
-        take(1),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(() => this._focusLocation$.next());
   }
 
   private onFocusLocation(
@@ -1177,11 +1177,7 @@ export class DashboardMapComponent implements AfterViewInit {
     bounds: ObservationTimespanBounds,
     historyPoints: SensorHistoryPoint[],
   ): void {
-    const seriesId = point?.historySeries?.seriesId;
-    const thresholdConfig =
-      seriesId !== undefined
-        ? (SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null)
-        : null;
+    const thresholdConfig = sensorThresholds(point);
     if (!thresholdConfig || historyPoints.length === 0) {
       this.sensorCursorRatio.set(1);
       return;
@@ -1191,6 +1187,7 @@ export class DashboardMapComponent implements AfterViewInit {
       this.sensorWarningsService.getActiveSensorHistoryThresholdPoint(
         historyPoints,
         thresholdConfig,
+        sensorNow(point),
       );
     if (!activeThresholdPoint) {
       this.sensorCursorRatio.set(1);
@@ -1217,10 +1214,14 @@ export class DashboardMapComponent implements AfterViewInit {
         selectedTimelineWindow: this.observationTimelineWindow(),
       });
 
+      const requestVersion = ++this.stormWaterRequestVersion;
       this.dataPointsApi
         .getWeatherStormWater(center)
         .pipe(take(1), takeUntilDestroyed(this.destroyRef))
         .subscribe((points) => {
+          if (requestVersion !== this.stormWaterRequestVersion) {
+            return;
+          }
           this.logIntotoDebug('[DashboardMap] storm water points received', {
             count: points.length,
             points: points.map((point) => ({

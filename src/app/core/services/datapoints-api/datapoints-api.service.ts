@@ -1,3 +1,4 @@
+import { SensorDemoService } from '../sensor-demo.service';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { LatLong } from '@core/models/location';
@@ -29,6 +30,7 @@ export class DataPointsApi {
     private readonly authService: AuthService,
     private readonly streetAiDataPoints: StreetAiDataPointsService,
     private readonly intotoStormWater: IntotoStormWaterService,
+    private readonly sensorDemo: SensorDemoService,
   ) {}
 
   public getWeatherConditions(): Observable<WeatherConditionDataPoint[]> {
@@ -42,14 +44,19 @@ export class DataPointsApi {
       .getWeatherStormWater()
       .pipe(catchError(() => of([] as WeatherStormWaterDataPoint[])));
 
-    const intoto$ = center
-      ? this.intotoStormWater
-          .getNearbyStormWater(center)
-          .pipe(catchError(() => of([] as WeatherStormWaterDataPoint[])))
-      : of([] as WeatherStormWaterDataPoint[]);
+    const intoto$ =
+      center && environment.intotoEnabled
+        ? this.intotoStormWater
+            .getNearbyStormWater(center)
+            .pipe(catchError(() => of([] as WeatherStormWaterDataPoint[])))
+        : of([] as WeatherStormWaterDataPoint[]);
 
-    return forkJoin([streetAi$, intoto$]).pipe(
-      map(([streetAi, intoto]) => [...streetAi, ...intoto]),
+    return forkJoin([
+      streetAi$,
+      intoto$,
+      this.sensorDemo.getSensors().pipe(catchError(() => of([]))),
+    ]).pipe(
+      map(([streetAi, intoto, owned]) => [...streetAi, ...intoto, ...owned]),
     );
   }
 
@@ -90,7 +97,9 @@ export class DataPointsApi {
     fromDateTime: Date,
     toDateTime: Date,
   ): Observable<SensorHistoryPoint[]> {
-    return this.intotoStormWater.getHistory(point, fromDateTime, toDateTime);
+    return point.historySeries?.provider === 'pocketbase'
+      ? this.sensorDemo.getHistory(point, fromDateTime, toDateTime)
+      : this.intotoStormWater.getHistory(point, fromDateTime, toDateTime);
   }
 
   private buildOptionalAuthHeaders(): HttpHeaders | null {

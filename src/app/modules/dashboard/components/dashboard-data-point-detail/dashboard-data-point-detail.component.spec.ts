@@ -264,7 +264,9 @@ describe('DashboardDataPointDetailComponent', () => {
         expect(find('.observation-image')).toHaveFound(1);
         expect(
           find('.observation-image').nativeElement.getAttribute('src'),
-        ).toBe(imageUrl);
+        ).toBe(
+          `${environment.pocketbaseUrl}/files/observations/testkit-id/photo.jpg`,
+        );
       });
 
       it('when type is parking', async () => {
@@ -422,7 +424,24 @@ describe('DashboardDataPointDetailComponent', () => {
       },
     ];
 
-    it('should keep pocketbase api file paths', async () => {
+    it('should close with the button or Escape and stay open on content clicks', async () => {
+      const { instance, find, fixture } = await shallow.render(
+        '<app-dashboard-data-point-detail [dataPoints]="dataPoints"></app-dashboard-data-point-detail>',
+        { bind: { dataPoints: minimalDataPoints } },
+      );
+      const close = jest.spyOn(instance.close, 'emit');
+      find('h1').nativeElement.click();
+      expect(close).not.toHaveBeenCalled();
+
+      find('.detail-close-button').nativeElement.click();
+      expect(close).toHaveBeenCalledTimes(1);
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      await fixture.whenStable();
+      expect(close).toHaveBeenCalledTimes(2);
+    });
+
+    it('should resolve pocketbase file paths against the API host', async () => {
       const { instance } = await shallow.render(
         '<app-dashboard-data-point-detail [dataPoints]="dataPoints"></app-dashboard-data-point-detail>',
         { bind: { dataPoints: minimalDataPoints } },
@@ -432,12 +451,12 @@ describe('DashboardDataPointDetailComponent', () => {
         instance.getDataPointImageUrl(
           'api/files/observations/abc123/photo.png',
         ),
-      ).toBe('/api/files/observations/abc123/photo.png');
+      ).toBe(`${environment.pocketbaseUrl}/files/observations/abc123/photo.png`);
       expect(
         instance.getDataPointImageUrl(
           '../api/files/observations/abc123/photo.png',
         ),
-      ).toBe('/api/files/observations/abc123/photo.png');
+      ).toBe(`${environment.pocketbaseUrl}/files/observations/abc123/photo.png`);
     });
 
     it('should prefix legacy relative uploads with street ai upload url', async () => {

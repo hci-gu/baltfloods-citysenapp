@@ -28,6 +28,9 @@ export class ObservationRealtimeService implements OnDestroy {
   private readonly baseUrl = environment.pocketbaseUrl;
   private readonly reconnectDelayMs = 3000;
   private readonly observationTopics = ['observations-refresh'];
+  private readonly sensorTopic = 'demo_runs/floodrun0000001';
+  private readonly sensorChangesSubject = new Subject<void>();
+  public readonly sensorChanges$ = this.sensorChangesSubject.asObservable();
   private eventSource: EventSource | null = null;
   private reconnectTimer: number | null = null;
   private isDestroyed = false;
@@ -49,6 +52,7 @@ export class ObservationRealtimeService implements OnDestroy {
     this.clearReconnectTimer();
     this.closeConnection();
     this.observationChangesSubject.complete();
+    this.sensorChangesSubject.complete();
   }
 
   private connect(): void {
@@ -58,6 +62,7 @@ export class ObservationRealtimeService implements OnDestroy {
 
     const eventSource = new EventSource(`${this.baseUrl}/realtime`);
     eventSource.addEventListener('PB_CONNECT', this.onConnect);
+    eventSource.addEventListener(this.sensorTopic, this.onSensorMessage);
     this.observationTopics.forEach((topic) =>
       eventSource.addEventListener(topic, this.onObservationMessage),
     );
@@ -77,12 +82,17 @@ export class ObservationRealtimeService implements OnDestroy {
     this.http
       .post<void>(`${this.baseUrl}/realtime`, {
         clientId,
-        subscriptions: this.observationTopics,
+        subscriptions: [...this.observationTopics, this.sensorTopic],
       })
       .pipe(take(1))
       .subscribe({
+        next: () => this.ngZone.run(() => this.sensorChangesSubject.next()),
         error: () => this.resetConnectionWithReconnect(),
       });
+  };
+
+  private onSensorMessage = (): void => {
+    this.ngZone.run(() => this.sensorChangesSubject.next());
   };
 
   private onObservationMessage = (event: Event): void => {
@@ -157,7 +167,9 @@ export class ObservationRealtimeService implements OnDestroy {
     rawData: string,
   ): ObservationRealtimeEvent | null {
     try {
-      const payload = JSON.parse(rawData) as PocketbaseObservationRealtimePayload;
+      const payload = JSON.parse(
+        rawData,
+      ) as PocketbaseObservationRealtimePayload;
       const action = payload.action?.toLowerCase();
 
       if (action !== 'create' && action !== 'update' && action !== 'delete') {

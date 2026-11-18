@@ -1,5 +1,4 @@
 import { AbstractControl } from '@angular/forms';
-import { environment } from '../../../environments/environment';
 import { PhoneNumberUtil } from 'google-libphonenumber';
 /**
  * Custom validator function to validate phone numbers using Google's libphonenumber library.
@@ -15,7 +14,7 @@ export function phoneNumberValidator(control: AbstractControl): { [key: string]:
   }
 
   try {
-    const phoneNumber = phoneNumberUtil.parseAndKeepRawInput(value, environment.countryCode);
+    const phoneNumber = phoneNumberUtil.parseAndKeepRawInput(value, 'ZZ');
     const isValidNumber = phoneNumberUtil.isValidNumber(phoneNumber);
 
     if (!isValidNumber) {

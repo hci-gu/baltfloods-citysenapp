@@ -1,8 +1,8 @@
+import { AppSettingsService } from '@core/services/app-settings.service';
 import { Component, DestroyRef, Input, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { LatLong } from '@core/models/location';
-import { environment } from '@environments/environment';
 import { BehaviorSubject } from 'rxjs';
 import { SearchLocationInputComponent } from '@shared/components/search-location-input/search-location-input.component';
 import { MapComponent } from '@shared/components/map/map.component';
@@ -19,12 +19,15 @@ export class FeedbackLocationComponent implements OnInit {
   public locationFormControl!: FormControl<LatLong | null>;
 
   private _mapCenterSubject$ = new BehaviorSubject<LatLong>(
-    environment.defaultLocation as LatLong,
+    inject(AppSettingsService).origin,
   );
   public mapCenter$ = this._mapCenterSubject$.asObservable();
   private readonly destroyRef = inject(DestroyRef);
 
   public ngOnInit(): void {
+    if (this.locationFormControl?.value) {
+      this._mapCenterSubject$.next(this.locationFormControl.value);
+    }
     this.locationFormControl?.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((latLong) => {

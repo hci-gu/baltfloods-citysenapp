@@ -1,5 +1,8 @@
-@if (isIntotoStormWaterDataPoint()) {
+@if (isSensorDataPoint()) {
   <section class="sensor-detail">
+    @if (dataPoint.simulated) {
+      <p class="body-sm"><strong>Simulated sensor</strong> · Demo time: {{ dataPoint.historySeries?.effectiveTimeMs | date: "dd/MM/yyyy HH:mm" }}. These are generated readings, not real measurements.</p>
+    }
     <div class="sensor-detail-hero">
       <div class="sensor-detail-value-block">
         <p class="sensor-detail-eyebrow">Sensor reading</p>

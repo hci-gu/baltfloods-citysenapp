@@ -1,4 +1,4 @@
-FROM node:22.12.0-bullseye-slim AS build
+FROM node:22.23.1-bullseye-slim AS build
 
 WORKDIR /usr/src/app
 
@@ -6,10 +6,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-RUN cp src/environments/environment.development.ts src/environments/environment.ts
 RUN npm run build:production
 
-FROM node:22.12.0-bullseye-slim
+FROM node:22.23.1-bullseye-slim
 
 ENV NODE_ENV=production
 ENV PORT=8080
@@ -28,4 +27,4 @@ RUN chgrp -R 0 /usr/src/app \
 
 EXPOSE 8080
 
-CMD ["http-server", "-p", "8080", "-c-1", "/usr/src/app/dist/citizen-webapp/browser"]
+CMD ["http-server", "-p", "8080", "-c-1", "-P", "http://127.0.0.1:8080?", "/usr/src/app/dist/citizen-webapp/browser"]

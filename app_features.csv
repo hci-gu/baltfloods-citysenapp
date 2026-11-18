@@ -1,0 +1,26 @@
+﻿Priority,Feature,Technical Description,Database/Entities,Acceptance Criteria,Status,Additional 
+P1,User Authentication & User Management,"Registration, login, password reset, profile management, role-based access control for Citizen and Admin users., email verification and refresh tokens. ","Users(id, firstname, lastname, email, password)","Admin Functions
+Create user accounts.
+Manage user roles and permissions.
+Validate pictures before they are published live.
+Review and approve pictures/observations uploaded by citizens.
+Manage submitted observations and content.",Code has been already created and ready for deployment,"User Functions
+Users can register an account.
+Users can verify their email address.
+Users can log in to the system.
+Users can access features according to their assigned role.
+Users can upload pictures and observations."
+P1,Observation/Reporting CROWDSOURCING,"GPS auto tagging while sending pictures of rise if water level in manholes. The phone detects the user's location via GPS, Wifi or mobile networks. When the user submits report, the location is added in the background. No need for the uder to manually type an address or choose a point on a map. ","Obervations in the form of pictures, defined size. ",Observation can be submitted with photo and reviewed by admin,Code has been already created and ready for deployment,"Categories:
+-flooded street or farmer reports waterlogging in a field, street flooding, sewage overflow, rising water levels nearby, interruptions to public services, water level rise in the manholes 
+"
+P1,GPS Auto-tagging,Automatically retrieve user location from browser/mobile device and attach coordinates to reports. Handle denied permissions and low-accuracy locations.,"latitude, longitude, accuracy, location_source fields",Location automatically captured and stored with report,Code has been already created and ready for deployment,
+P1,Interactive Flood Map,"GIS map displaying current warnings, citizen reports, historical floods, sensor locations and risk zones with filtering and layer management.","Map layers, location entities, flood zones. Flood prone areas",Map loads and layer filtering works successfully,Require coding and deployment,
+P1,Flood Risk Indicators,"Risk engine calculates Green, Yellow, Orange and Red warning levels based on weather and threshold rules configurable by administrators. Possible flood areas from the past events  + combined with areas at risk of stormwater sewer flooding??",Warning thresholds and risk tables,Risk level updates automatically from incoming data,Require coding and deployment,
+P1,Notification System,"Deliver in-app, push notifications triggered by flood warnings, campaign updates and observation status changes. Also Administrator can trigger the alerts",,,Require coding and deployment,
+P1,Sensor data (Only relevant one),Similar display like existing one ,Map layers,,Refine the existing one with more criteria ,
+P2,Water observations(Citizen science data),Data obtained through water sample kit by the students,Data ,,Require coding and deployment,
+P2 ,"Interactive map, residents pin directly on a map
+Use case: Finding potential areas for NBSs, Blue algae, flood prone areas in their neighbourhood, CROWDSOURCING","map layers, spatial feature where resident is viewing the GIS map, users select the location and system create a georeferenced point feature and store its coordinates in the spatial database. Export options via CSV, Shapefile. ","latitude, longitude, start date, user id, ",This is for internal use so no validation is required,Require coding and deployment,
+P3,"Community events; biodiversity monitoring activities, nature conservation campaigns, tree planting initiatives, clean-up events, workshops, citizen science activities, and awareness campaigns.","Authorized users/event organiser, prebuilt page to be filled, users can receive notifications, shall support many events at a time, ","login, email, organization id/organization name, role based access; users can view and register, organiser can create and manage",Approval from admin,Require coding and deployment,
+P3,"Resource Center/library
+Eg: Handbook and guidelines developed during the project","centralized knowledge repository or external links. Admin users to edit, remove and add resource links, track resouorce clicks for analytics, ",URL,,Require coding and deployment,

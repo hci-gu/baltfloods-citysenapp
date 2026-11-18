@@ -1,3 +1,6 @@
+import { SensorDemoService } from '@core/services/sensor-demo.service';
+import { AppSettingsService } from '@core/services/app-settings.service';
+import { ScenarioLocationService } from '@core/services/scenario-location.service';
 import {
   BrowserAnimationsModule,
   NoopAnimationsModule,
@@ -26,7 +29,6 @@ import {
 } from '@core/services/scheduled-messages.service';
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
-import { environment } from '@environments/environment';
 import { MapComponent } from '@shared/components/map/map.component';
 import { MessageService, SharedModule } from 'primeng/api';
 import { EMPTY, firstValueFrom, of } from 'rxjs';
@@ -44,7 +46,8 @@ describe('DashboardMapComponent', () => {
     jest
       .spyOn(Date, 'now')
       .mockReturnValue(new Date('2026-04-14T12:00:00Z').getTime());
-    shallow = new Shallow(DashboardMapComponent)
+    shallow = new Shallow(DashboardMapComponent).mock(SensorDemoService, { changes$: EMPTY })
+      .mock(AppSettingsService, { origin: [59.4377, 24.7330] })
 
       .dontMock(DashboardMessageBannerComponent)
 
@@ -116,7 +119,7 @@ describe('DashboardMapComponent', () => {
     it('should not refetch observation data for small map movements', async () => {
       const { inject, instance } = await shallow.render();
       const dataPointsApi = inject(DataPointsApi);
-      const [latitude, longitude] = environment.defaultLocation as LatLong;
+      const [latitude, longitude] = [59.4377, 24.7330] as LatLong;
 
       expect(dataPointsApi.getWeatherStormWater).toHaveBeenCalledTimes(1);
       expect(dataPointsApi.getWaterbagTestKits).toHaveBeenCalledTimes(1);
@@ -130,7 +133,7 @@ describe('DashboardMapComponent', () => {
     it('should only refetch storm-water data after meaningful map movement', async () => {
       const { inject, instance } = await shallow.render();
       const dataPointsApi = inject(DataPointsApi);
-      const [latitude, longitude] = environment.defaultLocation as LatLong;
+      const [latitude, longitude] = [59.4377, 24.7330] as LatLong;
 
       instance.onMapCenterChange([latitude + 1, longitude + 1]);
 
@@ -140,6 +143,21 @@ describe('DashboardMapComponent', () => {
   });
 
   describe('markers', () => {
+    it('should dismiss observation details when clicking outside', async () => {
+      const { fixture, find, findComponent } = await shallow.render();
+      findComponent(MapComponent).markerClick.emit([100, 100]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(findComponent(DashboardDataPointDetailComponent)).toHaveFound(1);
+      find('.detail-backdrop').triggerEventHandler('click', {});
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(findComponent(DashboardDataPointDetailComponent)).toHaveFound(0);
+      expect(find('.detail-backdrop')).toHaveFound(0);
+    });
+
     it('should show marker detail on click and close on close', async () => {
       const { fixture, findComponent } = await shallow.render();
 
@@ -548,7 +566,35 @@ describe('DashboardMapComponent', () => {
   });
 
   describe('focus location', () => {
-    it('should set center on map on initial render when user location is already available', async () => {
+    it('uses the scenario for the map, marker and quick photo despite GPS and map panning', async () => {
+      const location: LatLong = [53.252258, 14.54536];
+      const { instance, inject } = await shallow
+        .mock(ScenarioLocationService, { location })
+        .render();
+
+      expect(await firstValueFrom(instance.mapCenter$)).toEqual(location);
+      expect(await firstValueFrom(instance.mapMarkers$)).toEqual(
+        expect.arrayContaining([expect.objectContaining({ location })]),
+      );
+      instance.onMapCenterChange([53.25, 14.48]);
+      instance.onFocusLocationClick();
+      expect(await firstValueFrom(instance.mapCenter$)).toEqual(location);
+
+      instance.onMapCenterChange([53.25, 14.48]);
+      instance.onQuickObservationCameraClick();
+      const photo = new File(['photo'], 'lake.jpg', { type: 'image/jpeg' });
+      instance.onQuickObservationPhotoSelected({
+        target: { files: [photo], value: 'lake.jpg' },
+      } as unknown as Event);
+      expect(inject(ObservationDraftService).setQuickObservationDraft).toHaveBeenCalledWith({
+        location,
+        observationType: 'water_overflow',
+        photo,
+      });
+      expect(inject(LocationService).refreshUserLocation).not.toHaveBeenCalled();
+    });
+
+    it('should keep the configured origin on initial render even when GPS is available', async () => {
       const currentLocation = [4, 4] as LatLong;
 
       const { instance } = await shallow
@@ -563,7 +609,7 @@ describe('DashboardMapComponent', () => {
         .render();
 
       expect(await firstValueFrom(instance.mapCenter$)).toEqual(
-        currentLocation,
+        [59.4377, 24.7330],
       );
     });
 
@@ -1010,7 +1056,7 @@ describe('DashboardMapComponent', () => {
       expect(instance.selectedSensorViewEndInput()).toBe('2026-03-12');
     });
 
-    it('should bucket sensor history to the max point per day for views longer than one month', async () => {
+    it('should keep daily sensor peaks and the latest reading for views longer than one month', async () => {
       const sensorHistory: SensorHistoryPoint[] = [
         { timestamp: new Date('2026-02-10T01:00:00Z'), value: 16.7 },
         { timestamp: new Date('2026-02-10T22:00:00Z'), value: 16.4 },
@@ -1042,7 +1088,7 @@ describe('DashboardMapComponent', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(instance.selectedSensorTimeline()?.points).toHaveLength(2);
+      expect(instance.selectedSensorTimeline()?.points).toHaveLength(3);
       expect(instance.selectedSensorTimeline()?.points).toEqual([
         expect.objectContaining({
           timestamp: sensorHistory[0].timestamp,
@@ -1052,6 +1098,7 @@ describe('DashboardMapComponent', () => {
           timestamp: sensorHistory[2].timestamp,
           value: 17.5,
         }),
+        expect.objectContaining({ timestamp: sensorHistory[3].timestamp, value: 17.2 }),
       ]);
     });
 

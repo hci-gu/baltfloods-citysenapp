@@ -13,6 +13,7 @@ import {
 } from '@core/models/data-point';
 import { environment } from '@environments/environment';
 import { TranslateService } from '@ngx-translate/core';
+import { normalizeImageUrl } from '@shared/utils/image-url.utils';
 
 export function getWeatherConditionMetricValue(
   value: string | number,
@@ -133,36 +134,9 @@ export function getDataPointTranslation(
 }
 
 export function getDataPointImageUrl(imageUrl: string): string {
-  let normalized = imageUrl.trim();
-  const pocketbaseBase = environment.pocketbaseUrl.replace(/\/$/, '');
-
-  if (normalized.startsWith('../')) {
-    normalized = normalized.replace(/^(\.\.\/)+/, '');
-  }
-
-  if (/^https?:\/\//i.test(normalized)) {
-    return normalized;
-  }
-
-  if (normalized.startsWith('/api/')) {
-    return normalized;
-  }
-
-  if (normalized.startsWith('api/')) {
-    return `/${normalized.replace(/^\/+/, '')}`;
-  }
-
-  if (normalized.startsWith('/files/')) {
-    return `${pocketbaseBase}/${normalized.replace(/^\/+/, '')}`;
-  }
-
-  if (normalized.startsWith('files/')) {
-    return `${pocketbaseBase}/${normalized}`;
-  }
-
-  if (normalized.startsWith('/')) {
-    return normalized;
-  }
-
-  return `${environment.streetAiUploadUrl.replace(/\/$/, '')}/${normalized.replace(/^\/+/, '')}`;
+  return normalizeImageUrl(
+    imageUrl,
+    environment.pocketbaseUrl,
+    environment.streetAiUploadUrl,
+  );
 }

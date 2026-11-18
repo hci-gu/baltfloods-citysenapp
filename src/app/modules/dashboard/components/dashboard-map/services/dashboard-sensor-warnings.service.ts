@@ -1,9 +1,9 @@
+import { sensorKey, sensorNow, sensorThresholds } from '@core/models/sensor';
 import { Injectable } from '@angular/core';
 import {
   getSensorThresholdSeverity,
   getWorseSensorSeverity,
   SENSOR_SEVERITY_RANK,
-  SENSOR_THRESHOLDS_BY_SERIES_ID,
   SensorThresholdConfig,
   SensorThresholdSeverity,
 } from '@core/config/sensor-thresholds';
@@ -34,17 +34,14 @@ export class DashboardSensorWarningsService {
     historyPoints: SensorHistoryPoint[],
     bounds: ObservationTimespanBounds,
   ): DashboardMessage | null {
-    const seriesId = point.historySeries?.seriesId;
-    const thresholdConfig =
-      seriesId !== undefined
-        ? (SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null)
-        : null;
+    const seriesId = sensorKey(point);
+    const thresholdConfig = sensorThresholds(point);
 
     if (!thresholdConfig || historyPoints.length === 0) {
       return null;
     }
 
-    const currentTimeMs = Date.now();
+    const currentTimeMs = sensorNow(point);
     const recentThresholdMs =
       currentTimeMs - thresholdConfig.warningMaxAgeHours * 60 * 60 * 1000;
     const redPoints = historyPoints.filter(
@@ -75,8 +72,10 @@ export class DashboardSensorWarningsService {
 
     return {
       id: `sensor-warning-${seriesId}-${bounds.startMs}-${bounds.endMs}`,
-      title: `Use caution near ${point.name}`,
-      content: `<p>Water levels near this sensor may be unsafe. If you are nearby, avoid flooded paths, roads, underpasses, and waterfront edges. Do not walk or drive through floodwater, and keep children and pets away from fast-moving or deep water.</p><p>Latest high sensor reading: ${warningValue} ${measurementUnit} at ${warningTimestamp}.</p>`,
+      title: point.simulated
+        ? 'Simulated flood warning'
+        : `Use caution near ${point.name}`,
+      content: `${point.simulated ? '<p><strong>Demo simulation — not a real flood alert.</strong></p>' : ''}<p>Water levels near this sensor may be unsafe. If you are nearby, avoid flooded paths, roads, underpasses, and waterfront edges. Do not walk or drive through floodwater, and keep children and pets away from fast-moving or deep water.</p><p>Latest high sensor reading: ${warningValue} ${measurementUnit} at ${warningTimestamp}.</p>`,
       start: peakPoint.timestamp.toISOString(),
       end: peakPoint.timestamp.toISOString(),
       type: 'warning',
@@ -119,14 +118,14 @@ export class DashboardSensorWarningsService {
   ): Exclude<SensorThresholdSeverity, 'green'> | null {
     if (
       dataPoint.type !== DataPointType.STORM_WATER ||
-      dataPoint.historySeries?.provider !== 'intoto'
+      !dataPoint.historySeries
     ) {
       return null;
     }
 
     const value = dataPoint.data['waterLevel'];
-    const seriesId = dataPoint.historySeries.seriesId;
-    const thresholdConfig = SENSOR_THRESHOLDS_BY_SERIES_ID[seriesId] ?? null;
+    const seriesId = sensorKey(dataPoint)!;
+    const thresholdConfig = sensorThresholds(dataPoint);
     if (!thresholdConfig) {
       return null;
     }
@@ -137,6 +136,7 @@ export class DashboardSensorWarningsService {
         thresholdConfig,
         bounds,
         sensorHistoryCache,
+        sensorNow(dataPoint),
       );
     }
 
@@ -146,6 +146,7 @@ export class DashboardSensorWarningsService {
       thresholdConfig,
       bounds,
       sensorHistoryCache,
+      sensorNow(dataPoint),
     );
 
     return this.getWorseActiveSensorThresholdSeverity(
@@ -157,8 +158,8 @@ export class DashboardSensorWarningsService {
   public getActiveSensorHistoryThresholdPoint(
     historyPoints: SensorHistoryPoint[],
     thresholdConfig: SensorThresholdConfig,
+    currentTimeMs = Date.now(),
   ): ActiveSensorThresholdPoint | null {
-    const currentTimeMs = Date.now();
     const recentThresholdMs =
       currentTimeMs - thresholdConfig.warningMaxAgeHours * 60 * 60 * 1000;
 
@@ -191,10 +192,11 @@ export class DashboardSensorWarningsService {
   }
 
   private getActiveSensorHistoryThresholdSeverity(
-    seriesId: number,
+    seriesId: number | string,
     thresholdConfig: SensorThresholdConfig,
     bounds: ObservationTimespanBounds,
     sensorHistoryCache: Record<string, SensorHistoryCacheEntry>,
+    currentTimeMs: number,
   ): Exclude<SensorThresholdSeverity, 'green'> | null {
     const cacheEntry = this.sensorHistoryService.getCachedSensorHistoryEntry(
       seriesId,
@@ -209,6 +211,7 @@ export class DashboardSensorWarningsService {
       this.getActiveSensorHistoryThresholdPoint(
         cacheEntry.historyPoints,
         thresholdConfig,
+        currentTimeMs,
       )?.severity ?? null
     );
   }

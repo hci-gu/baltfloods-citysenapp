@@ -2,6 +2,7 @@ import { DatePipe, KeyValuePipe } from '@angular/common';
 import {
   Component,
   EventEmitter,
+  HostListener,
   Input,
   OnChanges,
   Output,
@@ -74,6 +75,11 @@ export class DashboardDataPointDetailComponent implements OnChanges {
 
   public get hasMultipleDataPoints(): boolean {
     return this.dataPoints.length > 1;
+  }
+
+  @HostListener('document:keydown.escape')
+  public onEscape(): void {
+    this.close.emit();
   }
 
   public showPreviousDataPoint(): void {
@@ -210,10 +216,10 @@ export class DashboardDataPointDetailComponent implements OnChanges {
     return sensorViewModel.getSensorUnitLabel(dataPoint);
   }
 
-  public isIntotoStormWaterDataPoint(
+  public isSensorDataPoint(
     dataPoint: WeatherStormWaterDataPoint,
   ): boolean {
-    return sensorViewModel.isIntotoStormWaterDataPoint(dataPoint);
+    return sensorViewModel.isSensorDataPoint(dataPoint);
   }
 
   public hasStormWaterFillLevel(

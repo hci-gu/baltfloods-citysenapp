@@ -1,10 +1,10 @@
+import { AppSettingsService } from '@core/services/app-settings.service';
 import { Shallow } from 'shallow-render';
 import { MapComponent, Marker } from './map.component';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { BehaviorSubject, Subject, of } from 'rxjs';
 import * as leaflet from 'leaflet';
-import { environment } from '@environments/environment';
 import { LatLong } from '@core/models/location';
 import {
   DATA_POINT_QUALITY_COLOR_CHART,
@@ -22,6 +22,7 @@ describe('MapComponent', () => {
     delete leafletWithHeat.heatLayer;
     delete (globalThis as { L?: typeof leaflet }).L;
     shallow = new Shallow(MapComponent)
+      .mock(AppSettingsService, { origin: [59.4377, 24.733] })
       .mock(HttpClient, {
         get: () => of('<svg fill="currentColor" stroke="strokeColor"></svg>'),
       })
@@ -31,7 +32,7 @@ describe('MapComponent', () => {
   describe('zoom', () => {
     it('should set zoom when input is not defined', async () => {
       const { instance } = await shallow.render();
-      const defaultLocation = environment.defaultLocation;
+      const defaultLocation = [59.4377, 24.733];
 
       expect(instance.map?.getCenter()).toEqual({
         lat: defaultLocation[0],
@@ -42,9 +43,9 @@ describe('MapComponent', () => {
   });
 
   describe('center', () => {
-    it('should set initial center as the default environment value', async () => {
+    it('should set initial center from PocketBase settings', async () => {
       const { instance } = await shallow.render();
-      const defaultLocation = environment.defaultLocation;
+      const defaultLocation = [59.4377, 24.733];
 
       expect(instance.map?.getCenter()).toEqual({
         lat: defaultLocation[0],

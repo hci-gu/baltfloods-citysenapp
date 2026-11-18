@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"app/demo"
+
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -15,6 +17,8 @@ import (
 
 func main() {
 	app := pocketbase.New()
+	registerAppSettingsHooks(app)
+	registerSensorDemoGuards(app)
 
 	isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
@@ -55,7 +59,9 @@ func main() {
 		if err := e.Next(); err != nil {
 			return err
 		}
-		broadcastObservationRefresh(e.App, "create")
+		if !demo.IsResetRecord(e.Record) {
+			broadcastObservationRefresh(e.App, "create")
+		}
 		return nil
 	})
 
@@ -63,7 +69,9 @@ func main() {
 		if err := e.Next(); err != nil {
 			return err
 		}
-		broadcastObservationRefresh(e.App, "update")
+		if !demo.IsResetRecord(e.Record) {
+			broadcastObservationRefresh(e.App, "update")
+		}
 		return nil
 	})
 
@@ -71,7 +79,9 @@ func main() {
 		if err := e.Next(); err != nil {
 			return err
 		}
-		broadcastObservationRefresh(e.App, "delete")
+		if !demo.IsResetRecord(e.Record) {
+			broadcastObservationRefresh(e.App, "delete")
+		}
 		return nil
 	})
 
@@ -87,6 +97,8 @@ func main() {
 		registerObservationRoutes(se)
 		registerMessageRoutes(se)
 		registerPushRoutes(se)
+		registerSensorDemoRoutes(se)
+		go initializeSensorDemo(se.App)
 
 		// serves static files from the provided public dir (if exists)
 		se.Router.GET("/{path...}", apis.Static(os.DirFS("./pb_public"), false))

@@ -1,3 +1,4 @@
+import { sensorKey, sensorNow, sensorThresholds } from '@core/models/sensor';
 import { Injectable, signal } from '@angular/core';
 import { SensorThresholdConfig } from '@core/config/sensor-thresholds';
 import {
@@ -15,7 +16,17 @@ import {
   SensorHistoryCacheEntry,
 } from '../dashboard-map.types';
 import { isTimestampWithinRange } from '../dashboard-date.utils';
-import { Observable, finalize, map, of, shareReplay, tap } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  catchError,
+  finalize,
+  map,
+  of,
+  shareReplay,
+  takeUntil,
+  tap,
+} from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -30,13 +41,21 @@ export class DashboardSensorHistoryService {
     Observable<SensorHistoryPoint[]>
   >();
 
+  private readonly invalidated = new Subject<void>();
+
   public constructor(private readonly dataPointsApi: DataPointsApi) {}
+
+  public clear(): void {
+    this.invalidated.next();
+    this.sensorHistoryRequests.clear();
+    this.sensorHistoryCache.set({});
+  }
 
   public loadSensorHistory(
     point: WeatherStormWaterDataPoint,
     bounds: ObservationTimespanBounds,
   ): Observable<SensorHistoryPoint[]> {
-    const seriesId = point.historySeries?.seriesId;
+    const seriesId = sensorKey(point);
     if (seriesId === undefined) {
       return of([]);
     }
@@ -75,6 +94,7 @@ export class DashboardSensorHistoryService {
         new Date(bounds.endMs),
       )
       .pipe(
+        takeUntil(this.invalidated),
         map((historyPoints) =>
           historyPoints
             .slice()
@@ -98,6 +118,7 @@ export class DashboardSensorHistoryService {
         finalize(() => {
           this.sensorHistoryRequests.delete(cacheKey);
         }),
+        catchError(() => of([])),
         shareReplay(1),
       );
 
@@ -105,13 +126,10 @@ export class DashboardSensorHistoryService {
     return request$;
   }
 
-  public getIntotoStormWaterPoints(
-    points: DataPoint[],
-  ): WeatherStormWaterDataPoint[] {
+  public getSensorPoints(points: DataPoint[]): WeatherStormWaterDataPoint[] {
     return points.filter(
       (point): point is WeatherStormWaterDataPoint =>
-        point.type === DataPointType.STORM_WATER &&
-        point.historySeries?.provider === 'intoto',
+        point.type === DataPointType.STORM_WATER && !!point.historySeries,
     );
   }
 
@@ -123,11 +141,12 @@ export class DashboardSensorHistoryService {
   ): boolean {
     if (
       point.type === DataPointType.STORM_WATER &&
-      point.historySeries?.provider === 'intoto' &&
+      !!point.historySeries &&
       this.isCurrentTimeWithinSensorHistorySpan(
-        point.historySeries.seriesId,
+        sensorKey(point)!,
         observationBounds,
         sensorHistoryCache,
+        sensorNow(point),
       )
     ) {
       return true;
@@ -141,9 +160,10 @@ export class DashboardSensorHistoryService {
   }
 
   public isCurrentTimeWithinSensorHistorySpan(
-    seriesId: number,
+    seriesId: number | string,
     bounds: ObservationTimespanBounds,
     sensorHistoryCache: Record<string, SensorHistoryCacheEntry>,
+    currentTimeMs = Date.now(),
   ): boolean {
     const cacheEntry = this.getCachedSensorHistoryEntry(
       seriesId,
@@ -154,7 +174,6 @@ export class DashboardSensorHistoryService {
       return false;
     }
 
-    const currentTimeMs = Date.now();
     const firstTimestamp = cacheEntry.historyPoints[0].timestamp.getTime();
     const lastTimestamp =
       cacheEntry.historyPoints[
@@ -165,7 +184,7 @@ export class DashboardSensorHistoryService {
   }
 
   public getCachedSensorHistoryEntry(
-    seriesId: number,
+    seriesId: number | string,
     bounds: ObservationTimespanBounds,
     sensorHistoryCache: Record<string, SensorHistoryCacheEntry>,
   ): SensorHistoryCacheEntry | null {
@@ -186,7 +205,7 @@ export class DashboardSensorHistoryService {
   }
 
   public getSensorHistoryCacheKey(
-    seriesId: number,
+    seriesId: number | string,
     bounds: ObservationTimespanBounds,
   ): string {
     return `${seriesId}:${bounds.startMs}:${bounds.endMs}`;
@@ -225,10 +244,12 @@ export class DashboardSensorHistoryService {
     point: WeatherStormWaterDataPoint | null,
     thresholdsBySeriesId: Record<number, SensorThresholdConfig>,
   ): SensorThresholdConfig | null {
-    const seriesId = point?.historySeries?.seriesId;
-    return seriesId !== undefined
-      ? (thresholdsBySeriesId[seriesId] ?? null)
-      : null;
+    return (
+      sensorThresholds(point) ??
+      (point?.historySeries?.provider === 'intoto'
+        ? (thresholdsBySeriesId[Number(point.historySeries.seriesId)] ?? null)
+        : null)
+    );
   }
 
   private getSensorHistoryEntryLastTimestamp(

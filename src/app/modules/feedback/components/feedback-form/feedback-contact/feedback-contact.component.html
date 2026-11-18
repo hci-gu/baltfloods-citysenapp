@@ -40,7 +40,13 @@
       {{ "FEEDBACK.CONTACT.PHONE" | translate }}
       <span class="p-optional">{{ "MISC.OPTIONAL" | translate }}</span>
     </label>
-    <input pInputText id="phone" type="phone" formControlName="phone" />
+    <input
+      pInputText
+      id="phone"
+      type="tel"
+      formControlName="phone"
+      [placeholder]="'FEEDBACK.CONTACT.PHONE_HINT' | translate"
+    />
     @if (contactForm.controls.phone.hasError("invalidPhoneNumber")) {
       <small class="p-error">
         {{ invalidPhoneNumberMessage }}

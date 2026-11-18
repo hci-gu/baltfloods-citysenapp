@@ -129,7 +129,7 @@ export class IntotoStormWaterService {
       return of([]);
     }
 
-    return this.getCachedSeriesData(historySeries.seriesId, {
+    return this.getCachedSeriesData(Number(historySeries.seriesId), {
       fromDateTime,
       toDateTime,
     }).pipe(

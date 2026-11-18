@@ -12,7 +12,7 @@ import { UserLocation } from '@core/services/location.service';
 import { MapBounds, Marker } from '@shared/components/map/map.component';
 import { isSameLocation } from '@shared/utils/location-utils';
 import { groupBy } from 'lodash-es';
-import { INTOTO_SENSOR_MARKER_ICON } from '../dashboard-map.constants';
+import { SENSOR_MARKER_ICON } from '../dashboard-map.constants';
 import {
   DataPointCluster,
   ObservationTimespanBounds,
@@ -189,9 +189,9 @@ export class DashboardMapMarkersService {
   private getMarkerIcon(point: DataPoint): string {
     if (
       point.type === DataPointType.STORM_WATER &&
-      point.historySeries?.provider === 'intoto'
+      !!point.historySeries
     ) {
-      return INTOTO_SENSOR_MARKER_ICON;
+      return SENSOR_MARKER_ICON;
     }
 
     return DATA_POINT_TYPE_ICON[point.type];

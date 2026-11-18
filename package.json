@@ -1,18 +1,18 @@
 {
   "name": "citizen-webapp",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "scripts": {
     "ng": "ng",
     "preserve": "npm run generate-icons",
     "serve": "ng serve",
     "prestart": "npm run generate-icons",
-    "start": "npx http-server -p 8080 -c-1 dist/citizen-webapp/browser",
+    "start": "npx http-server -p 8080 -c-1 -P http://127.0.0.1:8080? dist/citizen-webapp/browser",
     "watch": "ng build --watch --configuration production",
     "prebuild": "npm run generate-icons",
     "prebuild:development": "npm run generate-icons",
     "prebuild:production": "npm run generate-icons",
     "build": "ng build",
-    "build:development": "ng build",
+    "build:development": "ng build --configuration development",
     "build:production": "ng build --configuration production",
     "test:jest": "jest --watch",
     "test": "NODE_OPTIONS='--no-warnings' jest --config ./jest.config.ts",
@@ -121,7 +121,7 @@
     "indent": 2
   },
   "engines": {
-    "node": "22.23.1",
-    "npm": "10.9.0"
+    "node": ">=22.19.0 <23",
+    "npm": ">=10.9.0 <11"
   }
 }
